@@ -1,39 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Сложение точек на эллиптической кривой</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        label, input, button, div {
-            display: block;
-            margin-bottom: 10px;
-        }
-        #steps {
-            margin-top: 20px;
-            white-space: pre-line;
-            font-family: monospace;
-        }
-        #backButton {
-            margin-top: 20px;
-            display: inline-block;
-            padding: 10px 15px;
-            background-color: #007BFF;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-        }
-        #backButton:hover {
-            background-color: #0056b3;
-        }
-    </style>
-</head>
-<body>
-    <a href="/" id="backButton">Назад</a>
-    <h1>Сложение точек на эллиптической кривой</h1>
+<?php
+require_once __DIR__ . '/theme.php';
+crypto_page_start('Сложение точек на эллиптической кривой');
+?>
     <label for="p">Модуль p:</label>
     <input type="number" id="p" placeholder="Введите модуль p" value="7">
 
@@ -50,8 +18,6 @@
 
     <div id="result"></div>
     <div id="steps"></div>
-
-    
 
     <script>
         function mod(a, m) {
@@ -144,5 +110,4 @@
             document.getElementById('steps').textContent = steps;
         });
     </script>
-</body>
-</html>
+<?php crypto_page_end(); ?>

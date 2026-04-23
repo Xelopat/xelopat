@@ -1,0 +1,171 @@
+﻿@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;700&display=swap');
+
+body.crypto-page {
+  margin: 0;
+  background: #151518;
+  color: #efeff1;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.crypto-shell {
+  width: min(1160px, calc(100vw - 24px));
+  margin: 20px auto 40px;
+}
+
+.crypto-card {
+  background: #1e1e25;
+  border: 1px solid #333340;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .18);
+}
+
+.crypto-back {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: #f9c940;
+  font-family: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+
+.crypto-title {
+  margin: 0;
+  font-family: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1.2;
+}
+
+.crypto-subtitle {
+  margin: 10px 0 0;
+  color: #a3a5b2;
+  max-width: 860px;
+  line-height: 1.6;
+}
+
+h2,
+h3,
+h4 {
+  margin: 18px 0 10px;
+}
+
+label {
+  display: block;
+  margin-top: 14px;
+  margin-bottom: 6px;
+  color: #b8b9c5;
+  font-size: 13px;
+}
+
+input,
+textarea,
+select {
+  width: min(520px, 100%);
+  background: #151518;
+  border: 1px solid #333340;
+  border-radius: 10px;
+  color: #efeff1;
+  font: inherit;
+  padding: 10px 12px;
+  outline: none;
+}
+
+button {
+  margin-top: 14px;
+  border: 1px solid transparent;
+  background: #f9c940;
+  color: #151518;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:hover {
+  opacity: .9;
+}
+
+#error {
+  color: #ff8f8f;
+  margin-top: 14px;
+}
+
+#result,
+#steps,
+#results-container,
+pre {
+  margin-top: 16px;
+  border: 1px solid #333340;
+  border-radius: 12px;
+  background: #151518;
+  padding: 14px;
+}
+
+#steps,
+pre {
+  font-family: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 14px;
+  background: #151518;
+  border: 1px solid #333340;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+th,
+td {
+  border: 1px solid #333340;
+  padding: 8px 10px;
+  text-align: center;
+  vertical-align: top;
+}
+
+th {
+  background: #20202a;
+  color: #d6d7de;
+  font-weight: 600;
+}
+
+.table-wrap {
+  margin-top: 14px;
+  overflow-x: auto;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid #333340;
+  margin-top: 12px;
+}
+
+.result-note {
+  margin-top: 14px;
+  color: #a3a5b2;
+}
+
+@media (max-width: 800px) {
+  .crypto-shell {
+    width: calc(100vw - 16px);
+  }
+
+  .crypto-card {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  input,
+  textarea,
+  select {
+    width: 100%;
+  }
+}

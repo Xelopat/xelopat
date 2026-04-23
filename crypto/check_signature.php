@@ -1,50 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Проверка цифровой подписи</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        input {
-            margin-bottom: 10px;
-            display: block;
-        }
-        button {
-            margin-top: 10px;
-        }
-        #result {
-            margin-top: 20px;
-            font-weight: bold;
-            white-space: pre-wrap;
-        }
-        #backButton {
-            margin-top: 20px;
-            display: inline-block;
-            padding: 10px 15px;
-            background-color: #007BFF;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-        }
-        #backButton:hover {
-            background-color: #0056b3;
-        }
-        .formula {
-            font-family: 'Courier New', monospace;
-        }
-        .sup {
-            vertical-align: super;
-            font-size: 0.8em;
-        }
-    </style>
-</head>
-<body>
-    <a href="/" id="backButton">Назад</a>
-    <h1>Проверка цифровой подписи</h1>
+<?php
+require_once __DIR__ . '/theme.php';
+crypto_page_start('Проверка цифровой подписи');
+?>
     <label for="alpha">α (множество ненулевых вычетов):</label>
     <input type="number" id="alpha" placeholder="Введите α" value="15">
 
@@ -145,5 +102,4 @@
             }
         });
     </script>
-</body>
-</html>
+<?php crypto_page_end(); ?>

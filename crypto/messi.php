@@ -1,65 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Линейный регистр сдвига</title>
-    <style>
-
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 20px;
-        }
-        input[type="text"] {
-            width: 300px;
-            padding: 10px;
-            margin: 10px;
-        }
-        button {
-            padding: 10px 20px;
-            margin: 20px;
-            border: none;
-            background-color: #007bff;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        #error {
-            color: red;
-            margin-top: 20px;
-        }
-        #result {
-            margin-top: 20px;
-            text-align: left;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        img {
-            max-width: 100%;
-            height: auto;
-        }
-        #backButton {
-            margin-top: 20px;
-            display: inline-block;
-            padding: 10px 15px;
-            background-color: #007BFF;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-        }
-        #backButton:hover {
-            background-color: #0056b3;
-        }
-    </style>
-</head>
-<body>
-    <a href="/" id="backButton">Назад</a>
-    <h1>Линейный регистр сдвига</h1>
+<?php
+require_once __DIR__ . '/theme.php';
+crypto_page_start('Линейный регистр сдвига');
+?>
     <label for="sequence">Введите двоичную последовательность:</label>
     <input type="text" id="sequence" placeholder="Например, 111110111">
     <button id="calculate-button">Рассчитать</button>
@@ -112,5 +54,4 @@
             }
         });
     </script>
-</body>
-</html>
+<?php crypto_page_end(); ?>

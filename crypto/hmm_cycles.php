@@ -1,9 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Циклы по формуле</title>
+<?php
+require_once __DIR__ . '/theme.php';
+crypto_page_start('Построение циклов по формуле');
+?>
     <script>
         function evaluateFormula(formula, x4, x3, x2, x1) {
             const parsedFormula = formula
@@ -362,50 +360,8 @@ function removeEvenPairsFromString(expr) {
                     });
         }
     </script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 20px;
-        }
-        table {
-            margin: 20px auto;
-            border-collapse: collapse;
-            width: 80%;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        input[type="text"] {
-            width: 300px;
-            padding: 5px;
-            margin: 10px;
-        }
-        button {
-            padding: 5px 15px;
-            margin: 10px;
-            border: none;
-            background-color: #007bff;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-    </style>
-</head>
-<body>
-    <a href="/" id="backButton">Назад</a>
-    <h1>Построение циклов по формуле</h1>
     <label for="formula">Введите формулу (например, x1+x2x3+x4):</label>
     <input type="text" id="formula" placeholder="Введите формулу">
     <button onclick="handleCycleGeneration()">Сгенерировать циклы</button>
     <div id="results-container"></div>
-</body>
-</html>
+<?php crypto_page_end(); ?>

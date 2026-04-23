@@ -1,80 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Анализ бент-функции</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 20px;
-        }
-        input[type="text"] {
-            width: 300px;
-            padding: 10px;
-            margin: 10px;
-        }
-        button {
-            padding: 10px 20px;
-            margin: 20px;
-            border: none;
-            background-color: #007bff;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        h3 {
-            padding: 10px;
-            margin: 10px;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        #error {
-            color: red;
-            margin-top: 20px;
-        }
-        #result {
-            margin-top: 20px;
-            text-align: left;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-            white-space: pre-wrap;
-        }
-        table {
-            border-collapse: collapse;
-            margin: 20px auto;
-            width: 90%;
-        }
-        table, th, td {
-            border: 1px solid black;
-        }
-        th, td {
-            padding: 8px;
-            text-align: center;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        #backButton {
-            margin-top: 20px;
-            display: inline-block;
-            padding: 10px 15px;
-            background-color: #007BFF;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-        }
-        #backButton:hover {
-            background-color: #0056b3;
-        }
-    </style>
-</head>
-<body>
-    <a href="/" id="backButton">Назад</a>
-    <h1>Анализ нелинейности функции</h1>
+<?php
+require_once __DIR__ . '/theme.php';
+crypto_page_start('Анализ нелинейности функции');
+?>
     <label for="sequence">Введите двоичную последовательность:</label>
     <input type="text" id="sequence" placeholder="Например, 1111101110110100">
     <button id="calculate-button">Рассчитать</button>
@@ -449,5 +376,4 @@ n = ${n}, 2^(n-1) = ${2 ** (n - 1)}, 2^((n/2)-1) = ${2 ** (n * 0.5 - 1)}
         });
 
     </script>
-</body>
-</html>
+<?php crypto_page_end(); ?>
