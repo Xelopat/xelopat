@@ -25,14 +25,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Start SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+      - name: Prepare SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s' "${{ secrets.DEPLOY_SSH_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
 
       - name: Add server host key
         run: |
-          mkdir -p ~/.ssh
           PORT="${DEPLOY_PORT:-22}"
           ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
@@ -41,5 +42,5 @@ jobs:
           PORT="${DEPLOY_PORT:-22}"
           rsync -az --delete \
             --exclude-from=".deployignore" \
-            -e "ssh -p $PORT" \
+            -e "ssh -i ~/.ssh/deploy_key -p $PORT -o IdentitiesOnly=yes" \
             ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
