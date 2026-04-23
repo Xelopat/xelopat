@@ -5,6 +5,7 @@ crypto_page_start('Полином Жегалкина');
 <label for="input-string">Введите двоичную строку (16 бит):</label>
 <input type="text" id="input-string" maxlength="16" placeholder="например, 1010101010101010">
 <button onclick="handleInput()">Сгенерировать</button>
+<div id="error"></div>
 
 <h2>Таблица истинности</h2>
 <div class="table-wrap">
@@ -81,12 +82,26 @@ crypto_page_start('Полином Жегалкина');
     }
 
     function handleInput() {
-        const input = document.getElementById('input-string').value;
+        const input = document.getElementById('input-string').value.trim();
+        const errorElement = document.getElementById('error');
+        const tableBody = document.getElementById('truth-table-body');
+        const triangleBody = document.getElementById('triangle-body');
+        const formulaElement = document.getElementById('formula');
+        const regularityElement = document.getElementById('regularity');
+
+        errorElement.textContent = '';
+        tableBody.innerHTML = '';
+        triangleBody.innerHTML = '';
+        formulaElement.textContent = '';
+        regularityElement.textContent = '';
+
+        if (!/^[01]{16}$/.test(input)) {
+            errorElement.textContent = 'Ошибка: введите ровно 16 символов 0/1.';
+            return;
+        }
+
         const truthTable = generateTruthTable();
         const triangle = generateTriangle(input);
-
-        const tableBody = document.getElementById('truth-table-body');
-        tableBody.innerHTML = '';
         truthTable.forEach((row, index) => {
             const rowElement = document.createElement('tr');
             row.forEach(value => {
@@ -100,8 +115,6 @@ crypto_page_start('Полином Жегалкина');
             tableBody.appendChild(rowElement);
         });
 
-        const triangleBody = document.getElementById('triangle-body');
-        triangleBody.innerHTML = '';
         triangle.forEach(row => {
             const rowElement = document.createElement('tr');
             row.forEach(value => {
@@ -113,8 +126,8 @@ crypto_page_start('Полином Жегалкина');
         });
 
         const { formula, regularity } = buildFormula(triangle, truthTable);
-        document.getElementById('formula').textContent = formula;
-        document.getElementById('regularity').textContent = regularity;
+        formulaElement.textContent = formula;
+        regularityElement.textContent = regularity;
     }
 </script>
 <?php crypto_page_end(); ?>
