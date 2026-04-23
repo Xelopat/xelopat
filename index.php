@@ -147,14 +147,23 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
 
   .term-body{
     padding:14px 16px;
-    min-height:380px;
-    max-height:420px;
-    overflow:auto;
+    height:380px;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
     font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     font-size:12px;
   }
 
-  .term-output{ display:flex; flex-direction:column; gap:7px; }
+  .term-output{
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    flex:1;
+    min-height:0;
+    overflow:auto;
+    padding-right:2px;
+  }
   .term-line{ display:flex; gap:6px; flex-wrap:wrap; line-height:1.5; word-break:break-word; }
   .term-line a{ color:#61d1ad; text-decoration:underline; }
   .term-line a:hover{ opacity:.88; }
@@ -166,7 +175,10 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     display:flex;
     align-items:center;
     gap:8px;
-    margin-top:10px;
+    margin-top:12px;
+    padding-top:10px;
+    border-top:1px solid #2a2a34;
+    flex-shrink:0;
   }
 
   .term-input{
@@ -240,7 +252,12 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   }
 
   @media (max-width: 980px){
-    .hero{ grid-template-columns:1fr; }
+    .hero{
+      grid-template-columns:1fr;
+      gap:18px;
+      padding-bottom:28px;
+    }
+    .terminal{ display:none; }
     .cards{ grid-template-columns:1fr; }
   }
 </style>
@@ -376,7 +393,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
       row.textContent = String(parts ?? '');
     }
     output.appendChild(row);
-    termBody.scrollTop = termBody.scrollHeight;
+    output.scrollTop = output.scrollHeight;
   }
 
   function printCommand(command) {

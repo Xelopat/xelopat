@@ -11,8 +11,10 @@
 .user.ini
 phpinfo.php
 perfumes/uploads/
+perfumes/data.json
 coursework/library.db
-data/site_config.json
+coursework/books/
+data/
 *.log
 .vscode/
 .idea/

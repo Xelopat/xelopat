@@ -60,6 +60,8 @@ function site_active(string $href, string $uri): bool {
 }
 ?>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;700&display=swap');
+
   *, *::before, *::after { box-sizing: border-box; }
 
   :root{
@@ -90,6 +92,7 @@ function site_active(string $href, string $uri): bool {
     background:rgba(21,21,24,.94);
     backdrop-filter: blur(10px);
     border-bottom:1px solid var(--line);
+    font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
   }
 
   .site-header .wrap{
@@ -136,12 +139,25 @@ function site_active(string $href, string $uri): bool {
     border:none;
     background:transparent;
     color:var(--muted);
+    margin:0;
     padding:0;
-    font:inherit;
+    font-family:inherit;
+    font-weight:500;
     font-size:13px;
+    line-height:20px;
     cursor:pointer;
     text-decoration:none;
     transition:color .18s ease;
+    white-space:nowrap;
+  }
+
+  .nav-link,
+  .nav-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:20px;
+    vertical-align:middle;
   }
 
   .nav a:hover, .nav button:hover,
@@ -255,6 +271,9 @@ function site_active(string $href, string $uri): bool {
     color:var(--text);
     text-decoration:none;
     font-size:13px;
+    line-height:1.25;
+    font-family:inherit;
+    font-weight:500;
     cursor:pointer;
   }
 
@@ -274,6 +293,13 @@ function site_active(string $href, string $uri): bool {
     left:calc(100% + 10px);
     top:0;
     min-width:280px;
+  }
+
+  @media (min-width: 901px){
+    #dd-univer-wrap:hover > #dd-univer,
+    #dd-hobby-wrap:hover > #dd-hobby{
+      display:block;
+    }
   }
 
   .flyout-title{

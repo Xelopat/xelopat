@@ -672,6 +672,15 @@ $notes_top_raw = (string)($_GET["notes_top"] ?? "");
 $notes_middle_raw = (string)($_GET["notes_middle"] ?? "");
 $notes_base_raw = (string)($_GET["notes_base"] ?? "");
 
+$has_any_filters =
+    $q !== "" ||
+    !empty($f_tags) ||
+    !empty($f_notes_top_list) ||
+    !empty($f_notes_middle_list) ||
+    !empty($f_notes_base_list) ||
+    ($has_rating_params && ($f_rating_min !== null || $f_rating_max !== null)) ||
+    ($has_price_params && ($f_price_min !== null || $f_price_max !== null));
+
 ?>
 <!doctype html>
 <html lang="ru">
@@ -696,6 +705,7 @@ $notes_base_raw = (string)($_GET["notes_base"] ?? "");
     .btn.danger{border-color:#fecaca;background:#fff5f5;color:#7f1d1d}
 
     .pill{font-size:12px;color:#475569;border:1px solid #e2e8f0;border-radius:999px;padding:4px 8px;background:#fff}
+    .pill.warn{color:#8a3d00;border-color:#f9d49a;background:#fff7ed}
 
     .card{
       background:#fff;border:1px solid #e2e8f0;border-radius:14px;
@@ -885,6 +895,10 @@ $notes_base_raw = (string)($_GET["notes_base"] ?? "");
       <span class="pill"><?= esc((string)$total_count) ?> всего</span>
       <span class="pill"><?= esc((string)$match_count) ?> найдено</span>
       <span class="pill"><?= esc((string)$page) ?>/<?= esc((string)$total_pages) ?> стр</span>
+      <?php if ($total_count > 0 && $match_count === 0 && $has_any_filters): ?>
+        <span class="pill warn">Фильтры скрыли все записи</span>
+        <a class="btn" href="/perfumes/index.php">Сбросить</a>
+      <?php endif; ?>
 
       <?php if ($is_admin): ?>
         <button class="btn primary" type="button" id="openAddBtn">Добавить</button>
@@ -999,7 +1013,11 @@ $notes_base_raw = (string)($_GET["notes_base"] ?? "");
 
       <div class="list" style="margin-top:12px;">
         <?php if (!$paged_ids): ?>
-          <div class="muted">Ничего не найдено.</div>
+          <?php if ($total_count > 0 && $has_any_filters): ?>
+            <div class="muted">Ничего не найдено по текущим фильтрам. Нажми «Сбросить».</div>
+          <?php else: ?>
+            <div class="muted">Пока нет записей.</div>
+          <?php endif; ?>
         <?php else: ?>
           <?php foreach ($paged_ids as $id): ?>
             <?php $it = $items[$id]; ?>
