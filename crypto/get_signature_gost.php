@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вычисление электронной подписи по ГОСТ Р 34.10-2012</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        input {
+            margin-bottom: 10px;
+            display: block;
+        }
+        button {
+            margin-top: 10px;
+        }
+        #result {
+            margin-top: 20px;
+            font-weight: bold;
+            white-space: pre-wrap;
+        }
+        #steps {
+            margin-top: 20px;
+            font-family: monospace;
+            white-space: pre-line;
+        }
+        #backButton {
+            margin-top: 20px;
+            display: inline-block;
+            padding: 10px 15px;
+            background-color: #007BFF;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        #backButton:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" id="backButton">Назад</a>
+    <h1>Вычисление электронной подписи (r, S) по ГОСТ Р 34.10-2012</h1>
+
+    <label for="a">a (коэффициент кривой):</label>
+    <input type="number" id="a" placeholder="Введите a" value="2">
+
+    <label for="p">p (модуль эллиптической кривой):</label>
+    <input type="number" id="p" placeholder="Введите p" value="7">
+
+    <label for="Gx">Gx (x-координата базовой точки):</label>
+    <input type="number" id="Gx" placeholder="Введите Gx" value="3">
+
+    <label for="Gy">Gy (y-координата базовой точки):</label>
+    <input type="number" id="Gy" placeholder="Введите Gy" value="2">
+
+    <label for="n">n (порядок точки G):</label>
+    <input type="number" id="n" placeholder="Введите n" value="11">
+
+    <label for="k">k (случайное число):</label>
+    <input type="number" id="k" placeholder="Введите k" value="4">
+
+    <label for="d">d (закрытый ключ):</label>
+    <input type="number" id="d" placeholder="Введите d" value="2">
+
+    <label for="e">e (хэш-свертка сообщения):</label>
+    <input type="number" id="e" placeholder="Введите e" value="6">
+
+    <button id="calculate">Вычислить подпись</button>
+
+    <div id="result"></div>
+    <div id="steps"></div>
+
+    <script>
+        function mod(a, m) {
+            return ((a % m) + m) % m;
+        }
+
+        function modInverse(a, m) {
+            let m0 = m, x0 = 0, x1 = 1;
+            if (m === 1) return 0;
+            while (a > 1) {
+                let q = Math.floor(a / m);
+                [a, m] = [m, a % m];
+                [x0, x1] = [x1 - q * x0, x0];
+            }
+            return x1 < 0 ? x1 + m0 : x1;
+        }
+
+        function scalarMultiplication(k, x, y, a, p, steps) {
+            let [xR, yR] = [x, y];
+            let [xQ, yQ] = [null, null];
+            let first = true;
+            while (k > 0) {
+                if (k % 2 === 1) {
+                    if (first) {
+                        [xQ, yQ] = [xR, yR];
+                        steps.push(`[1]G = (${xQ}, ${yQ})`);
+                        first = false;
+                    } else {
+                        steps.push(`Сложение: (${xQ}, ${yQ}) + (${xR}, ${yR})`);
+                        [xQ, yQ] = pointAddition(xQ, yQ, xR, yR, a, p, steps);
+                        steps.push(`   Результат: (${xQ}, ${yQ})\n`);
+                    }
+                }
+                if (k > 1) {
+                    steps.push(`Удвоение точки (${xR}, ${yR}):`);
+                    [xR, yR] = pointAddition(xR, yR, xR, yR, a, p, steps);
+                    steps.push(`   Результат удвоения: (${xR}, ${yR})\n`);
+                }
+                k = Math.floor(k / 2);
+            }
+            return [xQ, yQ];
+        }
+
+        function pointAddition(x1, y1, x2, y2, a, p, steps) {
+            let k;
+            if (x1 === x2 && y1 === y2) {
+                if (y1 === 0) {
+                    steps.push("y1 = 0 → результат: точка на бесконечности (удвоение невозможно).\n");
+                    return [null, null];
+                }
+                const numerator = mod(3 * x1 ** 2 + a, p);
+                const denominator = mod(2 * y1, p);
+                const invDenominator = modInverse(denominator, p);
+                k = mod(numerator * invDenominator, p);
+                steps.push(`   Удвоение точки: k = (3 * x1² + a) / (2 * y1) mod p`);
+                steps.push(`      k = (${3} * ${x1}² + ${a}) / (${2} * ${y1}) mod ${p}`);
+                steps.push(`      k = ${numerator} / ${denominator} mod ${p} = ${k}`);
+            } else {
+                if (x1 === x2 && y1 !== y2) {
+                    steps.push("x1 = x2 и y1 ≠ y2 → результат: точка на бесконечности.\n");
+                    return [null, null];
+                }
+                const numerator = mod(y2 - y1, p);
+                const denominator = mod(x2 - x1, p);
+                const invDenominator = modInverse(denominator, p);
+                k = mod(numerator * invDenominator, p);
+                steps.push(`   Сложение точек: k = (y2 - y1) / (x2 - x1) mod p`);
+                steps.push(`      k = (${y2} - ${y1}) / (${x2} - ${x1}) mod ${p}`);
+                steps.push(`      k = ${numerator} / ${denominator} mod ${p} = ${k}`);
+            }
+            const x3 = mod(k ** 2 - x1 - x2, p);
+            const y3 = mod(k * (x1 - x3) - y1, p);
+            steps.push(`   x3 = k² - x1 - x2 mod ${p} = ${x3}`);
+            steps.push(`   y3 = k * (x1 - x3) - y1 mod ${p} = ${y3}\n`);
+            return [x3, y3];
+        }
+
+        document.getElementById('calculate').addEventListener('click', () => {
+            const a = parseInt(document.getElementById('a').value, 10);
+            const p = parseInt(document.getElementById('p').value, 10);
+            const Gx = parseInt(document.getElementById('Gx').value, 10);
+            const Gy = parseInt(document.getElementById('Gy').value, 10);
+            const n = parseInt(document.getElementById('n').value, 10);
+            const k = parseInt(document.getElementById('k').value, 10);
+            const d = parseInt(document.getElementById('d').value, 10);
+            const e = parseInt(document.getElementById('e').value, 10);
+
+            let steps = [];
+            try {
+                const [Cx, Cy] = scalarMultiplication(k, Gx, Gy, a, p, steps);
+                const r = mod(Cx, n);
+                steps.push(`r = X mod n`);
+                steps.push(`r = ${r}`);
+
+                const S = mod(k * e + r * d, n);
+                steps.push(`S = k*e + r*d mod n`);
+                steps.push(`S = ${S}`);
+
+                steps.push(`Результат: (r, S) = (${r}, ${S})`);
+                document.getElementById('result').textContent = `Результат: (r, S) = (${r}, ${S})`;
+                document.getElementById('steps').textContent = steps.join("\n");
+            } catch (error) {
+                document.getElementById('result').textContent = `Ошибка: ${error.message}`;
+                document.getElementById('steps').textContent = "";
+            }
+        });
+    </script>
+</body>
+</html>
