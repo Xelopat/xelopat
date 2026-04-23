@@ -1,5 +1,4 @@
-﻿<?php
-declare(strict_types=1);
+<?php
 
 if (!function_exists('crypto_h')) {
     function crypto_h(string $value): string {

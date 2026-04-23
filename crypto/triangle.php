@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/theme.php';
 crypto_page_start('Полином Жегалкина');
 ?>
