@@ -96,6 +96,7 @@ function admin_load_collection(array $config, string $primary, string $fallback 
         }
         $out[] = [
             'title' => (string)($item['title'] ?? ''),
+            'date' => (string)($item['date'] ?? ''),
             'description' => (string)($item['description'] ?? ''),
             'images' => $images,
             'image' => $images[0] ?? '',
@@ -442,6 +443,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $decoded = admin_decode_config($config_json);
 
                 $titles = $_POST['item_title'] ?? [];
+                $dates = $_POST['item_date'] ?? [];
                 $descriptions = $_POST['item_description'] ?? [];
                 $images_by_item = $_POST['item_images'] ?? [];
                 $videos_by_item = $_POST['item_videos'] ?? [];
@@ -451,8 +453,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $video_uploads_nested = $_FILES['item_upload_videos'] ?? null;
                 $uploads_legacy = $_FILES['item_upload_image'] ?? null;
                 $video_uploads_legacy = $_FILES['item_upload_video'] ?? null;
+                $bulk_images = $_FILES['bulk_upload_images'] ?? null;
+                $bulk_videos = $_FILES['bulk_upload_videos'] ?? null;
 
                 if (!is_array($titles)) $titles = [];
+                if (!is_array($dates)) $dates = [];
                 if (!is_array($descriptions)) $descriptions = [];
                 if (!is_array($images_by_item)) $images_by_item = [];
                 if (!is_array($videos_by_item)) $videos_by_item = [];
@@ -461,6 +466,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $max_count = max(
                     count($titles),
+                    count($dates),
                     count($descriptions),
                     count($images_by_item),
                     count($videos_by_item),
@@ -469,12 +475,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     admin_nested_item_count($uploads_nested),
                     admin_nested_item_count($video_uploads_nested),
                     admin_file_count($uploads_legacy),
-                    admin_file_count($video_uploads_legacy)
+                    admin_file_count($video_uploads_legacy),
+                    admin_file_count($bulk_images),
+                    admin_file_count($bulk_videos)
                 );
                 $items = [];
 
                 for ($i = 0; $i < $max_count; $i++) {
                     $title = trim((string)($titles[$i] ?? ''));
+                    $date_value = trim((string)($dates[$i] ?? ''));
+                    if ($date_value !== '') {
+                        $parts = explode('-', $date_value);
+                        if (count($parts) !== 3 || !checkdate((int)$parts[1], (int)$parts[2], (int)$parts[0])) {
+                            $err = 'Неверная дата в карточке #' . ($i + 1) . '. Используй формат YYYY-MM-DD.';
+                            break;
+                        }
+                    }
                     $description = trim((string)($descriptions[$i] ?? ''));
                     $images = admin_clean_image_urls($images_by_item[$i] ?? []);
                     $videos = admin_clean_video_urls($videos_by_item[$i] ?? []);
@@ -538,18 +554,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $images = array_values(array_unique($images));
                     $videos = array_values(array_unique($videos));
-                    if ($title === '' && $description === '' && !$images && !$videos) {
+                    if ($title === '' && $description === '' && $date_value === '' && !$images && !$videos) {
                         continue;
                     }
 
                     $items[] = [
                         'title' => $title !== '' ? $title : 'Без названия',
+                        'date' => $date_value,
                         'description' => $description,
                         'images' => $images,
                         'image' => $images[0] ?? '',
                         'videos' => $videos,
                         'video' => $videos[0] ?? '',
                     ];
+                }
+
+                if ($err === '') {
+                    $bulk_image_count = admin_file_count($bulk_images);
+                    for ($i = 0; $i < $bulk_image_count; $i++) {
+                        $bulk_err = '';
+                        $bulk_image = admin_save_uploaded_image($bulk_images, $i, $bulk_err);
+                        if ($bulk_err !== '') {
+                            $err = $bulk_err;
+                            break;
+                        }
+                        if ($bulk_image === '') continue;
+
+                        $name = (string)($bulk_images['name'][$i] ?? '');
+                        $title_from_name = pathinfo($name, PATHINFO_FILENAME);
+                        $title_from_name = trim((string)$title_from_name);
+
+                        $items[] = [
+                            'title' => $title_from_name !== '' ? $title_from_name : 'Без названия',
+                            'date' => '',
+                            'description' => '',
+                            'images' => [$bulk_image],
+                            'image' => $bulk_image,
+                            'videos' => [],
+                            'video' => '',
+                        ];
+                    }
+                }
+
+                if ($err === '') {
+                    $bulk_video_count = admin_file_count($bulk_videos);
+                    for ($i = 0; $i < $bulk_video_count; $i++) {
+                        $bulk_err = '';
+                        $bulk_video = admin_save_uploaded_video($bulk_videos, $i, $bulk_err);
+                        if ($bulk_err !== '') {
+                            $err = $bulk_err;
+                            break;
+                        }
+                        if ($bulk_video === '') continue;
+
+                        $name = (string)($bulk_videos['name'][$i] ?? '');
+                        $title_from_name = pathinfo($name, PATHINFO_FILENAME);
+                        $title_from_name = trim((string)$title_from_name);
+
+                        $items[] = [
+                            'title' => $title_from_name !== '' ? $title_from_name : 'Без названия',
+                            'date' => '',
+                            'description' => '',
+                            'images' => [],
+                            'image' => '',
+                            'videos' => [$bulk_video],
+                            'video' => $bulk_video,
+                        ];
+                    }
                 }
 
                 if ($err === '') {
@@ -592,9 +663,9 @@ $projects = admin_load_collection($config_data, 'cards', 'projects');
 $travels = admin_load_collection($config_data, 'travels', 'travel');
 $photos = admin_load_collection($config_data, 'photos', 'photo');
 
-if (!$projects) $projects[] = ['title' => '', 'description' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
-if (!$travels) $travels[] = ['title' => '', 'description' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
-if (!$photos) $photos[] = ['title' => '', 'description' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
+if (!$projects) $projects[] = ['title' => '', 'date' => '', 'description' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
+if (!$travels) $travels[] = ['title' => '', 'date' => '', 'description' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
+if (!$photos) $photos[] = ['title' => '', 'date' => '', 'description' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
 
 $collections = [
     ['key' => 'cards', 'title' => 'Проекты', 'hint' => 'Раздел /projects/index.php', 'items' => $projects, 'list_id' => 'projectsList'],
@@ -633,21 +704,20 @@ $collections = [
       color:var(--text);
       font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif
     }
-    .page{width:min(1160px, calc(100vw - 24px));margin:24px auto 36px;display:grid;gap:14px}
+    .page{width:min(1200px, calc(100vw - 24px));margin:24px auto 36px;display:grid;gap:12px}
     .card{
-      background:linear-gradient(180deg, #1a1d27, #151821);
+      background:var(--panel);
       border:1px solid var(--line);
-      border-radius:18px;
+      border-radius:12px;
       padding:16px;
-      box-shadow:0 14px 34px rgba(0,0,0,.24);
     }
     .subcard{
       border:1px solid var(--line-soft);
-      border-radius:14px;
-      padding:14px;
-      background:linear-gradient(180deg, #131621, #10131b);
+      border-radius:10px;
+      padding:12px;
+      background:var(--panel-soft);
       display:grid;
-      gap:12px;
+      gap:10px;
     }
     .title{font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:20px;margin:0 0 6px}
     .subtitle{font-size:18px;margin:0}
@@ -700,41 +770,59 @@ $collections = [
       border-color:var(--accent-soft);
       box-shadow:0 0 0 3px #f9c9401f;
     }
-    .collection-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:8px}
+    .collection-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:8px}
+    .admin-tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .admin-tab-btn{
+      appearance:none;
+      border:1px solid var(--line);
+      background:var(--panel-soft);
+      color:var(--muted);
+      border-radius:10px;
+      padding:8px 12px;
+      font:600 13px/1.3 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      cursor:pointer;
+    }
+    .admin-tab-btn.is-active{
+      color:var(--text);
+      border-color:#49506a;
+      background:#1b1f2b;
+    }
+    .tab-pane{display:none}
+    .tab-pane.is-active{display:block}
     .projects-list{display:grid;gap:10px;counter-reset:item}
     .project-item{
       border:1px solid var(--line-soft);
-      border-radius:13px;
+      border-radius:10px;
       padding:12px;
-      background:#0f1219;
+      background:#131722;
       display:grid;
       gap:10px;
       counter-increment:item;
     }
     .project-item::before{
       content:"Карточка " counter(item);
-      color:#9fb3ff;
+      color:var(--muted);
       font:600 11px/1.3 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
       letter-spacing:.02em;
     }
-    .project-row{display:grid;grid-template-columns:1fr;gap:10px}
+    .project-row{display:grid;grid-template-columns:1fr 190px;gap:10px}
     .media-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     .media-block{
-      border:1px dashed #323a4d;
-      border-radius:12px;
+      border:1px solid var(--line-soft);
+      border-radius:10px;
       padding:10px;
-      background:#10141d;
+      background:var(--panel-soft);
       display:grid;
       gap:8px;
     }
-    .media-head{font:700 12px/1.3 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#b2bdd9}
+    .media-head{font:700 12px/1.3 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted)}
     .project-item label{display:grid;gap:6px;color:var(--muted);font-size:12px}
     .project-item input,
     .project-item textarea{
       width:100%;
       border:1px solid var(--line);
       border-radius:10px;
-      background:#131826;
+      background:#0f1219;
       color:var(--text);
       padding:9px 10px;
       font:13px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
@@ -747,17 +835,53 @@ $collections = [
     .image-url-row,
     .video-url-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
     .remove-image-url,
-    .remove-video-url{
-      border-color:#5a3131;
-      color:#ffb9b9;
-      padding:8px 11px;
-      background:#271b1e;
+    .remove-video-url,
+    .remove-project{
+      border-color:#4a2c31;
+      color:#ffb8c1;
+      background:#22161a;
     }
     .remove-image-url:hover,
-    .remove-video-url:hover{background:#322126}
-    .project-tools{display:flex;justify-content:flex-end}
-    .remove-project{border-color:#5a3131;color:#ffb9b9;background:#271b1e}
-    .remove-project:hover{background:#322126}
+    .remove-video-url:hover,
+    .remove-project:hover{background:#2b1a20}
+    .project-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+    .project-order{display:flex;gap:8px}
+    .project-order button{min-width:40px}
+    .collection-tools{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:8px;
+      border:1px solid var(--line-soft);
+      border-radius:10px;
+      background:var(--panel-soft);
+      padding:10px;
+    }
+    .collection-tools-title{
+      margin:0;
+      color:var(--muted);
+      font:700 12px/1.3 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    .collection-tools-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+    .collection-tools-grid label{
+      display:grid;
+      gap:6px;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .collection-tools-grid input[type="file"]{
+      width:100%;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:#0f1219;
+      color:var(--text);
+      padding:8px;
+    }
+    .collection-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between}
+    .collection-actions-left{display:flex;gap:8px;flex-wrap:wrap}
     .file-note{color:var(--muted);font-size:12px}
     table{width:100%;border-collapse:collapse;margin-top:6px}
     th,td{padding:11px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px;vertical-align:top}
@@ -766,6 +890,8 @@ $collections = [
     .actions{display:flex;gap:8px;flex-wrap:wrap}
     @media (max-width: 900px){
       .media-grid,
+      .project-row,
+      .collection-tools-grid,
       .image-url-row,
       .video-url-row{
         grid-template-columns:1fr;
@@ -792,6 +918,14 @@ $collections = [
   <div class="card" id="adminSaveStatus" hidden></div>
 
   <section class="card">
+    <div class="admin-tabs" role="tablist" aria-label="Разделы админки">
+      <button type="button" class="admin-tab-btn is-active" data-tab-target="cards" aria-selected="true">Карточки</button>
+      <button type="button" class="admin-tab-btn" data-tab-target="config" aria-selected="false">JSON конфиг</button>
+      <button type="button" class="admin-tab-btn" data-tab-target="users" aria-selected="false">Пользователи</button>
+    </div>
+  </section>
+
+  <section class="card tab-pane is-active" data-tab-pane="cards">
     <div class="row">
       <div>
         <h2 class="title">Карточки разделов</h2>
@@ -834,6 +968,10 @@ $collections = [
                   <label>
                     Название
                     <input type="text" data-field="item-title" name="item_title[<?= (int)$item_index ?>]" value="<?= admin_h((string)($item['title'] ?? '')) ?>" placeholder="Название">
+                  </label>
+                  <label>
+                    Дата
+                    <input type="date" data-field="item-date" name="item_date[<?= (int)$item_index ?>]" value="<?= admin_h((string)($item['date'] ?? '')) ?>">
                   </label>
                 </div>
 
@@ -886,14 +1024,36 @@ $collections = [
                 </div>
 
                 <div class="project-tools">
+                  <div class="project-order">
+                    <button type="button" data-move-up title="Выше">↑</button>
+                    <button type="button" data-move-down title="Ниже">↓</button>
+                  </div>
                   <button type="button" class="remove-project" data-remove-project>Удалить</button>
                 </div>
               </div>
             <?php endforeach; ?>
           </div>
 
-          <div class="actions">
-            <button type="button" data-add-item data-target="<?= admin_h((string)$collection['list_id']) ?>">Добавить карточку</button>
+          <div class="collection-tools">
+            <p class="collection-tools-title">Массовая загрузка</p>
+            <div class="collection-tools-grid">
+              <label>
+                Фото (добавятся как новые карточки)
+                <input type="file" name="bulk_upload_images[]" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
+              </label>
+              <label>
+                Видео (добавятся как новые карточки)
+                <input type="file" name="bulk_upload_videos[]" accept="video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
+              </label>
+            </div>
+            <span class="file-note">Можно выделить сразу много файлов: система создаст новые карточки автоматически.</span>
+          </div>
+
+          <div class="collection-actions">
+            <div class="collection-actions-left">
+              <button type="button" data-add-item data-target="<?= admin_h((string)$collection['list_id']) ?>">Добавить карточку</button>
+              <button type="button" data-sort-by-date data-target="<?= admin_h((string)$collection['list_id']) ?>">Сортировать по дате ↓</button>
+            </div>
             <button class="primary" type="submit">Сохранить</button>
           </div>
         </form>
@@ -901,7 +1061,7 @@ $collections = [
     </div>
   </section>
 
-  <section class="card">
+  <section class="card tab-pane" data-tab-pane="config">
     <div class="row">
       <div>
         <h2 class="title">Конфиг сайта (JSON)</h2>
@@ -917,10 +1077,10 @@ $collections = [
         <button class="primary" type="submit">Сохранить конфиг</button>
       </div>
     </form>
-    <div class="muted" style="margin-top:8px;">Данные карточек: <code>cards</code>, <code>travels</code>, <code>photos</code>. Медиа: массивы <code>images</code> и <code>videos</code>.</div>
+    <div class="muted" style="margin-top:8px;">Данные карточек: <code>cards</code>, <code>travels</code>, <code>photos</code>. Поля карточки: <code>title</code>, <code>description</code>, <code>date</code>, медиа-массивы <code>images</code> и <code>videos</code>.</div>
   </section>
 
-  <section class="card">
+  <section class="card tab-pane" data-tab-pane="users">
     <div class="row">
       <div>
         <h2 class="title">Пользователи</h2>
@@ -1025,6 +1185,11 @@ $collections = [
         title.name = `item_title[${itemIndex}]`;
       }
 
+      const date = item.querySelector('input[data-field="item-date"]');
+      if (date instanceof HTMLInputElement) {
+        date.name = `item_date[${itemIndex}]`;
+      }
+
       const description = item.querySelector('textarea[data-field="item-description"]');
       if (description instanceof HTMLTextAreaElement) {
         description.name = `item_description[${itemIndex}]`;
@@ -1064,6 +1229,7 @@ $collections = [
     item.innerHTML = ''
       + '<div class="project-row">'
       + '  <label>Название<input type="text" data-field="item-title" placeholder="Название"></label>'
+      + '  <label>Дата<input type="date" data-field="item-date"></label>'
       + '</div>'
       + '<label>Описание<textarea data-field="item-description" placeholder="Коротко о карточке"></textarea></label>'
       + '<div class="media-grid">'
@@ -1090,7 +1256,10 @@ $collections = [
       + '    </label>'
       + '  </div>'
       + '</div>'
-      + '<div class="project-tools"><button type="button" class="remove-project" data-remove-project>Удалить</button></div>';
+      + '<div class="project-tools">'
+      + '  <div class="project-order"><button type="button" data-move-up title="Выше">↑</button><button type="button" data-move-down title="Ниже">↓</button></div>'
+      + '  <button type="button" class="remove-project" data-remove-project>Удалить</button>'
+      + '</div>';
 
     const urls = item.querySelector('[data-image-urls]');
     if (urls) {
@@ -1110,6 +1279,30 @@ $collections = [
       const list = document.getElementById(target);
       if (!list) return;
       list.appendChild(makeItem());
+      renumberCollection(list);
+    });
+  });
+
+  document.querySelectorAll('[data-sort-by-date]').forEach((btn) => {
+    btn.addEventListener('click', function () {
+      const target = btn.getAttribute('data-target');
+      if (!target) return;
+      const list = document.getElementById(target);
+      if (!list) return;
+
+      const items = Array.from(list.querySelectorAll('[data-project-item]'));
+      items.sort((a, b) => {
+        const aDate = a.querySelector('input[data-field="item-date"]');
+        const bDate = b.querySelector('input[data-field="item-date"]');
+        const av = aDate instanceof HTMLInputElement ? (aDate.value || '') : '';
+        const bv = bDate instanceof HTMLInputElement ? (bDate.value || '') : '';
+        if (av === bv) return 0;
+        if (!av) return 1;
+        if (!bv) return -1;
+        return av < bv ? 1 : -1;
+      });
+
+      items.forEach((item) => list.appendChild(item));
       renumberCollection(list);
     });
   });
@@ -1171,6 +1364,23 @@ $collections = [
         return;
       }
 
+      if (target.hasAttribute('data-move-up')) {
+        const row = target.closest('[data-project-item]');
+        if (!row || !row.previousElementSibling) return;
+        list.insertBefore(row, row.previousElementSibling);
+        renumberCollection(list);
+        return;
+      }
+
+      if (target.hasAttribute('data-move-down')) {
+        const row = target.closest('[data-project-item]');
+        if (!row || !row.nextElementSibling) return;
+        const next = row.nextElementSibling;
+        list.insertBefore(next, row);
+        renumberCollection(list);
+        return;
+      }
+
       if (!target.hasAttribute('data-remove-project')) return;
       const items = list.querySelectorAll('[data-project-item]');
       if (items.length <= 1) return;
@@ -1181,6 +1391,34 @@ $collections = [
   });
 
   renumberAllCollections(document);
+
+  const tabButtons = Array.from(document.querySelectorAll('[data-tab-target]'));
+  const tabPanes = Array.from(document.querySelectorAll('[data-tab-pane]'));
+  function openTab(tab) {
+    tabButtons.forEach((btn) => {
+      const active = btn.getAttribute('data-tab-target') === tab;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    tabPanes.forEach((pane) => {
+      const active = pane.getAttribute('data-tab-pane') === tab;
+      pane.classList.toggle('is-active', active);
+    });
+  }
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', function () {
+      const tab = btn.getAttribute('data-tab-target');
+      if (!tab) return;
+      openTab(tab);
+      if (window.history && typeof window.history.replaceState === 'function') {
+        window.history.replaceState(null, '', '#admin-' + tab);
+      }
+    });
+  });
+  const hashTab = (window.location.hash || '').replace(/^#admin-/, '').trim();
+  if (hashTab && tabPanes.some((pane) => pane.getAttribute('data-tab-pane') === hashTab)) {
+    openTab(hashTab);
+  }
 
   document.querySelectorAll('.js-admin-save-form').forEach((form) => {
     form.addEventListener('submit', async function (event) {

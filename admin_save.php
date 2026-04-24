@@ -417,6 +417,7 @@ if ($action === 'save_collection') {
 
     $decoded = admin_decode_config($config_json);
     $titles = $_POST['item_title'] ?? [];
+    $dates = $_POST['item_date'] ?? [];
     $descriptions = $_POST['item_description'] ?? [];
     $images_by_item = $_POST['item_images'] ?? [];
     $videos_by_item = $_POST['item_videos'] ?? [];
@@ -426,8 +427,11 @@ if ($action === 'save_collection') {
     $video_uploads_nested = $_FILES['item_upload_videos'] ?? null;
     $uploads_legacy = $_FILES['item_upload_image'] ?? null;
     $video_uploads_legacy = $_FILES['item_upload_video'] ?? null;
+    $bulk_images = $_FILES['bulk_upload_images'] ?? null;
+    $bulk_videos = $_FILES['bulk_upload_videos'] ?? null;
 
     if (!is_array($titles)) $titles = [];
+    if (!is_array($dates)) $dates = [];
     if (!is_array($descriptions)) $descriptions = [];
     if (!is_array($images_by_item)) $images_by_item = [];
     if (!is_array($videos_by_item)) $videos_by_item = [];
@@ -436,6 +440,7 @@ if ($action === 'save_collection') {
 
     $max_count = max(
         count($titles),
+        count($dates),
         count($descriptions),
         count($images_by_item),
         count($videos_by_item),
@@ -444,12 +449,21 @@ if ($action === 'save_collection') {
         admin_nested_item_count($uploads_nested),
         admin_nested_item_count($video_uploads_nested),
         admin_file_count($uploads_legacy),
-        admin_file_count($video_uploads_legacy)
+        admin_file_count($video_uploads_legacy),
+        admin_file_count($bulk_images),
+        admin_file_count($bulk_videos)
     );
     $items = [];
 
     for ($i = 0; $i < $max_count; $i++) {
         $title = trim((string)($titles[$i] ?? ''));
+        $date_value = trim((string)($dates[$i] ?? ''));
+        if ($date_value !== '') {
+            $parts = explode('-', $date_value);
+            if (count($parts) !== 3 || !checkdate((int)$parts[1], (int)$parts[2], (int)$parts[0])) {
+                admin_json_response(false, 'Неверная дата в карточке #' . ($i + 1) . '. Используй формат YYYY-MM-DD.');
+            }
+        }
         $description = trim((string)($descriptions[$i] ?? ''));
         $images = admin_clean_image_urls($images_by_item[$i] ?? []);
         $videos = admin_clean_video_urls($videos_by_item[$i] ?? []);
@@ -509,17 +523,66 @@ if ($action === 'save_collection') {
 
         $images = array_values(array_unique($images));
         $videos = array_values(array_unique($videos));
-        if ($title === '' && $description === '' && !$images && !$videos) {
+        if ($title === '' && $description === '' && $date_value === '' && !$images && !$videos) {
             continue;
         }
 
         $items[] = [
             'title' => $title !== '' ? $title : 'Без названия',
+            'date' => $date_value,
             'description' => $description,
             'images' => $images,
             'image' => $images[0] ?? '',
             'videos' => $videos,
             'video' => $videos[0] ?? '',
+        ];
+    }
+
+    $bulk_image_count = admin_file_count($bulk_images);
+    for ($i = 0; $i < $bulk_image_count; $i++) {
+        $bulk_err = '';
+        $bulk_image = admin_save_uploaded_image($bulk_images, $i, $bulk_err);
+        if ($bulk_err !== '') {
+            admin_json_response(false, $bulk_err);
+        }
+        if ($bulk_image === '') continue;
+
+        $name = (string)($bulk_images['name'][$i] ?? '');
+        $title_from_name = pathinfo($name, PATHINFO_FILENAME);
+        $title_from_name = trim((string)$title_from_name);
+
+        $items[] = [
+            'title' => $title_from_name !== '' ? $title_from_name : 'Без названия',
+            'date' => '',
+            'description' => '',
+            'images' => [$bulk_image],
+            'image' => $bulk_image,
+            'videos' => [],
+            'video' => '',
+        ];
+    }
+
+    $bulk_video_count = admin_file_count($bulk_videos);
+    for ($i = 0; $i < $bulk_video_count; $i++) {
+        $bulk_err = '';
+        $bulk_video = admin_save_uploaded_video($bulk_videos, $i, $bulk_err);
+        if ($bulk_err !== '') {
+            admin_json_response(false, $bulk_err);
+        }
+        if ($bulk_video === '') continue;
+
+        $name = (string)($bulk_videos['name'][$i] ?? '');
+        $title_from_name = pathinfo($name, PATHINFO_FILENAME);
+        $title_from_name = trim((string)$title_from_name);
+
+        $items[] = [
+            'title' => $title_from_name !== '' ? $title_from_name : 'Без названия',
+            'date' => '',
+            'description' => '',
+            'images' => [],
+            'image' => '',
+            'videos' => [$bulk_video],
+            'video' => $bulk_video,
         ];
     }
 
