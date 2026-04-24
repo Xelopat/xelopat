@@ -203,10 +203,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     box-shadow:0 18px 40px rgba(0,0,0,.18);
     transition:border-color .18s ease, box-shadow .18s ease;
   }
-  .terminal--collapsed .term-body{
-    display:none;
-  }
-
   .term-bar{
     background:#151518;
     padding:10px 14px;
@@ -245,11 +241,27 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   .term-body{
     padding:14px 16px;
     height:380px;
+    max-height:380px;
+    opacity:1;
+    transform:translateY(0);
     display:flex;
     flex-direction:column;
     overflow:hidden;
     font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     font-size:12px;
+    transition:
+      max-height .28s ease,
+      opacity .2s ease,
+      transform .28s ease,
+      padding .28s ease;
+  }
+  .terminal--collapsed .term-body{
+    max-height:0;
+    opacity:0;
+    transform:translateY(-6px);
+    padding-top:0;
+    padding-bottom:0;
+    pointer-events:none;
   }
 
   .term-output{
@@ -774,6 +786,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     if (heroMetaBlock) {
       heroMetaBlock.classList.toggle('hero-meta-block--hidden', !!next);
     }
+    if (next && input) input.blur();
     if (!next) focusInput();
   }
 

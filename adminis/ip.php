@@ -1,192 +1,293 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Калькулятор подсетей</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            background: #f2f4f8;
-            margin: 0;
-            padding: 40px 20px;
-            color: #333;
-        }
+<?php
+include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
+?>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;700&display=swap');
 
-        h1 {
-            text-align: center;
-            margin-bottom: 30px;
-        }
+  .ip-page{
+    min-height:calc(100vh - 60px);
+    background:#151518;
+    color:#efeff1;
+    padding:28px 0 38px;
+  }
 
-        form {
-            max-width: 600px;
-            margin: 0 auto;
-            background: #fff;
-            padding: 25px 30px;
-            border-radius: 10px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
-        }
+  .ip-wrap{
+    width:min(980px, calc(100vw - 24px));
+    margin:0 auto;
+  }
 
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-        }
+  .ip-label{
+    font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:11px;
+    color:#61d1ad;
+    margin-bottom:6px;
+  }
 
-        input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
+  .ip-title{
+    margin:0 0 10px;
+    font-size:30px;
+    line-height:1.2;
+  }
 
-        button {
-            background-color: #0077cc;
-            color: white;
-            padding: 10px 20px;
-            font-size: 16px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-        }
+  .ip-sub{
+    margin:0 0 20px;
+    color:#a4a8bb;
+    font-size:14px;
+    line-height:1.6;
+    max-width:760px;
+  }
 
-        button:hover {
-            background-color: #005fa3;
-        }
+  .ip-panel{
+    background:#1e1e25;
+    border:1px solid #333340;
+    border-radius:12px;
+    padding:16px;
+  }
 
-        .output {
-            max-width: 900px;
-            margin: 30px auto;
-            background: #ffffff;
-            border-radius: 10px;
-            padding: 25px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
-        }
+  .ip-grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:14px;
+  }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
+  .ip-field label{
+    display:block;
+    margin-bottom:7px;
+    font-size:13px;
+    color:#c5c8d6;
+    font-weight:600;
+  }
 
-        table, th, td {
-            border: 1px solid #ccc;
-        }
+  .ip-field input{
+    width:100%;
+    background:#151518;
+    border:1px solid #333340;
+    border-radius:8px;
+    padding:10px 12px;
+    color:#efeff1;
+    font:inherit;
+    font-size:14px;
+    outline:none;
+  }
 
-        th {
-            background-color: #f5f7fa;
-        }
+  .ip-field input:focus{
+    border-color:#61d1ad;
+    box-shadow:0 0 0 3px rgba(97,209,173,.15);
+  }
 
-        th, td {
-            padding: 10px;
-            text-align: center;
-        }
+  .ip-actions{
+    display:flex;
+    justify-content:flex-start;
+  }
 
-        h2 {
-            margin-top: 0;
-        }
-    </style>
-</head>
-<body>
-    <h1>Калькулятор подсетей</h1>
-    <form id="subnetForm">
-        <label for="networkAddress">Адрес сети:</label>
-        <input type="text" id="networkAddress" placeholder="192.168.0.0/24" value="192.168.0.0/24" required>
+  .ip-btn{
+    border:1px solid #333340;
+    background:#151518;
+    color:#efeff1;
+    border-radius:8px;
+    padding:10px 14px;
+    font:inherit;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    transition:border-color .16s ease, color .16s ease;
+  }
 
-        <label for="userGroups">Количество ПК в каждой подсети (через пробел):</label>
-        <input type="text" id="userGroups" placeholder="50 30 20" required>
+  .ip-btn:hover{
+    border-color:#f9c940;
+    color:#f9c940;
+  }
 
-        <button type="submit">Рассчитать подсети</button>
-    </form>
+  .ip-out{
+    margin-top:14px;
+    background:#151518;
+    border:1px solid #333340;
+    border-radius:10px;
+    padding:14px;
+    overflow:auto;
+  }
 
-    <div class="output" id="output"></div>
+  .ip-table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:760px;
+  }
 
-    <script>
-        function calculateSubnets(networkAddress, userGroups) {
-            function ipToDecimal(ip) {
-                return ip.split('.').reduce((acc, octet) => (acc << 8) | parseInt(octet, 10), 0);
-            }
+  .ip-table th,
+  .ip-table td{
+    border-bottom:1px solid #2b2b36;
+    padding:9px 8px;
+    text-align:left;
+    font-size:13px;
+    vertical-align:top;
+  }
 
-            function decimalToIp(decimal) {
-                return [(decimal >>> 24) & 255, (decimal >>> 16) & 255, (decimal >>> 8) & 255, decimal & 255].join('.');
-            }
+  .ip-table th{
+    color:#61d1ad;
+    font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
 
-            function getMask(bits) {
-                return `${decimalToIp((0xFFFFFFFF << (32 - bits)) >>> 0)} /${bits}`;
-            }
+  .ip-table tr:last-child td{
+    border-bottom:none;
+  }
 
-            const [baseIp, cidr] = networkAddress.split('/');
-            const baseDecimal = ipToDecimal(baseIp);
-            let currentDecimal = baseDecimal;
-            const results = [];
+  .ip-error{
+    margin:0;
+    color:#ff8f8f;
+    font-size:13px;
+  }
 
-            userGroups.sort((a, b) => b - a); // от большего к меньшему
+  @media (max-width: 900px){
+    .ip-wrap{ width:calc(100vw - 20px); }
+    .ip-title{ font-size:26px; }
+    .ip-sub{ font-size:13px; }
+    .ip-panel{ padding:14px; }
+  }
+</style>
 
-            userGroups.forEach(users => {
-                const requiredBits = Math.ceil(Math.log2(users + 2));
-                const subnetMask = 32 - requiredBits;
-                const subnetSize = 2 ** requiredBits;
-                if (subnetMask < 1 || subnetMask > 32) {
-                    throw new Error(`Невозможно создать подсеть для ${users} пользователей.`);
-                }
-                const networkAddress = decimalToIp(currentDecimal);
-                const broadcastAddress = decimalToIp(currentDecimal + subnetSize - 1);
-                const firstAddress = decimalToIp(currentDecimal + 1);
-                const lastAddress = decimalToIp(currentDecimal + subnetSize - 2);
+<main class="ip-page">
+  <div class="ip-wrap">
+    <div class="ip-label">// администрирование</div>
+    <h1 class="ip-title">Калькулятор подсетей (VLSM)</h1>
+    <p class="ip-sub">Введите сеть в формате CIDR и список групп ПК через пробел. Расчёт строится от самой крупной подсети к меньшей.</p>
 
-                results.push({
-                    users,
-                    networkAddress,
-                    subnetMask: getMask(subnetMask),
-                    firstAddress,
-                    lastAddress,
-                    broadcastAddress
-                });
+    <section class="ip-panel">
+      <form id="subnetForm" class="ip-grid">
+        <div class="ip-field">
+          <label for="networkAddress">Адрес сети</label>
+          <input type="text" id="networkAddress" placeholder="192.168.0.0/24" value="192.168.0.0/24" required>
+        </div>
 
-                currentDecimal += subnetSize;
-            });
+        <div class="ip-field">
+          <label for="userGroups">Количество ПК в каждой подсети (через пробел)</label>
+          <input type="text" id="userGroups" placeholder="50 30 20" required>
+        </div>
 
-            return results;
-        }
+        <div class="ip-actions">
+          <button class="ip-btn" type="submit">Рассчитать</button>
+        </div>
+      </form>
 
-        document.getElementById('subnetForm').addEventListener('submit', function (e) {
-            e.preventDefault();
-            const networkAddress = document.getElementById('networkAddress').value;
-            const userGroups = document.getElementById('userGroups').value.split(' ').map(Number);
+      <div class="ip-out" id="output"></div>
+    </section>
+  </div>
+</main>
 
-            try {
-                const results = calculateSubnets(networkAddress, userGroups);
-                const outputDiv = document.getElementById('output');
-                outputDiv.innerHTML = '<h2>Рассчитанные подсети</h2>';
+<script>
+  function ipToDecimal(ip) {
+    return ip.split('.').reduce((acc, octet) => (acc << 8) | parseInt(octet, 10), 0) >>> 0;
+  }
 
-                const table = document.createElement('table');
-                const headerRow = `<tr>
-                    <th>Количество ПК</th>
-                    <th>Адрес сети</th>
-                    <th>Маска подсети</th>
-                    <th>Первый адрес</th>
-                    <th>Последний адрес</th>
-                    <th>Широковещательный адрес</th>
-                </tr>`;
+  function decimalToIp(decimal) {
+    return [(decimal >>> 24) & 255, (decimal >>> 16) & 255, (decimal >>> 8) & 255, decimal & 255].join('.');
+  }
 
-                table.innerHTML = headerRow + results.map(result => `
-                    <tr>
-                        <td>${result.users}</td>
-                        <td>${result.networkAddress}</td>
-                        <td>${result.subnetMask}</td>
-                        <td>${result.firstAddress}</td>
-                        <td>${result.lastAddress}</td>
-                        <td>${result.broadcastAddress}</td>
-                    </tr>
-                `).join('');
+  function getMask(bits) {
+    return `${decimalToIp((0xFFFFFFFF << (32 - bits)) >>> 0)} /${bits}`;
+  }
 
-                outputDiv.appendChild(table);
-            } catch (error) {
-                alert('Ошибка при расчёте подсетей: ' + error.message);
-            }
-        });
-    </script>
-</body>
-</html>
+  function parseNetwork(value) {
+    const parts = value.split('/');
+    if (parts.length !== 2) throw new Error('Сеть должна быть в формате A.B.C.D/XX');
+    const baseIp = parts[0].trim();
+    const cidr = Number(parts[1]);
+    if (!Number.isInteger(cidr) || cidr < 1 || cidr > 32) {
+      throw new Error('CIDR должен быть числом от 1 до 32');
+    }
+    const ipParts = baseIp.split('.');
+    if (ipParts.length !== 4) throw new Error('Некорректный IP-адрес');
+    for (const p of ipParts) {
+      const n = Number(p);
+      if (!Number.isInteger(n) || n < 0 || n > 255) {
+        throw new Error('Некорректный IP-адрес');
+      }
+    }
+    return { baseIp, cidr };
+  }
+
+  function calculateSubnets(networkAddress, userGroups) {
+    const { baseIp } = parseNetwork(networkAddress);
+    const baseDecimal = ipToDecimal(baseIp);
+    let currentDecimal = baseDecimal;
+    const results = [];
+
+    const groups = userGroups.slice().sort((a, b) => b - a);
+    groups.forEach((users) => {
+      const requiredBits = Math.ceil(Math.log2(users + 2));
+      const subnetMask = 32 - requiredBits;
+      const subnetSize = 2 ** requiredBits;
+      if (subnetMask < 1 || subnetMask > 32) {
+        throw new Error(`Невозможно создать подсеть для ${users} ПК`);
+      }
+
+      results.push({
+        users,
+        networkAddress: decimalToIp(currentDecimal),
+        subnetMask: getMask(subnetMask),
+        firstAddress: decimalToIp(currentDecimal + 1),
+        lastAddress: decimalToIp(currentDecimal + subnetSize - 2),
+        broadcastAddress: decimalToIp(currentDecimal + subnetSize - 1)
+      });
+
+      currentDecimal += subnetSize;
+    });
+
+    return results;
+  }
+
+  function renderResults(results) {
+    return `
+      <table class="ip-table">
+        <thead>
+          <tr>
+            <th>ПК</th>
+            <th>Адрес сети</th>
+            <th>Маска</th>
+            <th>Первый адрес</th>
+            <th>Последний адрес</th>
+            <th>Broadcast</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${results.map((result) => `
+            <tr>
+              <td>${result.users}</td>
+              <td>${result.networkAddress}</td>
+              <td>${result.subnetMask}</td>
+              <td>${result.firstAddress}</td>
+              <td>${result.lastAddress}</td>
+              <td>${result.broadcastAddress}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  document.getElementById('subnetForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const outputNode = document.getElementById('output');
+
+    const networkAddress = document.getElementById('networkAddress').value.trim();
+    const userGroupsRaw = document.getElementById('userGroups').value.trim();
+    const userGroups = userGroupsRaw
+      .split(/\s+/)
+      .map(Number)
+      .filter((n) => Number.isFinite(n) && n > 0);
+
+    if (!userGroups.length) {
+      outputNode.innerHTML = '<p class="ip-error">Добавьте хотя бы одно число для подсети.</p>';
+      return;
+    }
+
+    try {
+      const results = calculateSubnets(networkAddress, userGroups);
+      outputNode.innerHTML = renderResults(results);
+    } catch (error) {
+      outputNode.innerHTML = `<p class="ip-error">Ошибка: ${String(error.message || error)}</p>`;
+    }
+  });
+</script>

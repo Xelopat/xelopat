@@ -268,28 +268,24 @@ function site_active(string $href, string $uri): bool {
 
   .dd{ position:relative; }
 
-  .dd-panel,
-  .flyout{
+  .dd-panel{
     display:none;
     position:absolute;
-    top:calc(100% + 4px);
+    top:calc(100% + 6px);
     left:0;
-    min-width:250px;
-    background:linear-gradient(180deg, rgba(37,37,46,.96), rgba(24,24,31,.96));
-    border:1px solid rgba(255,255,255,.08);
-    border-radius:18px;
-    box-shadow:0 24px 48px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.04);
-    backdrop-filter: blur(12px);
-    padding:10px;
+    min-width:330px;
+    background:#1b1b22;
+    border:1px solid #333340;
+    border-radius:10px;
+    box-shadow:0 20px 34px rgba(0,0,0,.34);
+    padding:10px 12px;
   }
 
-  .dd-panel.open,
-  .flyout.open{
+  .dd-panel.open{
     display:block;
     animation:ddIn .16s ease both;
   }
-  .dd-panel.closing,
-  .flyout.closing{
+  .dd-panel.closing{
     display:block;
     pointer-events:none;
     animation:ddOut .18s ease both;
@@ -304,82 +300,50 @@ function site_active(string $href, string $uri): bool {
     to{ opacity:0; transform:translateY(-3px) scale(.992); }
   }
 
-  .menu-root, .dd-list{
+  .menu-root,
+  .dd-list,
+  .dd-group-list{
     list-style:none;
     margin:0;
     padding:0;
     display:flex;
     flex-direction:column;
-    gap:4px;
+    gap:0;
   }
 
-  .menu-root button,
   .menu-root a,
-  .dd-list a{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    width:100%;
-    padding:10px 12px;
-    border-radius:12px;
-    border:1px solid transparent;
-    background:rgba(255,255,255,.01);
+  .dd-list a,
+  .dd-group-list a{
+    display:block;
+    padding:8px 0;
+    border-bottom:1px solid #2a2a34;
     color:var(--text);
     text-decoration:none;
     font-size:13px;
     line-height:1.25;
     font-family:inherit;
     font-weight:500;
-    cursor:pointer;
-    transition:background .14s ease, border-color .14s ease, color .14s ease;
+    transition:color .14s ease;
+  }
+  .menu-root li:last-child a,
+  .dd-list li:last-child a,
+  .dd-group-list li:last-child a{
+    border-bottom:none;
   }
 
-  .menu-root button:hover,
   .menu-root a:hover,
   .dd-list a:hover,
-  .menu-root button.active{
-    background:rgba(249,201,64,.1);
-    border-color:rgba(249,201,64,.25);
-    color:#fff4cb;
+  .dd-group-list a:hover{
+    color:var(--accent);
   }
 
-  .menu-root button[data-sub]::after{
-    content:'›';
-    color:var(--muted);
+  .dd-group + .dd-group{
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px solid #2a2a34;
   }
-
-  .flyout{
-    left:calc(100% - 2px);
-    top:0;
-    min-width:280px;
-    overflow:visible;
-  }
-
-  @media (min-width: 901px){
-    .dd::after{
-      content:"";
-      position:absolute;
-      left:-8px;
-      right:-8px;
-      top:100%;
-      height:14px;
-      display:none;
-    }
-    .dd:hover::after{
-      display:block;
-    }
-    .flyout::before{
-      content:"";
-      position:absolute;
-      top:0;
-      bottom:0;
-      left:-16px;
-      width:18px;
-    }
-  }
-
-  .flyout-title{
-    padding:10px 12px 6px;
+  .dd-group-title{
+    margin:0 0 4px;
     color:var(--green);
     font-size:11px;
     font-family:"Space Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -495,16 +459,16 @@ function site_active(string $href, string $uri): bool {
       width:36px;
     }
     .dd{ width:100%; }
-    .dd-panel, .flyout{
+    .dd-panel{
       position:static;
       width:100%;
       min-width:0;
-      margin-top:8px;
+      margin-top:6px;
     }
-    .menu-root button,
     .menu-root a,
-    .dd-list a{
-      padding:11px 12px;
+    .dd-list a,
+    .dd-group-list a{
+      padding:11px 0;
     }
     .auth-area{ gap:8px; }
     .auth-user{ display:none; }
@@ -551,24 +515,17 @@ function site_active(string $href, string $uri): bool {
       <div class="dd" id="dd-univer-wrap">
         <button type="button" class="nav-btn<?= strpos($uri, '/crypto/') === 0 || strpos($uri, '/adminis/') === 0 || strpos($uri, '/coursework/') === 0 ? ' active' : '' ?>" data-dd-btn="univer" aria-expanded="false">Универ</button>
         <div class="dd-panel" id="dd-univer" role="dialog" aria-label="Универ">
-          <ul class="menu-root" id="univerRoot">
-            <?php foreach ($univer_sections as $key => $section): ?>
-              <li><button type="button" data-sub="<?= site_h((string)$key) ?>"><?= site_h((string)$section['title']) ?></button></li>
-            <?php endforeach; ?>
-          </ul>
-          <div class="flyout" id="univerFlyout" aria-hidden="true">
-            <?php foreach ($univer_sections as $key => $section): ?>
-              <div class="flyout-panel" data-fly-panel="<?= site_h((string)$key) ?>" style="display:none;">
-                <div class="flyout-title"><?= site_h((string)$section['title']) ?></div>
-                <ul class="dd-list">
-                  <?php foreach ($section['items'] as $it): ?>
-                    <?php $label = (string)$it[0]; $href = (string)$it[1]; ?>
-                    <li><a href="<?= site_h($href) ?>" class="<?= site_active($href, $uri) ? 'active' : '' ?>"><?= site_h($label) ?></a></li>
-                  <?php endforeach; ?>
-                </ul>
-              </div>
-            <?php endforeach; ?>
-          </div>
+          <?php foreach ($univer_sections as $section): ?>
+            <section class="dd-group">
+              <div class="dd-group-title"><?= site_h((string)$section['title']) ?></div>
+              <ul class="dd-group-list">
+                <?php foreach ($section['items'] as $it): ?>
+                  <?php $label = (string)$it[0]; $href = (string)$it[1]; ?>
+                  <li><a href="<?= site_h($href) ?>" class="<?= site_active($href, $uri) ? 'active' : '' ?>"><?= site_h($label) ?></a></li>
+                <?php endforeach; ?>
+              </ul>
+            </section>
+          <?php endforeach; ?>
         </div>
       </div>
 
@@ -667,10 +624,6 @@ function site_active(string $href, string $uri): bool {
   const hobbyWrap = document.getElementById('dd-hobby-wrap');
   const panelUniver = document.getElementById('dd-univer');
   const panelHobby = document.getElementById('dd-hobby');
-  const univerRoot = document.getElementById('univerRoot');
-  const univerFlyout = document.getElementById('univerFlyout');
-  const flyPanels = univerFlyout ? univerFlyout.querySelectorAll('[data-fly-panel]') : [];
-  let flyoutCloseTimer = null;
   let univerCloseTimer = null;
   let hobbyCloseTimer = null;
   const DESKTOP_CLOSE_DELAY = 420;
@@ -691,19 +644,6 @@ function site_active(string $href, string $uri): bool {
     if (!open) {
       closeAll();
     }
-  }
-
-  function closeFlyout() {
-    if (flyoutCloseTimer) {
-      clearTimeout(flyoutCloseTimer);
-      flyoutCloseTimer = null;
-    }
-    if (!univerFlyout) return;
-    fadeClose(univerFlyout);
-    univerFlyout.setAttribute('aria-hidden', 'true');
-    flyPanels.forEach(panel => panel.style.display = 'none');
-    if (!univerRoot) return;
-    univerRoot.querySelectorAll('button[data-sub]').forEach(btn => btn.classList.remove('active'));
   }
 
   function fadeClose(node) {
@@ -769,7 +709,6 @@ function site_active(string $href, string $uri): bool {
           btnUniver.classList.remove('active');
           btnUniver.setAttribute('aria-expanded', 'false');
         }
-        closeFlyout();
       }, DESKTOP_CLOSE_DELAY);
     } else {
       if (hobbyCloseTimer) clearTimeout(hobbyCloseTimer);
@@ -784,29 +723,6 @@ function site_active(string $href, string $uri): bool {
     }
   }
 
-  function openFlyoutByKey(key, triggerBtn) {
-    if (!univerFlyout || !key) return;
-    if (flyoutCloseTimer) {
-      clearTimeout(flyoutCloseTimer);
-      flyoutCloseTimer = null;
-    }
-    closeFlyout();
-    if (triggerBtn) triggerBtn.classList.add('active');
-    flyPanels.forEach(panel => {
-      panel.style.display = panel.getAttribute('data-fly-panel') === key ? 'block' : 'none';
-    });
-    univerFlyout.classList.add('open');
-    univerFlyout.setAttribute('aria-hidden', 'false');
-  }
-
-  function scheduleFlyoutClose() {
-    if (isMobile()) return;
-    if (flyoutCloseTimer) clearTimeout(flyoutCloseTimer);
-    flyoutCloseTimer = setTimeout(() => {
-      closeFlyout();
-    }, DESKTOP_CLOSE_DELAY);
-  }
-
   function closeAll() {
     clearDesktopCloseTimers();
     [panelUniver, panelHobby].forEach(panel => panel && fadeClose(panel));
@@ -815,7 +731,6 @@ function site_active(string $href, string $uri): bool {
       btn.classList.remove('active');
       btn.setAttribute('aria-expanded', 'false');
     });
-    closeFlyout();
   }
 
   function togglePanel(which) {
@@ -880,73 +795,6 @@ function site_active(string $href, string $uri): bool {
     });
     hobbyWrap.addEventListener('mouseleave', function () {
       scheduleDesktopPanelClose('hobby');
-    });
-  }
-
-  if (univerRoot && univerFlyout) {
-    const subButtons = Array.from(univerRoot.querySelectorAll('button[data-sub]'));
-    subButtons.forEach(btn => {
-      btn.addEventListener('mouseenter', function () {
-        if (isMobile()) return;
-        openFlyoutByKey(btn.getAttribute('data-sub'), btn);
-      });
-      btn.addEventListener('focus', function () {
-        if (isMobile()) return;
-        openFlyoutByKey(btn.getAttribute('data-sub'), btn);
-      });
-    });
-
-    if (panelUniver) {
-      panelUniver.addEventListener('mouseenter', function () {
-        if (univerCloseTimer) {
-          clearTimeout(univerCloseTimer);
-          univerCloseTimer = null;
-        }
-        if (flyoutCloseTimer) {
-          clearTimeout(flyoutCloseTimer);
-          flyoutCloseTimer = null;
-        }
-      });
-      panelUniver.addEventListener('mouseleave', function (event) {
-        const next = event.relatedTarget;
-        if (next instanceof Node && (panelUniver.contains(next) || (univerFlyout && univerFlyout.contains(next)))) {
-          return;
-        }
-        scheduleFlyoutClose();
-      });
-    }
-
-    univerFlyout.addEventListener('mouseenter', function () {
-      if (univerCloseTimer) {
-        clearTimeout(univerCloseTimer);
-        univerCloseTimer = null;
-      }
-      if (flyoutCloseTimer) {
-        clearTimeout(flyoutCloseTimer);
-        flyoutCloseTimer = null;
-      }
-    });
-    univerFlyout.addEventListener('mouseleave', function (event) {
-      const next = event.relatedTarget;
-      if (next instanceof Node && (univerFlyout.contains(next) || (panelUniver && panelUniver.contains(next)))) {
-        return;
-      }
-      scheduleFlyoutClose();
-    });
-
-    univerRoot.addEventListener('click', function (e) {
-      const btn = e.target.closest('button[data-sub]');
-      if (!btn) return;
-      e.preventDefault();
-      e.stopPropagation();
-
-      const key = btn.getAttribute('data-sub');
-      const active = btn.classList.contains('active') && univerFlyout.classList.contains('open');
-      if (isMobile()) {
-        closeFlyout();
-        if (active) return;
-      }
-      openFlyoutByKey(key, btn);
     });
   }
 
