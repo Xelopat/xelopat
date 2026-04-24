@@ -789,14 +789,14 @@ $collections = [
     }
     .tab-pane{display:none}
     .tab-pane.is-active{display:block}
-    .projects-list{display:grid;gap:10px;counter-reset:item}
+    .projects-list{display:grid;gap:8px;counter-reset:item}
     .project-item{
       border:1px solid var(--line-soft);
-      border-radius:10px;
-      padding:12px;
-      background:#131722;
+      border-radius:8px;
+      padding:10px;
+      background:#11141c;
       display:grid;
-      gap:10px;
+      gap:8px;
       counter-increment:item;
     }
     .project-item::before{
@@ -805,23 +805,37 @@ $collections = [
       font:600 11px/1.3 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
       letter-spacing:.02em;
     }
-    .project-row{display:grid;grid-template-columns:1fr 190px;gap:10px}
-    .media-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .project-row{display:grid;grid-template-columns:1fr 180px;gap:8px}
+    .media-grid{display:grid;grid-template-columns:1fr;gap:8px}
     .media-block{
-      border:1px solid var(--line-soft);
-      border-radius:10px;
-      padding:10px;
-      background:var(--panel-soft);
+      border:1px solid #232836;
+      border-radius:8px;
+      padding:8px;
+      background:#0f1219;
       display:grid;
       gap:8px;
     }
-    .media-head{font:700 12px/1.3 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted)}
+    .media-head{font:700 11px/1.3 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted)}
+    .media-details{
+      border:1px dashed #2b3140;
+      border-radius:8px;
+      padding:6px 8px;
+      background:#101420;
+    }
+    .media-details summary{
+      cursor:pointer;
+      color:var(--muted);
+      font-size:12px;
+      list-style:none;
+    }
+    .media-details summary::-webkit-details-marker{display:none}
+    .media-details[open] summary{margin-bottom:8px}
     .project-item label{display:grid;gap:6px;color:var(--muted);font-size:12px}
     .project-item input,
     .project-item textarea{
       width:100%;
       border:1px solid var(--line);
-      border-radius:10px;
+      border-radius:8px;
       background:#0f1219;
       color:var(--text);
       padding:9px 10px;
@@ -837,51 +851,41 @@ $collections = [
     .remove-image-url,
     .remove-video-url,
     .remove-project{
-      border-color:#4a2c31;
-      color:#ffb8c1;
-      background:#22161a;
+      border-color:var(--line);
+      color:var(--text);
+      background:#1a1e2a;
     }
     .remove-image-url:hover,
     .remove-video-url:hover,
-    .remove-project:hover{background:#2b1a20}
+    .remove-project:hover{background:#202536}
     .project-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
     .project-order{display:flex;gap:8px}
     .project-order button{min-width:40px}
-    .collection-tools{
-      display:grid;
-      grid-template-columns:1fr;
+    .bulk-inline{
+      display:flex;
       gap:8px;
-      border:1px solid var(--line-soft);
-      border-radius:10px;
-      background:var(--panel-soft);
-      padding:10px;
+      flex-wrap:wrap;
+      align-items:flex-end;
     }
-    .collection-tools-title{
-      margin:0;
-      color:var(--muted);
-      font:700 12px/1.3 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    }
-    .collection-tools-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    }
-    .collection-tools-grid label{
+    .bulk-inline label{
       display:grid;
       gap:6px;
       color:var(--muted);
       font-size:12px;
+      min-width:220px;
+      flex:1 1 240px;
     }
-    .collection-tools-grid input[type="file"]{
+    .bulk-inline input[type="file"]{
       width:100%;
       border:1px solid var(--line);
-      border-radius:10px;
+      border-radius:8px;
       background:#0f1219;
       color:var(--text);
       padding:8px;
     }
-    .collection-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between}
+    .collection-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:flex-end}
     .collection-actions-left{display:flex;gap:8px;flex-wrap:wrap}
+    .collection-actions-right{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
     .file-note{color:var(--muted);font-size:12px}
     table{width:100%;border-collapse:collapse;margin-top:6px}
     th,td{padding:11px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px;vertical-align:top}
@@ -891,10 +895,16 @@ $collections = [
     @media (max-width: 900px){
       .media-grid,
       .project-row,
-      .collection-tools-grid,
       .image-url-row,
       .video-url-row{
         grid-template-columns:1fr;
+      }
+      .bulk-inline{
+        flex-direction:column;
+        align-items:stretch;
+      }
+      .bulk-inline label{
+        min-width:0;
       }
     }
   </style>
@@ -983,18 +993,20 @@ $collections = [
                 <div class="media-grid">
                   <div class="media-block">
                     <div class="media-head">Фото</div>
-                    <label>
-                      URL фото
-                      <div class="image-urls" data-image-urls>
-                        <?php foreach ($item_images as $image_url): ?>
-                          <div class="image-url-row">
-                            <input type="text" data-field="item-image-url" name="item_images[<?= (int)$item_index ?>][]" value="<?= admin_h((string)$image_url) ?>" placeholder="/uploads/site/example.jpg">
-                            <button type="button" class="remove-image-url" data-remove-image-url>Убрать</button>
-                          </div>
-                        <?php endforeach; ?>
-                      </div>
-                      <button type="button" data-add-image-url>Добавить URL фото</button>
-                    </label>
+                    <details class="media-details">
+                      <summary>URL фото (опционально)</summary>
+                      <label>
+                        <div class="image-urls" data-image-urls>
+                          <?php foreach ($item_images as $image_url): ?>
+                            <div class="image-url-row">
+                              <input type="text" data-field="item-image-url" name="item_images[<?= (int)$item_index ?>][]" value="<?= admin_h((string)$image_url) ?>" placeholder="/uploads/site/example.jpg">
+                              <button type="button" class="remove-image-url" data-remove-image-url>Убрать</button>
+                            </div>
+                          <?php endforeach; ?>
+                        </div>
+                        <button type="button" data-add-image-url>Добавить URL фото</button>
+                      </label>
+                    </details>
                     <label>
                       Загрузка фото (несколько файлов)
                       <input type="file" data-field="item-upload-images" name="item_upload_images[<?= (int)$item_index ?>][]" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
@@ -1003,18 +1015,20 @@ $collections = [
                   </div>
                   <div class="media-block">
                     <div class="media-head">Видео</div>
-                    <label>
-                      URL видео
-                      <div class="video-urls" data-video-urls>
-                        <?php foreach ($item_videos as $video_url): ?>
-                          <div class="video-url-row">
-                            <input type="text" data-field="item-video-url" name="item_videos[<?= (int)$item_index ?>][]" value="<?= admin_h((string)$video_url) ?>" placeholder="/uploads/site/example.mp4">
-                            <button type="button" class="remove-video-url" data-remove-video-url>Убрать</button>
-                          </div>
-                        <?php endforeach; ?>
-                      </div>
-                      <button type="button" data-add-video-url>Добавить URL видео</button>
-                    </label>
+                    <details class="media-details">
+                      <summary>URL видео (опционально)</summary>
+                      <label>
+                        <div class="video-urls" data-video-urls>
+                          <?php foreach ($item_videos as $video_url): ?>
+                            <div class="video-url-row">
+                              <input type="text" data-field="item-video-url" name="item_videos[<?= (int)$item_index ?>][]" value="<?= admin_h((string)$video_url) ?>" placeholder="/uploads/site/example.mp4">
+                              <button type="button" class="remove-video-url" data-remove-video-url>Убрать</button>
+                            </div>
+                          <?php endforeach; ?>
+                        </div>
+                        <button type="button" data-add-video-url>Добавить URL видео</button>
+                      </label>
+                    </details>
                     <label>
                       Загрузка видео (несколько файлов)
                       <input type="file" data-field="item-upload-videos" name="item_upload_videos[<?= (int)$item_index ?>][]" accept="video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
@@ -1034,28 +1048,26 @@ $collections = [
             <?php endforeach; ?>
           </div>
 
-          <div class="collection-tools">
-            <p class="collection-tools-title">Массовая загрузка</p>
-            <div class="collection-tools-grid">
-              <label>
-                Фото (добавятся как новые карточки)
-                <input type="file" name="bulk_upload_images[]" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
-              </label>
-              <label>
-                Видео (добавятся как новые карточки)
-                <input type="file" name="bulk_upload_videos[]" accept="video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
-              </label>
-            </div>
-            <span class="file-note">Можно выделить сразу много файлов: система создаст новые карточки автоматически.</span>
-          </div>
-
           <div class="collection-actions">
             <div class="collection-actions-left">
               <button type="button" data-add-item data-target="<?= admin_h((string)$collection['list_id']) ?>">Добавить карточку</button>
               <button type="button" data-sort-by-date data-target="<?= admin_h((string)$collection['list_id']) ?>">Сортировать по дате ↓</button>
             </div>
-            <button class="primary" type="submit">Сохранить</button>
+            <div class="collection-actions-right">
+              <div class="bulk-inline">
+                <label>
+                  Массово: фото
+                  <input type="file" name="bulk_upload_images[]" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
+                </label>
+                <label>
+                  Массово: видео
+                  <input type="file" name="bulk_upload_videos[]" accept="video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
+                </label>
+              </div>
+              <button class="primary" type="submit">Сохранить</button>
+            </div>
           </div>
+          <span class="file-note">Массовая загрузка добавляет файлы как новые карточки в этот раздел.</span>
         </form>
       <?php endforeach; ?>
     </div>
@@ -1235,10 +1247,12 @@ $collections = [
       + '<div class="media-grid">'
       + '  <div class="media-block">'
       + '    <div class="media-head">Фото</div>'
-      + '    <label>URL фото'
-      + '      <div class="image-urls" data-image-urls></div>'
-      + '      <button type="button" data-add-image-url>Добавить URL фото</button>'
-      + '    </label>'
+      + '    <details class="media-details"><summary>URL фото (опционально)</summary>'
+      + '      <label>'
+      + '        <div class="image-urls" data-image-urls></div>'
+      + '        <button type="button" data-add-image-url>Добавить URL фото</button>'
+      + '      </label>'
+      + '    </details>'
       + '    <label>Загрузка фото (несколько файлов)'
       + '      <input type="file" data-field="item-upload-images" accept="image/png,image/jpeg,image/webp,image/gif" multiple>'
       + '      <span class="file-note">JPG, PNG, WEBP, GIF, до 8 МБ на файл.</span>'
@@ -1246,10 +1260,12 @@ $collections = [
       + '  </div>'
       + '  <div class="media-block">'
       + '    <div class="media-head">Видео</div>'
-      + '    <label>URL видео'
-      + '      <div class="video-urls" data-video-urls></div>'
-      + '      <button type="button" data-add-video-url>Добавить URL видео</button>'
-      + '    </label>'
+      + '    <details class="media-details"><summary>URL видео (опционально)</summary>'
+      + '      <label>'
+      + '        <div class="video-urls" data-video-urls></div>'
+      + '        <button type="button" data-add-video-url>Добавить URL видео</button>'
+      + '      </label>'
+      + '    </details>'
       + '    <label>Загрузка видео (несколько файлов)'
       + '      <input type="file" data-field="item-upload-videos" accept="video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>'
       + '      <span class="file-note">MP4, WEBM, OGG, MOV, M4V, до 64 МБ на файл.</span>'
