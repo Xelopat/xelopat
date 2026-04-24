@@ -27,6 +27,17 @@ function admin_decode_config(string $json): array {
     return is_array($decoded) ? $decoded : [];
 }
 
+function admin_clean_image_urls($raw): array {
+    if (!is_array($raw)) return [];
+    $out = [];
+    foreach ($raw as $value) {
+        $url = trim((string)$value);
+        if ($url === '') continue;
+        $out[] = $url;
+    }
+    return array_values(array_unique($out));
+}
+
 function admin_save_config_array(string $config_path, array $decoded, string &$err): ?string {
     $dir = dirname($config_path);
     if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
@@ -58,10 +69,18 @@ function admin_load_collection(array $config, string $primary, string $fallback 
     $out = [];
     foreach ($raw as $item) {
         if (!is_array($item)) continue;
+        $images = admin_clean_image_urls($item['images'] ?? []);
+        if (!$images) {
+            $legacy_image = trim((string)($item['image'] ?? ''));
+            if ($legacy_image !== '') {
+                $images[] = $legacy_image;
+            }
+        }
         $out[] = [
             'title' => (string)($item['title'] ?? ''),
             'description' => (string)($item['description'] ?? ''),
-            'image' => (string)($item['image'] ?? ''),
+            'images' => $images,
+            'image' => $images[0] ?? '',
         ];
     }
     return $out;
@@ -70,6 +89,16 @@ function admin_load_collection(array $config, string $primary, string $fallback 
 function admin_file_count(?array $files): int {
     if (!$files || !isset($files['name']) || !is_array($files['name'])) return 0;
     return count($files['name']);
+}
+
+function admin_nested_item_count(?array $files): int {
+    if (!$files || !isset($files['name']) || !is_array($files['name'])) return 0;
+    return count($files['name']);
+}
+
+function admin_nested_file_count(?array $files, int $item_index): int {
+    if (!$files || !isset($files['name'][$item_index]) || !is_array($files['name'][$item_index])) return 0;
+    return count($files['name'][$item_index]);
 }
 
 function admin_save_uploaded_image(?array $files, int $index, string &$err): string {
@@ -88,6 +117,80 @@ function admin_save_uploaded_image(?array $files, int $index, string &$err): str
     $tmp = (string)($files['tmp_name'][$index] ?? '');
     $name = (string)($files['name'][$index] ?? '');
     $size = (int)($files['size'][$index] ?? 0);
+
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        $err = 'Невалидный временный файл загрузки.';
+        return '';
+    }
+    if ($size <= 0 || $size > 8 * 1024 * 1024) {
+        $err = 'Фото слишком большое. Лимит: 8 МБ.';
+        return '';
+    }
+
+    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+    $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    if (!in_array($ext, $allowed_ext, true)) {
+        $err = 'Разрешены только JPG, PNG, WEBP, GIF.';
+        return '';
+    }
+
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo) {
+            $mime = (string)finfo_file($finfo, $tmp);
+            finfo_close($finfo);
+            $allowed_mime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            if ($mime !== '' && !in_array($mime, $allowed_mime, true)) {
+                $err = 'Файл не похож на изображение.';
+                return '';
+            }
+        }
+    }
+
+    $doc_root = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? __DIR__), '/\\');
+    $upload_dir = $doc_root . '/uploads/site';
+    if (!is_dir($upload_dir) && !mkdir($upload_dir, 0775, true) && !is_dir($upload_dir)) {
+        $err = 'Не удалось создать папку uploads/site.';
+        return '';
+    }
+
+    try {
+        $rand = bin2hex(random_bytes(4));
+    } catch (Throwable $e) {
+        $rand = bin2hex(pack('N', mt_rand()));
+    }
+    $filename = 'card_' . date('Ymd_His') . '_' . $rand . '.' . $ext;
+    $dest = $upload_dir . '/' . $filename;
+
+    if (!move_uploaded_file($tmp, $dest)) {
+        $err = 'Не удалось сохранить загруженное фото.';
+        return '';
+    }
+
+    return '/uploads/site/' . $filename;
+}
+
+function admin_save_uploaded_image_nested(?array $files, int $item_index, int $file_index, string &$err): string {
+    $err = '';
+    if (
+        !$files
+        || !isset($files['error'][$item_index])
+        || !is_array($files['error'][$item_index])
+        || !array_key_exists($file_index, $files['error'][$item_index])
+    ) {
+        return '';
+    }
+
+    $error = (int)$files['error'][$item_index][$file_index];
+    if ($error === UPLOAD_ERR_NO_FILE) return '';
+    if ($error !== UPLOAD_ERR_OK) {
+        $err = 'Ошибка загрузки файла (код: ' . $error . ').';
+        return '';
+    }
+
+    $tmp = (string)($files['tmp_name'][$item_index][$file_index] ?? '');
+    $name = (string)($files['name'][$item_index][$file_index] ?? '');
+    $size = (int)($files['size'][$item_index][$file_index] ?? 0);
 
     if ($tmp === '' || !is_uploaded_file($tmp)) {
         $err = 'Невалидный временный файл загрузки.';
@@ -177,39 +280,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $titles = $_POST['item_title'] ?? [];
                 $descriptions = $_POST['item_description'] ?? [];
-                $images = $_POST['item_image'] ?? [];
-                $uploads = $_FILES['item_upload_image'] ?? null;
+                $images_by_item = $_POST['item_images'] ?? [];
+                $legacy_images = $_POST['item_image'] ?? [];
+                $uploads_nested = $_FILES['item_upload_images'] ?? null;
+                $uploads_legacy = $_FILES['item_upload_image'] ?? null;
 
                 if (!is_array($titles)) $titles = [];
                 if (!is_array($descriptions)) $descriptions = [];
-                if (!is_array($images)) $images = [];
+                if (!is_array($images_by_item)) $images_by_item = [];
+                if (!is_array($legacy_images)) $legacy_images = [];
 
-                $max_count = max(count($titles), count($descriptions), count($images), admin_file_count($uploads));
+                $max_count = max(
+                    count($titles),
+                    count($descriptions),
+                    count($images_by_item),
+                    count($legacy_images),
+                    admin_nested_item_count($uploads_nested),
+                    admin_file_count($uploads_legacy)
+                );
                 $items = [];
 
                 for ($i = 0; $i < $max_count; $i++) {
                     $title = trim((string)($titles[$i] ?? ''));
                     $description = trim((string)($descriptions[$i] ?? ''));
-                    $image = trim((string)($images[$i] ?? ''));
+                    $images = admin_clean_image_urls($images_by_item[$i] ?? []);
+
+                    if (!$images) {
+                        $legacy_image = trim((string)($legacy_images[$i] ?? ''));
+                        if ($legacy_image !== '') {
+                            $images[] = $legacy_image;
+                        }
+                    }
 
                     $upload_err = '';
-                    $uploaded = admin_save_uploaded_image($uploads, $i, $upload_err);
+                    $uploaded = admin_save_uploaded_image($uploads_legacy, $i, $upload_err);
                     if ($upload_err !== '') {
                         $err = $upload_err;
                         break;
                     }
                     if ($uploaded !== '') {
-                        $image = $uploaded;
+                        $images[] = $uploaded;
                     }
 
-                    if ($title === '' && $description === '' && $image === '') {
+                    $nested_count = admin_nested_file_count($uploads_nested, $i);
+                    for ($j = 0; $j < $nested_count; $j++) {
+                        $nested_err = '';
+                        $nested_uploaded = admin_save_uploaded_image_nested($uploads_nested, $i, $j, $nested_err);
+                        if ($nested_err !== '') {
+                            $err = $nested_err;
+                            break 2;
+                        }
+                        if ($nested_uploaded !== '') {
+                            $images[] = $nested_uploaded;
+                        }
+                    }
+
+                    $images = array_values(array_unique($images));
+                    if ($title === '' && $description === '' && !$images) {
                         continue;
                     }
 
                     $items[] = [
                         'title' => $title !== '' ? $title : 'Без названия',
                         'description' => $description,
-                        'image' => $image,
+                        'images' => $images,
+                        'image' => $images[0] ?? '',
                     ];
                 }
 
@@ -253,9 +388,9 @@ $projects = admin_load_collection($config_data, 'cards', 'projects');
 $travels = admin_load_collection($config_data, 'travels', 'travel');
 $photos = admin_load_collection($config_data, 'photos', 'photo');
 
-if (!$projects) $projects[] = ['title' => '', 'description' => '', 'image' => ''];
-if (!$travels) $travels[] = ['title' => '', 'description' => '', 'image' => ''];
-if (!$photos) $photos[] = ['title' => '', 'description' => '', 'image' => ''];
+if (!$projects) $projects[] = ['title' => '', 'description' => '', 'images' => [''], 'image' => ''];
+if (!$travels) $travels[] = ['title' => '', 'description' => '', 'images' => [''], 'image' => ''];
+if (!$photos) $photos[] = ['title' => '', 'description' => '', 'images' => [''], 'image' => ''];
 
 $collections = [
     ['key' => 'cards', 'title' => 'Проекты', 'hint' => 'Раздел /projects/index.php', 'items' => $projects, 'list_id' => 'projectsList'],
@@ -292,7 +427,7 @@ $collections = [
       width:100%;min-height:320px;border:1px solid #333340;border-radius:12px;background:#151518;color:#efeff1;
       padding:14px;font:12px/1.6 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical;outline:none
     }
-    .collection-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+    .collection-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px}
     .projects-list{display:grid;gap:10px}
     .project-item{border:1px solid #333340;border-radius:12px;padding:12px;background:#1a1a21;display:grid;gap:10px}
     .project-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -303,6 +438,10 @@ $collections = [
     }
     .project-item input[type="file"]{padding:8px}
     .project-item textarea{min-height:90px;resize:vertical}
+    .image-urls{display:grid;gap:8px}
+    .image-url-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+    .remove-image-url{border-color:#4b2a2a;color:#ffb0b0;padding:8px 11px}
+    .remove-image-url:hover{background:#312024}
     .project-tools{display:flex;justify-content:flex-end}
     .remove-project{border-color:#4b2a2a;color:#ffb0b0}
     .remove-project:hover{background:#312024}
@@ -315,8 +454,7 @@ $collections = [
     .hint-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
     .hint{border:1px solid #333340;border-radius:12px;padding:12px;background:#151518}
     .hint code{font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#f9c940}
-    @media (max-width: 1100px){.collection-grid{grid-template-columns:1fr}}
-    @media (max-width: 900px){.project-row,.hint-grid{grid-template-columns:1fr}}
+    @media (max-width: 900px){.project-row,.hint-grid,.image-url-row{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -358,28 +496,45 @@ $collections = [
           </div>
 
           <div class="projects-list" id="<?= admin_h((string)$collection['list_id']) ?>" data-collection-list>
-            <?php foreach ((array)$collection['items'] as $item): ?>
+            <?php foreach ((array)$collection['items'] as $item_index => $item): ?>
+              <?php
+                $item_images = $item['images'] ?? [];
+                if (!is_array($item_images) || !$item_images) {
+                    $item_images = [((string)($item['image'] ?? ''))];
+                }
+                if (!$item_images) {
+                    $item_images = [''];
+                }
+              ?>
               <div class="project-item" data-project-item>
                 <div class="project-row">
                   <label>
                     Название
-                    <input type="text" name="item_title[]" value="<?= admin_h((string)($item['title'] ?? '')) ?>" placeholder="Название">
+                    <input type="text" data-field="item-title" name="item_title[<?= (int)$item_index ?>]" value="<?= admin_h((string)($item['title'] ?? '')) ?>" placeholder="Название">
                   </label>
                   <label>
-                    Фото (URL или путь)
-                    <input type="text" name="item_image[]" value="<?= admin_h((string)($item['image'] ?? '')) ?>" placeholder="/uploads/site/example.jpg">
+                    Фото (URL или путь, можно несколько)
+                    <div class="image-urls" data-image-urls>
+                      <?php foreach ($item_images as $image_url): ?>
+                        <div class="image-url-row">
+                          <input type="text" data-field="item-image-url" name="item_images[<?= (int)$item_index ?>][]" value="<?= admin_h((string)$image_url) ?>" placeholder="/uploads/site/example.jpg">
+                          <button type="button" class="remove-image-url" data-remove-image-url>Убрать</button>
+                        </div>
+                      <?php endforeach; ?>
+                    </div>
+                    <button type="button" data-add-image-url>Добавить URL фото</button>
                   </label>
                 </div>
 
                 <label>
                   Описание
-                  <textarea name="item_description[]" placeholder="Коротко о карточке"><?= admin_h((string)($item['description'] ?? '')) ?></textarea>
+                  <textarea data-field="item-description" name="item_description[<?= (int)$item_index ?>]" placeholder="Коротко о карточке"><?= admin_h((string)($item['description'] ?? '')) ?></textarea>
                 </label>
 
                 <label>
-                  Загрузка фото
-                  <input type="file" name="item_upload_image[]" accept="image/png,image/jpeg,image/webp,image/gif">
-                  <span class="file-note">Если загрузишь файл, он заменит поле пути для этой карточки.</span>
+                  Загрузка фото (можно несколько)
+                  <input type="file" data-field="item-upload-images" name="item_upload_images[<?= (int)$item_index ?>][]" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
+                  <span class="file-note">Можно выбрать несколько файлов: они добавятся к списку фото карточки.</span>
                 </label>
 
                 <div class="project-tools">
@@ -391,7 +546,7 @@ $collections = [
 
           <div class="actions">
             <button type="button" data-add-item data-target="<?= admin_h((string)$collection['list_id']) ?>">Добавить карточку</button>
-            <button class="primary" type="submit">Сохранить <?= admin_h((string)$collection['title']) ?></button>
+            <button class="primary" type="submit">Сохранить</button>
           </div>
         </form>
       <?php endforeach; ?>
@@ -502,21 +657,73 @@ $collections = [
     });
   }
 
+  function makeImageUrlRow(value) {
+    const row = document.createElement('div');
+    row.className = 'image-url-row';
+    row.innerHTML = ''
+      + '<input type="text" data-field="item-image-url" placeholder="/uploads/site/example.jpg">'
+      + '<button type="button" class="remove-image-url" data-remove-image-url>Убрать</button>';
+    const input = row.querySelector('input[data-field="item-image-url"]');
+    if (input instanceof HTMLInputElement) {
+      input.value = value || '';
+    }
+    return row;
+  }
+
+  function renumberCollection(list) {
+    const items = list.querySelectorAll('[data-project-item]');
+    items.forEach((item, itemIndex) => {
+      const title = item.querySelector('input[data-field="item-title"]');
+      if (title instanceof HTMLInputElement) {
+        title.name = `item_title[${itemIndex}]`;
+      }
+
+      const description = item.querySelector('textarea[data-field="item-description"]');
+      if (description instanceof HTMLTextAreaElement) {
+        description.name = `item_description[${itemIndex}]`;
+      }
+
+      const upload = item.querySelector('input[data-field="item-upload-images"]');
+      if (upload instanceof HTMLInputElement) {
+        upload.name = `item_upload_images[${itemIndex}][]`;
+      }
+
+      item.querySelectorAll('input[data-field="item-image-url"]').forEach((input) => {
+        if (input instanceof HTMLInputElement) {
+          input.name = `item_images[${itemIndex}][]`;
+        }
+      });
+    });
+  }
+
+  function renumberAllCollections(root) {
+    const scope = root instanceof Element ? root : document;
+    scope.querySelectorAll('[data-collection-list]').forEach((list) => renumberCollection(list));
+  }
+
   function makeItem() {
     const item = document.createElement('div');
     item.className = 'project-item';
     item.setAttribute('data-project-item', '1');
     item.innerHTML = ''
       + '<div class="project-row">'
-      + '  <label>Название<input type="text" name="item_title[]" placeholder="Название"></label>'
-      + '  <label>Фото (URL или путь)<input type="text" name="item_image[]" placeholder="/uploads/site/example.jpg"></label>'
+      + '  <label>Название<input type="text" data-field="item-title" placeholder="Название"></label>'
+      + '  <label>Фото (URL или путь, можно несколько)'
+      + '    <div class="image-urls" data-image-urls></div>'
+      + '    <button type="button" data-add-image-url>Добавить URL фото</button>'
+      + '  </label>'
       + '</div>'
-      + '<label>Описание<textarea name="item_description[]" placeholder="Коротко о карточке"></textarea></label>'
-      + '<label>Загрузка фото'
-      + '  <input type="file" name="item_upload_image[]" accept="image/png,image/jpeg,image/webp,image/gif">'
-      + '  <span class="file-note">Если загрузишь файл, он заменит поле пути для этой карточки.</span>'
+      + '<label>Описание<textarea data-field="item-description" placeholder="Коротко о карточке"></textarea></label>'
+      + '<label>Загрузка фото (можно несколько)'
+      + '  <input type="file" data-field="item-upload-images" accept="image/png,image/jpeg,image/webp,image/gif" multiple>'
+      + '  <span class="file-note">Можно выбрать несколько файлов: они добавятся к списку фото карточки.</span>'
       + '</label>'
       + '<div class="project-tools"><button type="button" class="remove-project" data-remove-project>Удалить</button></div>';
+
+    const urls = item.querySelector('[data-image-urls]');
+    if (urls) {
+      urls.appendChild(makeImageUrlRow(''));
+    }
     return item;
   }
 
@@ -527,6 +734,7 @@ $collections = [
       const list = document.getElementById(target);
       if (!list) return;
       list.appendChild(makeItem());
+      renumberCollection(list);
     });
   });
 
@@ -534,17 +742,48 @@ $collections = [
     list.addEventListener('click', function (event) {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
+
+      if (target.hasAttribute('data-add-image-url')) {
+        const item = target.closest('[data-project-item]');
+        if (!item) return;
+        const urls = item.querySelector('[data-image-urls]');
+        if (!urls) return;
+        urls.appendChild(makeImageUrlRow(''));
+        renumberCollection(list);
+        return;
+      }
+
+      if (target.hasAttribute('data-remove-image-url')) {
+        const row = target.closest('.image-url-row');
+        if (!row) return;
+        const item = target.closest('[data-project-item]');
+        if (!item) return;
+        const rows = item.querySelectorAll('.image-url-row');
+        if (rows.length <= 1) {
+          const input = row.querySelector('input[data-field="item-image-url"]');
+          if (input instanceof HTMLInputElement) input.value = '';
+          return;
+        }
+        row.remove();
+        renumberCollection(list);
+        return;
+      }
+
       if (!target.hasAttribute('data-remove-project')) return;
       const items = list.querySelectorAll('[data-project-item]');
       if (items.length <= 1) return;
       const row = target.closest('[data-project-item]');
       if (row) row.remove();
+      renumberCollection(list);
     });
   });
+
+  renumberAllCollections(document);
 
   document.querySelectorAll('.js-admin-save-form').forEach((form) => {
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
+      renumberAllCollections(form);
       setFormPending(form, true);
 
       const body = new FormData(form);

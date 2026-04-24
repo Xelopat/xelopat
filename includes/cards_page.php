@@ -26,15 +26,39 @@ function cards_e(string $value): string {
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+function cards_normalize_images($item): array {
+    if (!is_array($item)) return [];
+
+    $images = [];
+    if (isset($item['images']) && is_array($item['images'])) {
+        foreach ($item['images'] as $image) {
+            $url = trim((string)$image);
+            if ($url === '') continue;
+            $images[] = $url;
+        }
+    }
+
+    if (!$images) {
+        $legacy = trim((string)($item['image'] ?? ''));
+        if ($legacy !== '') {
+            $images[] = $legacy;
+        }
+    }
+
+    return array_values(array_unique($images));
+}
+
 function cards_normalize($items): array {
     if (!is_array($items)) return [];
     $out = [];
     foreach ($items as $item) {
         if (!is_array($item)) continue;
+        $images = cards_normalize_images($item);
         $out[] = [
             'title' => (string)($item['title'] ?? 'Без названия'),
             'description' => (string)($item['description'] ?? ''),
-            'image' => (string)($item['image'] ?? ''),
+            'images' => $images,
+            'image' => $images[0] ?? '',
         ];
     }
     return $out;
@@ -73,8 +97,28 @@ if (!$items && $fallback_key !== '') {
     .sec-title{font-size:28px;font-weight:700;margin:0 0 18px}
     .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
     .card{background:#1e1e25;border:1px solid #333340;border-radius:12px;overflow:hidden}
-    .card-media{width:100%;aspect-ratio:16/9;background:#151518;border-bottom:1px solid #333340}
-    .card-media img{width:100%;height:100%;object-fit:cover;display:block}
+    .card-media{
+      width:100%;
+      aspect-ratio:16/9;
+      background:#151518;
+      border-bottom:1px solid #333340;
+      display:flex;
+      overflow-x:auto;
+      scroll-snap-type:x mandatory;
+      scrollbar-width:thin;
+      scrollbar-color:#333340 #151518;
+    }
+    .card-media img{
+      flex:0 0 100%;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+      scroll-snap-align:start;
+    }
+    .card-media::-webkit-scrollbar{height:8px}
+    .card-media::-webkit-scrollbar-track{background:#151518}
+    .card-media::-webkit-scrollbar-thumb{background:#333340;border-radius:999px}
     .card-inner{padding:14px 16px}
     .card-title{font-size:16px;font-weight:700;margin:0 0 6px}
     .card-desc{margin:0;font-size:13px;line-height:1.55;color:#868899}
@@ -99,8 +143,10 @@ if (!$items && $fallback_key !== '') {
       <?php foreach ($items as $item): ?>
         <article class="card">
           <div class="card-media">
-            <?php if ($item['image'] !== ''): ?>
-              <img src="<?= cards_e($item['image']) ?>" alt="<?= cards_e($item['title']) ?>">
+            <?php if ($item['images']): ?>
+              <?php foreach ($item['images'] as $image_index => $image): ?>
+                <img src="<?= cards_e((string)$image) ?>" alt="<?= cards_e($item['title'] . ' #' . ((int)$image_index + 1)) ?>">
+              <?php endforeach; ?>
             <?php endif; ?>
           </div>
           <div class="card-inner">

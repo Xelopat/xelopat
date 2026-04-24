@@ -24,6 +24,17 @@ function admin_decode_config(string $json): array {
     return is_array($decoded) ? $decoded : [];
 }
 
+function admin_clean_image_urls($raw): array {
+    if (!is_array($raw)) return [];
+    $out = [];
+    foreach ($raw as $value) {
+        $url = trim((string)$value);
+        if ($url === '') continue;
+        $out[] = $url;
+    }
+    return array_values(array_unique($out));
+}
+
 function admin_save_config_array(string $config_path, array $decoded, string &$err): ?string {
     $dir = dirname($config_path);
     if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
@@ -50,6 +61,16 @@ function admin_file_count(?array $files): int {
     return count($files['name']);
 }
 
+function admin_nested_item_count(?array $files): int {
+    if (!$files || !isset($files['name']) || !is_array($files['name'])) return 0;
+    return count($files['name']);
+}
+
+function admin_nested_file_count(?array $files, int $item_index): int {
+    if (!$files || !isset($files['name'][$item_index]) || !is_array($files['name'][$item_index])) return 0;
+    return count($files['name'][$item_index]);
+}
+
 function admin_save_uploaded_image(?array $files, int $index, string &$err): string {
     $err = '';
     if (!$files || !isset($files['error']) || !is_array($files['error']) || !array_key_exists($index, $files['error'])) {
@@ -66,6 +87,80 @@ function admin_save_uploaded_image(?array $files, int $index, string &$err): str
     $tmp = (string)($files['tmp_name'][$index] ?? '');
     $name = (string)($files['name'][$index] ?? '');
     $size = (int)($files['size'][$index] ?? 0);
+
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        $err = 'Невалидный временный файл загрузки.';
+        return '';
+    }
+    if ($size <= 0 || $size > 8 * 1024 * 1024) {
+        $err = 'Фото слишком большое. Лимит: 8 МБ.';
+        return '';
+    }
+
+    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+    $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    if (!in_array($ext, $allowed_ext, true)) {
+        $err = 'Разрешены только JPG, PNG, WEBP, GIF.';
+        return '';
+    }
+
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo) {
+            $mime = (string)finfo_file($finfo, $tmp);
+            finfo_close($finfo);
+            $allowed_mime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            if ($mime !== '' && !in_array($mime, $allowed_mime, true)) {
+                $err = 'Файл не похож на изображение.';
+                return '';
+            }
+        }
+    }
+
+    $doc_root = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? __DIR__), '/\\');
+    $upload_dir = $doc_root . '/uploads/site';
+    if (!is_dir($upload_dir) && !mkdir($upload_dir, 0775, true) && !is_dir($upload_dir)) {
+        $err = 'Не удалось создать папку uploads/site.';
+        return '';
+    }
+
+    try {
+        $rand = bin2hex(random_bytes(4));
+    } catch (Throwable $e) {
+        $rand = bin2hex(pack('N', mt_rand()));
+    }
+    $filename = 'card_' . date('Ymd_His') . '_' . $rand . '.' . $ext;
+    $dest = $upload_dir . '/' . $filename;
+
+    if (!move_uploaded_file($tmp, $dest)) {
+        $err = 'Не удалось сохранить загруженное фото.';
+        return '';
+    }
+
+    return '/uploads/site/' . $filename;
+}
+
+function admin_save_uploaded_image_nested(?array $files, int $item_index, int $file_index, string &$err): string {
+    $err = '';
+    if (
+        !$files
+        || !isset($files['error'][$item_index])
+        || !is_array($files['error'][$item_index])
+        || !array_key_exists($file_index, $files['error'][$item_index])
+    ) {
+        return '';
+    }
+
+    $error = (int)$files['error'][$item_index][$file_index];
+    if ($error === UPLOAD_ERR_NO_FILE) return '';
+    if ($error !== UPLOAD_ERR_OK) {
+        $err = 'Ошибка загрузки файла (код: ' . $error . ').';
+        return '';
+    }
+
+    $tmp = (string)($files['tmp_name'][$item_index][$file_index] ?? '');
+    $name = (string)($files['name'][$item_index][$file_index] ?? '');
+    $size = (int)($files['size'][$item_index][$file_index] ?? 0);
 
     if ($tmp === '' || !is_uploaded_file($tmp)) {
         $err = 'Невалидный временный файл загрузки.';
@@ -169,38 +264,69 @@ if ($action === 'save_collection') {
     $decoded = admin_decode_config($config_json);
     $titles = $_POST['item_title'] ?? [];
     $descriptions = $_POST['item_description'] ?? [];
-    $images = $_POST['item_image'] ?? [];
-    $uploads = $_FILES['item_upload_image'] ?? null;
+    $images_by_item = $_POST['item_images'] ?? [];
+    $legacy_images = $_POST['item_image'] ?? [];
+    $uploads_nested = $_FILES['item_upload_images'] ?? null;
+    $uploads_legacy = $_FILES['item_upload_image'] ?? null;
 
     if (!is_array($titles)) $titles = [];
     if (!is_array($descriptions)) $descriptions = [];
-    if (!is_array($images)) $images = [];
+    if (!is_array($images_by_item)) $images_by_item = [];
+    if (!is_array($legacy_images)) $legacy_images = [];
 
-    $max_count = max(count($titles), count($descriptions), count($images), admin_file_count($uploads));
+    $max_count = max(
+        count($titles),
+        count($descriptions),
+        count($images_by_item),
+        count($legacy_images),
+        admin_nested_item_count($uploads_nested),
+        admin_file_count($uploads_legacy)
+    );
     $items = [];
 
     for ($i = 0; $i < $max_count; $i++) {
         $title = trim((string)($titles[$i] ?? ''));
         $description = trim((string)($descriptions[$i] ?? ''));
-        $image = trim((string)($images[$i] ?? ''));
+        $images = admin_clean_image_urls($images_by_item[$i] ?? []);
+
+        if (!$images) {
+            $legacy_image = trim((string)($legacy_images[$i] ?? ''));
+            if ($legacy_image !== '') {
+                $images[] = $legacy_image;
+            }
+        }
 
         $upload_err = '';
-        $uploaded = admin_save_uploaded_image($uploads, $i, $upload_err);
+        $uploaded = admin_save_uploaded_image($uploads_legacy, $i, $upload_err);
         if ($upload_err !== '') {
             admin_json_response(false, $upload_err);
         }
         if ($uploaded !== '') {
-            $image = $uploaded;
+            $images[] = $uploaded;
         }
 
-        if ($title === '' && $description === '' && $image === '') {
+        $nested_count = admin_nested_file_count($uploads_nested, $i);
+        for ($j = 0; $j < $nested_count; $j++) {
+            $nested_err = '';
+            $nested_uploaded = admin_save_uploaded_image_nested($uploads_nested, $i, $j, $nested_err);
+            if ($nested_err !== '') {
+                admin_json_response(false, $nested_err);
+            }
+            if ($nested_uploaded !== '') {
+                $images[] = $nested_uploaded;
+            }
+        }
+
+        $images = array_values(array_unique($images));
+        if ($title === '' && $description === '' && !$images) {
             continue;
         }
 
         $items[] = [
             'title' => $title !== '' ? $title : 'Без названия',
             'description' => $description,
-            'image' => $image,
+            'images' => $images,
+            'image' => $images[0] ?? '',
         ];
     }
 

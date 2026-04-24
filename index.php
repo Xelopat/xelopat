@@ -29,15 +29,39 @@ function e(string $value): string {
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+function normalize_images($item): array {
+    if (!is_array($item)) return [];
+
+    $images = [];
+    if (isset($item['images']) && is_array($item['images'])) {
+        foreach ($item['images'] as $img) {
+            $url = trim((string)$img);
+            if ($url === '') continue;
+            $images[] = $url;
+        }
+    }
+
+    if (!$images) {
+        $legacy = trim((string)($item['image'] ?? ''));
+        if ($legacy !== '') {
+            $images[] = $legacy;
+        }
+    }
+
+    return array_values(array_unique($images));
+}
+
 function normalize_cards($items): array {
     if (!is_array($items)) return [];
     $out = [];
     foreach ($items as $item) {
         if (!is_array($item)) continue;
+        $images = normalize_images($item);
         $out[] = [
             'title' => (string)($item['title'] ?? 'Без названия'),
             'description' => (string)($item['description'] ?? ''),
-            'image' => (string)($item['image'] ?? ''),
+            'images' => $images,
+            'image' => $images[0] ?? '',
         ];
     }
     return $out;
@@ -286,12 +310,29 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     aspect-ratio:16 / 9;
     background:#151518;
     border-bottom:1px solid #333340;
+    display:flex;
+    overflow-x:auto;
+    scroll-snap-type:x mandatory;
+    scrollbar-width:thin;
+    scrollbar-color:#333340 #151518;
   }
   .card-media img{
+    flex:0 0 100%;
     width:100%;
     height:100%;
     object-fit:cover;
     display:block;
+    scroll-snap-align:start;
+  }
+  .card-media::-webkit-scrollbar{
+    height:8px;
+  }
+  .card-media::-webkit-scrollbar-track{
+    background:#151518;
+  }
+  .card-media::-webkit-scrollbar-thumb{
+    background:#333340;
+    border-radius:999px;
   }
   .card-inner{ padding:14px 16px; }
   .card-title{ font-size:15px; font-weight:700; margin-bottom:6px; line-height:1.4; }
@@ -432,12 +473,18 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
             <?php
               $title = (string)($travel['title'] ?? 'Без названия');
               $description = (string)($travel['description'] ?? '');
-              $image = (string)($travel['image'] ?? '');
+              $images = $travel['images'] ?? [];
+              if (!is_array($images) || !$images) {
+                  $legacy = trim((string)($travel['image'] ?? ''));
+                  $images = $legacy !== '' ? [$legacy] : [];
+              }
             ?>
             <article class="card">
               <div class="card-media">
-                <?php if ($image !== ''): ?>
-                  <img src="<?= e($image) ?>" alt="<?= e($title) ?>">
+                <?php if ($images): ?>
+                  <?php foreach ($images as $image_index => $image): ?>
+                    <img src="<?= e((string)$image) ?>" alt="<?= e($title . ' #' . ((int)$image_index + 1)) ?>">
+                  <?php endforeach; ?>
                 <?php endif; ?>
               </div>
               <div class="card-inner">
@@ -459,12 +506,18 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
             <?php
               $title = (string)($photo['title'] ?? 'Без названия');
               $description = (string)($photo['description'] ?? '');
-              $image = (string)($photo['image'] ?? '');
+              $images = $photo['images'] ?? [];
+              if (!is_array($images) || !$images) {
+                  $legacy = trim((string)($photo['image'] ?? ''));
+                  $images = $legacy !== '' ? [$legacy] : [];
+              }
             ?>
             <article class="card">
               <div class="card-media">
-                <?php if ($image !== ''): ?>
-                  <img src="<?= e($image) ?>" alt="<?= e($title) ?>">
+                <?php if ($images): ?>
+                  <?php foreach ($images as $image_index => $image): ?>
+                    <img src="<?= e((string)$image) ?>" alt="<?= e($title . ' #' . ((int)$image_index + 1)) ?>">
+                  <?php endforeach; ?>
                 <?php endif; ?>
               </div>
               <div class="card-inner">
