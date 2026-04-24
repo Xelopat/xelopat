@@ -98,6 +98,7 @@ function admin_load_collection(array $config, string $primary, string $fallback 
             'title' => (string)($item['title'] ?? ''),
             'date' => (string)($item['date'] ?? ''),
             'description' => (string)($item['description'] ?? ''),
+            'details' => (string)($item['details'] ?? ''),
             'images' => $images,
             'image' => $images[0] ?? '',
             'videos' => $videos,
@@ -122,6 +123,10 @@ function admin_nested_file_count(?array $files, int $item_index): int {
     return count($files['name'][$item_index]);
 }
 
+function admin_image_max_bytes(): int {
+    return 20 * 1024 * 1024;
+}
+
 function admin_save_uploaded_image(?array $files, int $index, string &$err): string {
     $err = '';
     if (!$files || !isset($files['error']) || !is_array($files['error']) || !array_key_exists($index, $files['error'])) {
@@ -143,15 +148,15 @@ function admin_save_uploaded_image(?array $files, int $index, string &$err): str
         $err = 'Невалидный временный файл загрузки.';
         return '';
     }
-    if ($size <= 0 || $size > 8 * 1024 * 1024) {
-        $err = 'Фото слишком большое. Лимит: 8 МБ.';
+    if ($size <= 0 || $size > admin_image_max_bytes()) {
+        $err = 'Фото слишком большое. Лимит: 20 МБ.';
         return '';
     }
 
     $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-    $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic', 'heif'];
     if (!in_array($ext, $allowed_ext, true)) {
-        $err = 'Разрешены только JPG, PNG, WEBP, GIF.';
+        $err = 'Разрешены JPG, PNG, WEBP, GIF, AVIF, HEIC, HEIF.';
         return '';
     }
 
@@ -160,7 +165,19 @@ function admin_save_uploaded_image(?array $files, int $index, string &$err): str
         if ($finfo) {
             $mime = (string)finfo_file($finfo, $tmp);
             finfo_close($finfo);
-            $allowed_mime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            $allowed_mime = [
+                'image/jpeg',
+                'image/jpg',
+                'image/png',
+                'image/webp',
+                'image/gif',
+                'image/avif',
+                'image/heic',
+                'image/heif',
+                'image/heif-sequence',
+                'image/heic-sequence',
+                'application/octet-stream',
+            ];
             if ($mime !== '' && !in_array($mime, $allowed_mime, true)) {
                 $err = 'Файл не похож на изображение.';
                 return '';
@@ -217,15 +234,15 @@ function admin_save_uploaded_image_nested(?array $files, int $item_index, int $f
         $err = 'Невалидный временный файл загрузки.';
         return '';
     }
-    if ($size <= 0 || $size > 8 * 1024 * 1024) {
-        $err = 'Фото слишком большое. Лимит: 8 МБ.';
+    if ($size <= 0 || $size > admin_image_max_bytes()) {
+        $err = 'Фото слишком большое. Лимит: 20 МБ.';
         return '';
     }
 
     $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-    $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic', 'heif'];
     if (!in_array($ext, $allowed_ext, true)) {
-        $err = 'Разрешены только JPG, PNG, WEBP, GIF.';
+        $err = 'Разрешены JPG, PNG, WEBP, GIF, AVIF, HEIC, HEIF.';
         return '';
     }
 
@@ -234,7 +251,19 @@ function admin_save_uploaded_image_nested(?array $files, int $item_index, int $f
         if ($finfo) {
             $mime = (string)finfo_file($finfo, $tmp);
             finfo_close($finfo);
-            $allowed_mime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            $allowed_mime = [
+                'image/jpeg',
+                'image/jpg',
+                'image/png',
+                'image/webp',
+                'image/gif',
+                'image/avif',
+                'image/heic',
+                'image/heif',
+                'image/heif-sequence',
+                'image/heic-sequence',
+                'application/octet-stream',
+            ];
             if ($mime !== '' && !in_array($mime, $allowed_mime, true)) {
                 $err = 'Файл не похож на изображение.';
                 return '';
@@ -410,7 +439,7 @@ function admin_save_uploaded_video_nested(?array $files, int $item_index, int $f
 
 function admin_guess_media_kind(string $name, string $tmp): string {
     $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-    $image_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    $image_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic', 'heif'];
     $video_ext = ['mp4', 'webm', 'ogg', 'mov', 'm4v'];
     if (in_array($ext, $image_ext, true)) return 'image';
     if (in_array($ext, $video_ext, true)) return 'video';
@@ -454,8 +483,8 @@ function admin_save_uploaded_media(?array $files, int $index, string &$err): arr
         $err = 'Разрешены только фото и видео файлы.';
         return ['path' => '', 'kind' => ''];
     }
-    if ($kind === 'image' && ($size <= 0 || $size > 8 * 1024 * 1024)) {
-        $err = 'Фото слишком большое. Лимит: 8 МБ.';
+    if ($kind === 'image' && ($size <= 0 || $size > admin_image_max_bytes())) {
+        $err = 'Фото слишком большое. Лимит: 20 МБ.';
         return ['path' => '', 'kind' => ''];
     }
     if ($kind === 'video' && ($size <= 0 || $size > 64 * 1024 * 1024)) {
@@ -520,8 +549,8 @@ function admin_save_uploaded_media_nested(?array $files, int $item_index, int $f
         $err = 'Разрешены только фото и видео файлы.';
         return ['path' => '', 'kind' => ''];
     }
-    if ($kind === 'image' && ($size <= 0 || $size > 8 * 1024 * 1024)) {
-        $err = 'Фото слишком большое. Лимит: 8 МБ.';
+    if ($kind === 'image' && ($size <= 0 || $size > admin_image_max_bytes())) {
+        $err = 'Фото слишком большое. Лимит: 20 МБ.';
         return ['path' => '', 'kind' => ''];
     }
     if ($kind === 'video' && ($size <= 0 || $size > 64 * 1024 * 1024)) {
@@ -592,6 +621,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $titles = $_POST['item_title'] ?? [];
                 $dates = $_POST['item_date'] ?? [];
                 $descriptions = $_POST['item_description'] ?? [];
+                $details = $_POST['item_details'] ?? [];
                 $images_by_item = $_POST['item_images'] ?? [];
                 $videos_by_item = $_POST['item_videos'] ?? [];
                 $legacy_images = $_POST['item_image'] ?? [];
@@ -608,6 +638,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!is_array($titles)) $titles = [];
                 if (!is_array($dates)) $dates = [];
                 if (!is_array($descriptions)) $descriptions = [];
+                if (!is_array($details)) $details = [];
                 if (!is_array($images_by_item)) $images_by_item = [];
                 if (!is_array($videos_by_item)) $videos_by_item = [];
                 if (!is_array($legacy_images)) $legacy_images = [];
@@ -617,6 +648,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     count($titles),
                     count($dates),
                     count($descriptions),
+                    count($details),
                     count($images_by_item),
                     count($videos_by_item),
                     count($legacy_images),
@@ -643,6 +675,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
                     $description = trim((string)($descriptions[$i] ?? ''));
+                    $details_value = trim((string)($details[$i] ?? ''));
                     $images = admin_clean_image_urls($images_by_item[$i] ?? []);
                     $videos = admin_clean_video_urls($videos_by_item[$i] ?? []);
 
@@ -722,7 +755,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $images = array_values(array_unique($images));
                     $videos = array_values(array_unique($videos));
-                    if ($title === '' && $description === '' && $date_value === '' && !$images && !$videos) {
+                    if ($title === '' && $description === '' && $details_value === '' && $date_value === '' && !$images && !$videos) {
                         continue;
                     }
 
@@ -730,6 +763,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'title' => $title !== '' ? $title : 'Без названия',
                         'date' => $date_value,
                         'description' => $description,
+                        'details' => $details_value,
                         'images' => $images,
                         'image' => $images[0] ?? '',
                         'videos' => $videos,
@@ -756,6 +790,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'title' => $title_from_name !== '' ? $title_from_name : 'Без названия',
                             'date' => '',
                             'description' => '',
+                            'details' => '',
                             'images' => [$bulk_image],
                             'image' => $bulk_image,
                             'videos' => [],
@@ -783,6 +818,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'title' => $title_from_name !== '' ? $title_from_name : 'Без названия',
                             'date' => '',
                             'description' => '',
+                            'details' => '',
                             'images' => [],
                             'image' => '',
                             'videos' => [$bulk_video],
@@ -812,6 +848,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'title' => $title_from_name !== '' ? $title_from_name : 'Без названия',
                             'date' => '',
                             'description' => '',
+                            'details' => '',
                             'images' => $kind === 'image' ? [$path] : [],
                             'image' => $kind === 'image' ? $path : '',
                             'videos' => $kind === 'video' ? [$path] : [],
@@ -860,9 +897,9 @@ $projects = admin_load_collection($config_data, 'cards', 'projects');
 $travels = admin_load_collection($config_data, 'travels', 'travel');
 $photos = admin_load_collection($config_data, 'photos', 'photo');
 
-if (!$projects) $projects[] = ['title' => '', 'date' => '', 'description' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
-if (!$travels) $travels[] = ['title' => '', 'date' => '', 'description' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
-if (!$photos) $photos[] = ['title' => '', 'date' => '', 'description' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
+if (!$projects) $projects[] = ['title' => '', 'date' => '', 'description' => '', 'details' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
+if (!$travels) $travels[] = ['title' => '', 'date' => '', 'description' => '', 'details' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
+if (!$photos) $photos[] = ['title' => '', 'date' => '', 'description' => '', 'details' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
 
 $collections = [
     ['key' => 'cards', 'title' => 'Проекты', 'hint' => 'Раздел /projects/index.php', 'items' => $projects, 'list_id' => 'projectsList'],
@@ -1268,6 +1305,10 @@ $collections = [
                   Описание
                   <textarea data-field="item-description" name="item_description[<?= (int)$item_index ?>]" placeholder="Коротко о карточке"><?= admin_h((string)($item['description'] ?? '')) ?></textarea>
                 </label>
+                <label>
+                  Подробно (можно HTML, включая &lt;img src="..."&gt;)
+                  <textarea data-field="item-details" name="item_details[<?= (int)$item_index ?>]" placeholder="Подробная информация карточки"><?= admin_h((string)($item['details'] ?? '')) ?></textarea>
+                </label>
 
                 <div class="media-grid">
                   <div class="media-block">
@@ -1318,7 +1359,7 @@ $collections = [
 
                 <label>
                   Загрузка медиа (фото и видео)
-                  <input type="file" data-field="item-upload-media" name="item_upload_media[<?= (int)$item_index ?>][]" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
+                  <input type="file" data-field="item-upload-media" name="item_upload_media[<?= (int)$item_index ?>][]" accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/heic,image/heif,.heic,.heif,video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
                   <span class="file-note">Можно выбрать несколько файлов или вставить из буфера через Ctrl+V.</span>
                   <div class="selected-media-list" data-selected-media-list></div>
                 </label>
@@ -1343,7 +1384,7 @@ $collections = [
               <div class="bulk-inline">
                 <label>
                   Массово: медиа
-                  <input type="file" data-field="bulk-upload-media" name="bulk_upload_media[]" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
+                  <input type="file" data-field="bulk-upload-media" name="bulk_upload_media[]" accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/heic,image/heif,.heic,.heif,video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
                   <div class="selected-media-list" data-selected-media-list></div>
                 </label>
               </div>
@@ -1372,7 +1413,7 @@ $collections = [
         <button class="primary" type="submit">Сохранить конфиг</button>
       </div>
     </form>
-    <div class="muted" style="margin-top:8px;">Данные карточек: <code>cards</code>, <code>travels</code>, <code>photos</code>. Поля карточки: <code>title</code>, <code>description</code>, <code>date</code>, медиа-массивы <code>images</code> и <code>videos</code>.</div>
+    <div class="muted" style="margin-top:8px;">Данные карточек: <code>cards</code>, <code>travels</code>, <code>photos</code>. Поля карточки: <code>title</code>, <code>description</code>, <code>details</code>, <code>date</code>, медиа-массивы <code>images</code> и <code>videos</code>.</div>
   </section>
 
   <section class="card tab-pane" data-tab-pane="users">
@@ -1542,6 +1583,10 @@ $collections = [
       if (description instanceof HTMLTextAreaElement) {
         description.name = `item_description[${itemIndex}]`;
       }
+      const details = item.querySelector('textarea[data-field="item-details"]');
+      if (details instanceof HTMLTextAreaElement) {
+        details.name = `item_details[${itemIndex}]`;
+      }
 
       const mediaUpload = item.querySelector('input[data-field="item-upload-media"]');
       if (mediaUpload instanceof HTMLInputElement) {
@@ -1576,6 +1621,7 @@ $collections = [
       + '  <label>Дата<input type="date" data-field="item-date"></label>'
       + '</div>'
       + '<label>Описание<textarea data-field="item-description" placeholder="Коротко о карточке"></textarea></label>'
+      + '<label>Подробно (можно HTML, включая &lt;img src="..."&gt;)<textarea data-field="item-details" placeholder="Подробная информация карточки"></textarea></label>'
       + '<div class="media-grid">'
       + '  <div class="media-block">'
       + '    <div class="media-head">Фото</div>'
@@ -1597,7 +1643,7 @@ $collections = [
       + '  </div>'
       + '</div>'
       + '<label>Загрузка медиа (фото и видео)'
-      + '  <input type="file" data-field="item-upload-media" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>'
+      + '  <input type="file" data-field="item-upload-media" accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/heic,image/heif,.heic,.heif,video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>'
       + '  <span class="file-note">Можно выбрать несколько файлов или вставить из буфера через Ctrl+V.</span>'
       + '  <div class="selected-media-list" data-selected-media-list></div>'
       + '</label>'

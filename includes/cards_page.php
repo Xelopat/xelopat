@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 $page_title = isset($page_title) ? (string)$page_title : 'Раздел';
 $section_label = isset($section_label) ? (string)$section_label : '// section';
-$data_key = isset($data_key) ? (string)$data_key : '';
+$data_key = isset($data_key) ? (string)$data_key : 'cards';
 $fallback_key = isset($fallback_key) ? (string)$fallback_key : '';
 
 if ($data_key === '') {
@@ -28,45 +28,33 @@ function cards_e(string $value): string {
 
 function cards_normalize_images($item): array {
     if (!is_array($item)) return [];
-
     $images = [];
     if (isset($item['images']) && is_array($item['images'])) {
         foreach ($item['images'] as $image) {
             $url = trim((string)$image);
-            if ($url === '') continue;
-            $images[] = $url;
+            if ($url !== '') $images[] = $url;
         }
     }
-
     if (!$images) {
         $legacy = trim((string)($item['image'] ?? ''));
-        if ($legacy !== '') {
-            $images[] = $legacy;
-        }
+        if ($legacy !== '') $images[] = $legacy;
     }
-
     return array_values(array_unique($images));
 }
 
 function cards_normalize_videos($item): array {
     if (!is_array($item)) return [];
-
     $videos = [];
     if (isset($item['videos']) && is_array($item['videos'])) {
         foreach ($item['videos'] as $video) {
             $url = trim((string)$video);
-            if ($url === '') continue;
-            $videos[] = $url;
+            if ($url !== '') $videos[] = $url;
         }
     }
-
     if (!$videos) {
         $legacy = trim((string)($item['video'] ?? ''));
-        if ($legacy !== '') {
-            $videos[] = $legacy;
-        }
+        if ($legacy !== '') $videos[] = $legacy;
     }
-
     return array_values(array_unique($videos));
 }
 
@@ -79,7 +67,9 @@ function cards_normalize($items): array {
         $videos = cards_normalize_videos($item);
         $out[] = [
             'title' => (string)($item['title'] ?? 'Без названия'),
+            'date' => (string)($item['date'] ?? ''),
             'description' => (string)($item['description'] ?? ''),
+            'details' => (string)($item['details'] ?? ''),
             'images' => $images,
             'image' => $images[0] ?? '',
             'videos' => $videos,
@@ -89,15 +79,17 @@ function cards_normalize($items): array {
     return $out;
 }
 
+function cards_plain(string $text): string {
+    return trim(preg_replace('/\s+/u', ' ', strip_tags($text)) ?? '');
+}
+
 $config = [];
 $config_path = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? ''), '/\\') . '/data/site_config.json';
 if ($config_path !== '/data/site_config.json' && is_file($config_path)) {
     $raw = file_get_contents($config_path);
     if ($raw !== false) {
         $decoded = json_decode($raw, true);
-        if (is_array($decoded)) {
-            $config = $decoded;
-        }
+        if (is_array($decoded)) $config = $decoded;
     }
 }
 
@@ -105,7 +97,6 @@ $items = cards_normalize(cards_cfg($config, $data_key, []));
 if (!$items && $fallback_key !== '') {
     $items = cards_normalize(cards_cfg($config, $fallback_key, []));
 }
-
 ?>
 <!doctype html>
 <html lang="ru">
@@ -121,7 +112,7 @@ if (!$items && $fallback_key !== '') {
     .sec-label{font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;color:#61d1ad;margin-bottom:6px}
     .sec-title{font-size:28px;font-weight:700;margin:0 0 18px}
     .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-    .card{background:#1e1e25;border:1px solid #333340;border-radius:12px;overflow:hidden}
+    .card{background:#1e1e25;border:1px solid #333340;border-radius:12px;overflow:hidden;display:grid}
     .card-media{
       width:100%;
       aspect-ratio:16/9;
@@ -131,22 +122,25 @@ if (!$items && $fallback_key !== '') {
       place-items:center;
       padding:10px;
     }
-    .card-media img{
-      width:100%;
-      height:100%;
-      object-fit:contain;
-      display:block;
-    }
-    .card-media video{
-      width:100%;
-      height:100%;
-      object-fit:contain;
-      display:block;
-      background:#0f1118;
-    }
-    .card-inner{padding:14px 16px}
-    .card-title{font-size:16px;font-weight:700;margin:0 0 6px}
+    .card-media img{width:100%;height:100%;object-fit:contain;display:block}
+    .card-media video{width:100%;height:100%;object-fit:contain;display:block;background:#0f1118}
+    .card-inner{padding:14px 16px;display:grid;gap:10px}
+    .card-title{font-size:16px;font-weight:700;margin:0}
     .card-desc{margin:0;font-size:13px;line-height:1.55;color:#868899}
+    .card-link{
+      display:inline-flex;
+      width:max-content;
+      align-items:center;
+      justify-content:center;
+      border:1px solid #3a3f51;
+      border-radius:8px;
+      background:#191d29;
+      color:#efeff1;
+      text-decoration:none;
+      font-size:12px;
+      line-height:1;
+      padding:8px 10px;
+    }
     @media (max-width:980px){
       .page{width:calc(100vw - 20px)}
       .sec-title{font-size:24px}
@@ -158,14 +152,12 @@ if (!$items && $fallback_key !== '') {
 </head>
 <body>
 <?php @include $_SERVER['DOCUMENT_ROOT'] . '/header.php'; ?>
-
 <div class="page">
   <div class="sec-label"><?= cards_e($section_label) ?></div>
   <h1 class="sec-title"><?= cards_e($page_title) ?></h1>
-
   <?php if ($items): ?>
     <div class="cards">
-      <?php foreach ($items as $item): ?>
+      <?php foreach ($items as $item_index => $item): ?>
         <article class="card">
           <div class="card-media">
             <?php $first_image = (string)($item['images'][0] ?? ''); ?>
@@ -178,7 +170,9 @@ if (!$items && $fallback_key !== '') {
           </div>
           <div class="card-inner">
             <h2 class="card-title"><?= cards_e($item['title']) ?></h2>
-            <p class="card-desc"><?= cards_e($item['description']) ?></p>
+            <?php $excerpt = cards_plain((string)($item['description'] !== '' ? $item['description'] : $item['details'])); ?>
+            <p class="card-desc"><?= cards_e($excerpt) ?></p>
+            <a class="card-link" href="/card.php?section=<?= cards_e($data_key) ?>&id=<?= (int)$item_index ?>">Подробнее</a>
           </div>
         </article>
       <?php endforeach; ?>

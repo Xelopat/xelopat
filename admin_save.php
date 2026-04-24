@@ -82,6 +82,10 @@ function admin_nested_file_count(?array $files, int $item_index): int {
     return count($files['name'][$item_index]);
 }
 
+function admin_image_max_bytes(): int {
+    return 20 * 1024 * 1024;
+}
+
 function admin_save_uploaded_image(?array $files, int $index, string &$err): string {
     $err = '';
     if (!$files || !isset($files['error']) || !is_array($files['error']) || !array_key_exists($index, $files['error'])) {
@@ -103,15 +107,15 @@ function admin_save_uploaded_image(?array $files, int $index, string &$err): str
         $err = 'Невалидный временный файл загрузки.';
         return '';
     }
-    if ($size <= 0 || $size > 8 * 1024 * 1024) {
-        $err = 'Фото слишком большое. Лимит: 8 МБ.';
+    if ($size <= 0 || $size > admin_image_max_bytes()) {
+        $err = 'Фото слишком большое. Лимит: 20 МБ.';
         return '';
     }
 
     $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-    $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic', 'heif'];
     if (!in_array($ext, $allowed_ext, true)) {
-        $err = 'Разрешены только JPG, PNG, WEBP, GIF.';
+        $err = 'Разрешены JPG, PNG, WEBP, GIF, AVIF, HEIC, HEIF.';
         return '';
     }
 
@@ -120,7 +124,19 @@ function admin_save_uploaded_image(?array $files, int $index, string &$err): str
         if ($finfo) {
             $mime = (string)finfo_file($finfo, $tmp);
             finfo_close($finfo);
-            $allowed_mime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            $allowed_mime = [
+                'image/jpeg',
+                'image/jpg',
+                'image/png',
+                'image/webp',
+                'image/gif',
+                'image/avif',
+                'image/heic',
+                'image/heif',
+                'image/heif-sequence',
+                'image/heic-sequence',
+                'application/octet-stream',
+            ];
             if ($mime !== '' && !in_array($mime, $allowed_mime, true)) {
                 $err = 'Файл не похож на изображение.';
                 return '';
@@ -177,15 +193,15 @@ function admin_save_uploaded_image_nested(?array $files, int $item_index, int $f
         $err = 'Невалидный временный файл загрузки.';
         return '';
     }
-    if ($size <= 0 || $size > 8 * 1024 * 1024) {
-        $err = 'Фото слишком большое. Лимит: 8 МБ.';
+    if ($size <= 0 || $size > admin_image_max_bytes()) {
+        $err = 'Фото слишком большое. Лимит: 20 МБ.';
         return '';
     }
 
     $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-    $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic', 'heif'];
     if (!in_array($ext, $allowed_ext, true)) {
-        $err = 'Разрешены только JPG, PNG, WEBP, GIF.';
+        $err = 'Разрешены JPG, PNG, WEBP, GIF, AVIF, HEIC, HEIF.';
         return '';
     }
 
@@ -194,7 +210,19 @@ function admin_save_uploaded_image_nested(?array $files, int $item_index, int $f
         if ($finfo) {
             $mime = (string)finfo_file($finfo, $tmp);
             finfo_close($finfo);
-            $allowed_mime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            $allowed_mime = [
+                'image/jpeg',
+                'image/jpg',
+                'image/png',
+                'image/webp',
+                'image/gif',
+                'image/avif',
+                'image/heic',
+                'image/heif',
+                'image/heif-sequence',
+                'image/heic-sequence',
+                'application/octet-stream',
+            ];
             if ($mime !== '' && !in_array($mime, $allowed_mime, true)) {
                 $err = 'Файл не похож на изображение.';
                 return '';
@@ -370,7 +398,7 @@ function admin_save_uploaded_video_nested(?array $files, int $item_index, int $f
 
 function admin_guess_media_kind(string $name, string $tmp): string {
     $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-    $image_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    $image_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic', 'heif'];
     $video_ext = ['mp4', 'webm', 'ogg', 'mov', 'm4v'];
     if (in_array($ext, $image_ext, true)) return 'image';
     if (in_array($ext, $video_ext, true)) return 'video';
@@ -416,8 +444,8 @@ function admin_save_uploaded_media(?array $files, int $index, string &$err): arr
         return ['path' => '', 'kind' => ''];
     }
 
-    if ($kind === 'image' && ($size <= 0 || $size > 8 * 1024 * 1024)) {
-        $err = 'Фото слишком большое. Лимит: 8 МБ.';
+    if ($kind === 'image' && ($size <= 0 || $size > admin_image_max_bytes())) {
+        $err = 'Фото слишком большое. Лимит: 20 МБ.';
         return ['path' => '', 'kind' => ''];
     }
     if ($kind === 'video' && ($size <= 0 || $size > 64 * 1024 * 1024)) {
@@ -486,8 +514,8 @@ function admin_save_uploaded_media_nested(?array $files, int $item_index, int $f
         return ['path' => '', 'kind' => ''];
     }
 
-    if ($kind === 'image' && ($size <= 0 || $size > 8 * 1024 * 1024)) {
-        $err = 'Фото слишком большое. Лимит: 8 МБ.';
+    if ($kind === 'image' && ($size <= 0 || $size > admin_image_max_bytes())) {
+        $err = 'Фото слишком большое. Лимит: 20 МБ.';
         return ['path' => '', 'kind' => ''];
     }
     if ($kind === 'video' && ($size <= 0 || $size > 64 * 1024 * 1024)) {
@@ -574,6 +602,7 @@ if ($action === 'save_collection') {
     $titles = $_POST['item_title'] ?? [];
     $dates = $_POST['item_date'] ?? [];
     $descriptions = $_POST['item_description'] ?? [];
+    $details = $_POST['item_details'] ?? [];
     $images_by_item = $_POST['item_images'] ?? [];
     $videos_by_item = $_POST['item_videos'] ?? [];
     $legacy_images = $_POST['item_image'] ?? [];
@@ -590,6 +619,7 @@ if ($action === 'save_collection') {
     if (!is_array($titles)) $titles = [];
     if (!is_array($dates)) $dates = [];
     if (!is_array($descriptions)) $descriptions = [];
+    if (!is_array($details)) $details = [];
     if (!is_array($images_by_item)) $images_by_item = [];
     if (!is_array($videos_by_item)) $videos_by_item = [];
     if (!is_array($legacy_images)) $legacy_images = [];
@@ -599,6 +629,7 @@ if ($action === 'save_collection') {
         count($titles),
         count($dates),
         count($descriptions),
+        count($details),
         count($images_by_item),
         count($videos_by_item),
         count($legacy_images),
@@ -624,6 +655,7 @@ if ($action === 'save_collection') {
             }
         }
         $description = trim((string)($descriptions[$i] ?? ''));
+        $details_value = trim((string)($details[$i] ?? ''));
         $images = admin_clean_image_urls($images_by_item[$i] ?? []);
         $videos = admin_clean_video_urls($videos_by_item[$i] ?? []);
 
@@ -698,7 +730,7 @@ if ($action === 'save_collection') {
 
         $images = array_values(array_unique($images));
         $videos = array_values(array_unique($videos));
-        if ($title === '' && $description === '' && $date_value === '' && !$images && !$videos) {
+        if ($title === '' && $description === '' && $details_value === '' && $date_value === '' && !$images && !$videos) {
             continue;
         }
 
@@ -706,6 +738,7 @@ if ($action === 'save_collection') {
             'title' => $title !== '' ? $title : 'Без названия',
             'date' => $date_value,
             'description' => $description,
+            'details' => $details_value,
             'images' => $images,
             'image' => $images[0] ?? '',
             'videos' => $videos,
@@ -730,6 +763,7 @@ if ($action === 'save_collection') {
             'title' => $title_from_name !== '' ? $title_from_name : 'Без названия',
             'date' => '',
             'description' => '',
+            'details' => '',
             'images' => [$bulk_image],
             'image' => $bulk_image,
             'videos' => [],
@@ -754,6 +788,7 @@ if ($action === 'save_collection') {
             'title' => $title_from_name !== '' ? $title_from_name : 'Без названия',
             'date' => '',
             'description' => '',
+            'details' => '',
             'images' => [],
             'image' => '',
             'videos' => [$bulk_video],
@@ -780,6 +815,7 @@ if ($action === 'save_collection') {
             'title' => $title_from_name !== '' ? $title_from_name : 'Без названия',
             'date' => '',
             'description' => '',
+            'details' => '',
             'images' => $kind === 'image' ? [$path] : [],
             'image' => $kind === 'image' ? $path : '',
             'videos' => $kind === 'video' ? [$path] : [],

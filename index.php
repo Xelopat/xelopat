@@ -82,7 +82,9 @@ function normalize_cards($items): array {
         $videos = normalize_videos($item);
         $out[] = [
             'title' => (string)($item['title'] ?? 'Без названия'),
+            'date' => (string)($item['date'] ?? ''),
             'description' => (string)($item['description'] ?? ''),
+            'details' => (string)($item['details'] ?? ''),
             'images' => $images,
             'image' => $images[0] ?? '',
             'videos' => $videos,
@@ -365,6 +367,20 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   .card-inner{ padding:14px 16px; }
   .card-title{ font-size:15px; font-weight:700; margin-bottom:6px; line-height:1.4; }
   .card-desc{ font-size:12px; color:#868899; line-height:1.6; margin:0; }
+  .card-link-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:max-content;
+    border:1px solid #3a3f51;
+    border-radius:8px;
+    background:#191d29;
+    color:#efeff1;
+    text-decoration:none;
+    font-size:12px;
+    line-height:1;
+    padding:8px 10px;
+  }
   .footer-bar{
     border-top:1px solid #333340;
     padding:14px 0 28px;
@@ -504,10 +520,11 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
       <div class="sec-title">Путешествия</div>
       <?php if ($travels): ?>
         <div class="cards">
-          <?php foreach ($travels as $travel): ?>
+          <?php foreach ($travels as $travel_index => $travel): ?>
             <?php
               $title = (string)($travel['title'] ?? 'Без названия');
-              $description = (string)($travel['description'] ?? '');
+              $desc_source = (string)(($travel['description'] ?? '') !== '' ? ($travel['description'] ?? '') : ($travel['details'] ?? ''));
+              $description = trim(preg_replace('/\s+/u', ' ', strip_tags($desc_source)) ?? '');
               $images = $travel['images'] ?? [];
               $videos = $travel['videos'] ?? [];
               if (!is_array($images) || !$images) {
@@ -532,6 +549,9 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
               <div class="card-inner">
                 <div class="card-title"><?= e($title) ?></div>
                 <div class="card-desc"><?= e($description) ?></div>
+                <div style="margin-top:10px;">
+                  <a class="card-link-btn" href="/card.php?section=travels&id=<?= (int)$travel_index ?>">Подробнее</a>
+                </div>
               </div>
             </article>
           <?php endforeach; ?>
@@ -544,10 +564,11 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
       <div class="sec-title">Фото</div>
       <?php if ($photos): ?>
         <div class="cards">
-          <?php foreach ($photos as $photo): ?>
+          <?php foreach ($photos as $photo_index => $photo): ?>
             <?php
               $title = (string)($photo['title'] ?? 'Без названия');
-              $description = (string)($photo['description'] ?? '');
+              $desc_source = (string)(($photo['description'] ?? '') !== '' ? ($photo['description'] ?? '') : ($photo['details'] ?? ''));
+              $description = trim(preg_replace('/\s+/u', ' ', strip_tags($desc_source)) ?? '');
               $images = $photo['images'] ?? [];
               $videos = $photo['videos'] ?? [];
               if (!is_array($images) || !$images) {
@@ -572,6 +593,9 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
               <div class="card-inner">
                 <div class="card-title"><?= e($title) ?></div>
                 <div class="card-desc"><?= e($description) ?></div>
+                <div style="margin-top:10px;">
+                  <a class="card-link-btn" href="/card.php?section=photos&id=<?= (int)$photo_index ?>">Подробнее</a>
+                </div>
               </div>
             </article>
           <?php endforeach; ?>
