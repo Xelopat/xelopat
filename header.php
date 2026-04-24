@@ -339,9 +339,10 @@ function site_active(string $href, string $uri): bool {
   }
 
   .flyout{
-    left:calc(100% - 4px);
+    left:calc(100% - 2px);
     top:0;
     min-width:280px;
+    overflow:visible;
   }
 
   @media (min-width: 901px){
@@ -356,6 +357,14 @@ function site_active(string $href, string $uri): bool {
     }
     .dd:hover::after{
       display:block;
+    }
+    .flyout::before{
+      content:"";
+      position:absolute;
+      top:0;
+      bottom:0;
+      left:-16px;
+      width:18px;
     }
     #dd-univer-wrap:hover > #dd-univer,
     #dd-hobby-wrap:hover > #dd-hobby{
@@ -654,6 +663,7 @@ function site_active(string $href, string $uri): bool {
   const univerRoot = document.getElementById('univerRoot');
   const univerFlyout = document.getElementById('univerFlyout');
   const flyPanels = univerFlyout ? univerFlyout.querySelectorAll('[data-fly-panel]') : [];
+  let flyoutCloseTimer = null;
 
   function isMobile() {
     return window.matchMedia('(max-width: 900px)').matches;
@@ -674,12 +684,39 @@ function site_active(string $href, string $uri): bool {
   }
 
   function closeFlyout() {
+    if (flyoutCloseTimer) {
+      clearTimeout(flyoutCloseTimer);
+      flyoutCloseTimer = null;
+    }
     if (!univerFlyout) return;
     univerFlyout.classList.remove('open');
     univerFlyout.setAttribute('aria-hidden', 'true');
     flyPanels.forEach(panel => panel.style.display = 'none');
     if (!univerRoot) return;
     univerRoot.querySelectorAll('button[data-sub]').forEach(btn => btn.classList.remove('active'));
+  }
+
+  function openFlyoutByKey(key, triggerBtn) {
+    if (!univerFlyout || !key) return;
+    if (flyoutCloseTimer) {
+      clearTimeout(flyoutCloseTimer);
+      flyoutCloseTimer = null;
+    }
+    closeFlyout();
+    if (triggerBtn) triggerBtn.classList.add('active');
+    flyPanels.forEach(panel => {
+      panel.style.display = panel.getAttribute('data-fly-panel') === key ? 'block' : 'none';
+    });
+    univerFlyout.classList.add('open');
+    univerFlyout.setAttribute('aria-hidden', 'false');
+  }
+
+  function scheduleFlyoutClose() {
+    if (isMobile()) return;
+    if (flyoutCloseTimer) clearTimeout(flyoutCloseTimer);
+    flyoutCloseTimer = setTimeout(() => {
+      closeFlyout();
+    }, 170);
   }
 
   function closeAll() {
@@ -739,6 +776,40 @@ function site_active(string $href, string $uri): bool {
   }
 
   if (univerRoot && univerFlyout) {
+    const subButtons = Array.from(univerRoot.querySelectorAll('button[data-sub]'));
+    subButtons.forEach(btn => {
+      btn.addEventListener('mouseenter', function () {
+        if (isMobile()) return;
+        openFlyoutByKey(btn.getAttribute('data-sub'), btn);
+      });
+      btn.addEventListener('focus', function () {
+        if (isMobile()) return;
+        openFlyoutByKey(btn.getAttribute('data-sub'), btn);
+      });
+    });
+
+    if (panelUniver) {
+      panelUniver.addEventListener('mouseenter', function () {
+        if (flyoutCloseTimer) {
+          clearTimeout(flyoutCloseTimer);
+          flyoutCloseTimer = null;
+        }
+      });
+      panelUniver.addEventListener('mouseleave', function () {
+        scheduleFlyoutClose();
+      });
+    }
+
+    univerFlyout.addEventListener('mouseenter', function () {
+      if (flyoutCloseTimer) {
+        clearTimeout(flyoutCloseTimer);
+        flyoutCloseTimer = null;
+      }
+    });
+    univerFlyout.addEventListener('mouseleave', function () {
+      scheduleFlyoutClose();
+    });
+
     univerRoot.addEventListener('click', function (e) {
       const btn = e.target.closest('button[data-sub]');
       if (!btn) return;
@@ -747,15 +818,11 @@ function site_active(string $href, string $uri): bool {
 
       const key = btn.getAttribute('data-sub');
       const active = btn.classList.contains('active') && univerFlyout.classList.contains('open');
-      closeFlyout();
-      if (active) return;
-
-      btn.classList.add('active');
-      flyPanels.forEach(panel => {
-        panel.style.display = panel.getAttribute('data-fly-panel') === key ? 'block' : 'none';
-      });
-      univerFlyout.classList.add('open');
-      univerFlyout.setAttribute('aria-hidden', 'false');
+      if (isMobile()) {
+        closeFlyout();
+        if (active) return;
+      }
+      openFlyoutByKey(key, btn);
     });
   }
 

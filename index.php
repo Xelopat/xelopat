@@ -46,10 +46,6 @@ function normalize_cards($items): array {
 $hero_tag = (string)cfg($config, 'hero.tag', '// личный сайт');
 $hero_name = (string)cfg($config, 'hero.name', 'Xelopat');
 
-$projects = normalize_cards(cfg($config, 'projects', []));
-if (!$projects) {
-    $projects = normalize_cards(cfg($config, 'cards', []));
-}
 $travels = normalize_cards(cfg($config, 'travels', cfg($config, 'travel', [])));
 $photos = normalize_cards(cfg($config, 'photos', cfg($config, 'photo', [])));
 
@@ -434,35 +430,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
           </div>
         </div>
       </div>
-    </section>
-
-    <section class="section" id="projects">
-      <div class="sec-label">// projects</div>
-      <div class="sec-title">Проекты</div>
-      <?php if (!$projects): ?>
-        <div class="cards-empty">Пока нет проектов. Добавь их в админке.</div>
-      <?php else: ?>
-        <div class="cards">
-          <?php foreach ($projects as $project): ?>
-            <?php
-              $title = (string)($project['title'] ?? 'Без названия');
-              $description = (string)($project['description'] ?? '');
-              $image = (string)($project['image'] ?? '');
-            ?>
-            <article class="card">
-              <div class="card-media">
-                <?php if ($image !== ''): ?>
-                  <img src="<?= e($image) ?>" alt="<?= e($title) ?>">
-                <?php endif; ?>
-              </div>
-              <div class="card-inner">
-                <div class="card-title"><?= e($title) ?></div>
-                <div class="card-desc"><?= e($description) ?></div>
-              </div>
-            </article>
-          <?php endforeach; ?>
-        </div>
-      <?php endif; ?>
     </section>
 
     <section class="section" id="travel">
