@@ -265,15 +265,15 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     }
     .hero-tag{
       margin-bottom:10px;
-      font-size:10px;
+      font-size:12px;
     }
     .hero-name{
-      font-size:clamp(32px, 9vw, 42px);
+      font-size:clamp(36px, 10vw, 48px);
       margin:0 0 10px;
     }
     .cursor{
       width:3px;
-      height:clamp(32px, 9vw, 42px);
+      height:clamp(36px, 10vw, 48px);
     }
     .hero-divider{
       width:100%;
@@ -283,18 +283,29 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
       padding:0 0 28px;
     }
     .sec-title{
-      font-size:22px;
+      font-size:26px;
       margin-bottom:14px;
     }
     .cards{ grid-template-columns:1fr; }
     .card-inner{
       padding:12px 13px;
     }
+    .card-title{
+      font-size:18px;
+    }
+    .card-desc{
+      font-size:14px;
+      line-height:1.55;
+    }
     .footer-bar{
       padding:12px 0 20px;
       flex-direction:column;
       align-items:flex-start;
       gap:8px;
+    }
+    .footer-txt,
+    .footer-up{
+      font-size:12px;
     }
     .footer-up{
       align-self:flex-end;
@@ -307,10 +318,10 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
       opacity:.55;
     }
     .hero-name{
-      font-size:clamp(28px, 11vw, 36px);
+      font-size:clamp(32px, 12vw, 40px);
     }
     .sec-label{
-      font-size:10px;
+      font-size:11px;
     }
     .cards{
       gap:10px;

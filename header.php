@@ -59,6 +59,15 @@ function site_active(string $href, string $uri): bool {
     return strpos($u . '/', $h . '/') === 0;
 }
 ?>
+<script>
+(function () {
+  if (document.querySelector('meta[name="viewport"]')) return;
+  const meta = document.createElement('meta');
+  meta.name = 'viewport';
+  meta.content = 'width=device-width, initial-scale=1, viewport-fit=cover';
+  document.head.appendChild(meta);
+})();
+</script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;700&display=swap');
 
@@ -437,12 +446,15 @@ function site_active(string $href, string $uri): bool {
     .auth-area{ gap:8px; }
     .auth-user{ display:none; }
     .auth-action{
-      padding:6px 10px !important;
-      max-width:118px;
+      padding:6px 9px !important;
+      max-width:92px;
       overflow:hidden;
       text-overflow:ellipsis;
     }
-    .burger{ display:flex; }
+    .burger{
+      display:flex;
+      flex:0 0 auto;
+    }
   }
 
   @media (max-width: 520px){
@@ -451,9 +463,9 @@ function site_active(string $href, string $uri): bool {
       width:calc(100vw - 16px);
     }
     .auth-action{
-      max-width:90px;
-      font-size:12px;
-      padding:6px 8px !important;
+      max-width:74px;
+      font-size:11px;
+      padding:6px 7px !important;
     }
     .nav{
       left:8px;
@@ -470,6 +482,8 @@ function site_active(string $href, string $uri): bool {
     </a>
 
     <nav class="nav" id="navRoot" aria-label="Навигация">
+      <a class="nav-link<?= $uri === '/' ? ' active' : '' ?>" href="/">Главная</a>
+
       <div class="dd" id="dd-univer-wrap">
         <button type="button" class="nav-btn<?= strpos($uri, '/crypto/') === 0 || strpos($uri, '/adminis/') === 0 || strpos($uri, '/coursework/') === 0 ? ' active' : '' ?>" data-dd-btn="univer" aria-expanded="false">Универ</button>
         <div class="dd-panel" id="dd-univer" role="dialog" aria-label="Универ">
@@ -505,8 +519,6 @@ function site_active(string $href, string $uri): bool {
           </ul>
         </div>
       </div>
-
-      <a class="nav-link<?= $uri === '/' ? ' active' : '' ?>" href="/">Главная</a>
     </nav>
 
     <div class="auth-area">
