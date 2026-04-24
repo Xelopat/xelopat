@@ -288,10 +288,20 @@ function site_active(string $href, string $uri): bool {
     display:block;
     animation:ddIn .16s ease both;
   }
+  .dd-panel.closing,
+  .flyout.closing{
+    display:block;
+    pointer-events:none;
+    animation:ddOut .18s ease both;
+  }
 
   @keyframes ddIn{
     from{ opacity:0; transform:translateY(-4px) scale(.985); }
     to{ opacity:1; transform:translateY(0) scale(1); }
+  }
+  @keyframes ddOut{
+    from{ opacity:1; transform:translateY(0) scale(1); }
+    to{ opacity:0; transform:translateY(-3px) scale(.992); }
   }
 
   .menu-root, .dd-list{
@@ -365,11 +375,6 @@ function site_active(string $href, string $uri): bool {
       bottom:0;
       left:-16px;
       width:18px;
-    }
-    #dd-univer-wrap:hover > #dd-univer,
-    #dd-hobby-wrap:hover > #dd-hobby{
-      display:block;
-      animation:ddIn .16s ease both;
     }
   }
 
@@ -658,12 +663,17 @@ function site_active(string $href, string $uri): bool {
 
   const btnUniver = document.querySelector('[data-dd-btn="univer"]');
   const btnHobby = document.querySelector('[data-dd-btn="hobby"]');
+  const univerWrap = document.getElementById('dd-univer-wrap');
+  const hobbyWrap = document.getElementById('dd-hobby-wrap');
   const panelUniver = document.getElementById('dd-univer');
   const panelHobby = document.getElementById('dd-hobby');
   const univerRoot = document.getElementById('univerRoot');
   const univerFlyout = document.getElementById('univerFlyout');
   const flyPanels = univerFlyout ? univerFlyout.querySelectorAll('[data-fly-panel]') : [];
   let flyoutCloseTimer = null;
+  let univerCloseTimer = null;
+  let hobbyCloseTimer = null;
+  const DESKTOP_CLOSE_DELAY = 420;
 
   function isMobile() {
     return window.matchMedia('(max-width: 900px)').matches;
@@ -689,11 +699,89 @@ function site_active(string $href, string $uri): bool {
       flyoutCloseTimer = null;
     }
     if (!univerFlyout) return;
-    univerFlyout.classList.remove('open');
+    fadeClose(univerFlyout);
     univerFlyout.setAttribute('aria-hidden', 'true');
     flyPanels.forEach(panel => panel.style.display = 'none');
     if (!univerRoot) return;
     univerRoot.querySelectorAll('button[data-sub]').forEach(btn => btn.classList.remove('active'));
+  }
+
+  function fadeClose(node) {
+    if (!node) return;
+    if (!node.classList.contains('open') && !node.classList.contains('closing')) return;
+    node.classList.remove('open');
+    node.classList.add('closing');
+    window.setTimeout(() => {
+      node.classList.remove('closing');
+    }, 180);
+  }
+
+  function clearDesktopCloseTimers() {
+    if (univerCloseTimer) {
+      clearTimeout(univerCloseTimer);
+      univerCloseTimer = null;
+    }
+    if (hobbyCloseTimer) {
+      clearTimeout(hobbyCloseTimer);
+      hobbyCloseTimer = null;
+    }
+  }
+
+  function openDesktopPanel(which) {
+    if (isMobile()) return;
+    if (which === 'univer') {
+      if (univerCloseTimer) {
+        clearTimeout(univerCloseTimer);
+        univerCloseTimer = null;
+      }
+    } else {
+      if (hobbyCloseTimer) {
+        clearTimeout(hobbyCloseTimer);
+        hobbyCloseTimer = null;
+      }
+    }
+    const panel = which === 'univer' ? panelUniver : panelHobby;
+    const btn = which === 'univer' ? btnUniver : btnHobby;
+    const otherPanel = which === 'univer' ? panelHobby : panelUniver;
+    const otherBtn = which === 'univer' ? btnHobby : btnUniver;
+    if (!panel || !btn) return;
+    panel.classList.remove('closing');
+    if (otherPanel) otherPanel.classList.remove('open');
+    if (otherPanel) otherPanel.classList.remove('closing');
+    if (otherBtn) {
+      otherBtn.classList.remove('active');
+      otherBtn.setAttribute('aria-expanded', 'false');
+    }
+    panel.classList.add('open');
+    btn.classList.add('active');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+
+  function scheduleDesktopPanelClose(which) {
+    if (isMobile()) return;
+    const timerRef = which === 'univer' ? 'univer' : 'hobby';
+    if (timerRef === 'univer') {
+      if (univerCloseTimer) clearTimeout(univerCloseTimer);
+      univerCloseTimer = setTimeout(() => {
+        if (univerWrap && univerWrap.matches(':hover')) return;
+        if (panelUniver) fadeClose(panelUniver);
+        if (btnUniver) {
+          btnUniver.classList.remove('active');
+          btnUniver.setAttribute('aria-expanded', 'false');
+        }
+        closeFlyout();
+      }, DESKTOP_CLOSE_DELAY);
+    } else {
+      if (hobbyCloseTimer) clearTimeout(hobbyCloseTimer);
+      hobbyCloseTimer = setTimeout(() => {
+        if (hobbyWrap && hobbyWrap.matches(':hover')) return;
+        if (panelHobby) fadeClose(panelHobby);
+        if (btnHobby) {
+          btnHobby.classList.remove('active');
+          btnHobby.setAttribute('aria-expanded', 'false');
+        }
+      }, DESKTOP_CLOSE_DELAY);
+    }
   }
 
   function openFlyoutByKey(key, triggerBtn) {
@@ -716,11 +804,12 @@ function site_active(string $href, string $uri): bool {
     if (flyoutCloseTimer) clearTimeout(flyoutCloseTimer);
     flyoutCloseTimer = setTimeout(() => {
       closeFlyout();
-    }, 170);
+    }, DESKTOP_CLOSE_DELAY);
   }
 
   function closeAll() {
-    [panelUniver, panelHobby].forEach(panel => panel && panel.classList.remove('open'));
+    clearDesktopCloseTimers();
+    [panelUniver, panelHobby].forEach(panel => panel && fadeClose(panel));
     [btnUniver, btnHobby].forEach(btn => {
       if (!btn) return;
       btn.classList.remove('active');
@@ -736,6 +825,7 @@ function site_active(string $href, string $uri): bool {
     const open = panel.classList.contains('open');
     closeAll();
     if (open) return;
+    panel.classList.remove('closing');
     panel.classList.add('open');
     btn.classList.add('active');
     btn.setAttribute('aria-expanded', 'true');
@@ -775,6 +865,24 @@ function site_active(string $href, string $uri): bool {
     });
   }
 
+  if (univerWrap) {
+    univerWrap.addEventListener('mouseenter', function () {
+      openDesktopPanel('univer');
+    });
+    univerWrap.addEventListener('mouseleave', function () {
+      scheduleDesktopPanelClose('univer');
+    });
+  }
+
+  if (hobbyWrap) {
+    hobbyWrap.addEventListener('mouseenter', function () {
+      openDesktopPanel('hobby');
+    });
+    hobbyWrap.addEventListener('mouseleave', function () {
+      scheduleDesktopPanelClose('hobby');
+    });
+  }
+
   if (univerRoot && univerFlyout) {
     const subButtons = Array.from(univerRoot.querySelectorAll('button[data-sub]'));
     subButtons.forEach(btn => {
@@ -790,23 +898,39 @@ function site_active(string $href, string $uri): bool {
 
     if (panelUniver) {
       panelUniver.addEventListener('mouseenter', function () {
+        if (univerCloseTimer) {
+          clearTimeout(univerCloseTimer);
+          univerCloseTimer = null;
+        }
         if (flyoutCloseTimer) {
           clearTimeout(flyoutCloseTimer);
           flyoutCloseTimer = null;
         }
       });
-      panelUniver.addEventListener('mouseleave', function () {
+      panelUniver.addEventListener('mouseleave', function (event) {
+        const next = event.relatedTarget;
+        if (next instanceof Node && (panelUniver.contains(next) || (univerFlyout && univerFlyout.contains(next)))) {
+          return;
+        }
         scheduleFlyoutClose();
       });
     }
 
     univerFlyout.addEventListener('mouseenter', function () {
+      if (univerCloseTimer) {
+        clearTimeout(univerCloseTimer);
+        univerCloseTimer = null;
+      }
       if (flyoutCloseTimer) {
         clearTimeout(flyoutCloseTimer);
         flyoutCloseTimer = null;
       }
     });
-    univerFlyout.addEventListener('mouseleave', function () {
+    univerFlyout.addEventListener('mouseleave', function (event) {
+      const next = event.relatedTarget;
+      if (next instanceof Node && (univerFlyout.contains(next) || (panelUniver && panelUniver.contains(next)))) {
+        return;
+      }
       scheduleFlyoutClose();
     });
 

@@ -51,17 +51,42 @@ function normalize_images($item): array {
     return array_values(array_unique($images));
 }
 
+function normalize_videos($item): array {
+    if (!is_array($item)) return [];
+
+    $videos = [];
+    if (isset($item['videos']) && is_array($item['videos'])) {
+        foreach ($item['videos'] as $video) {
+            $url = trim((string)$video);
+            if ($url === '') continue;
+            $videos[] = $url;
+        }
+    }
+
+    if (!$videos) {
+        $legacy = trim((string)($item['video'] ?? ''));
+        if ($legacy !== '') {
+            $videos[] = $legacy;
+        }
+    }
+
+    return array_values(array_unique($videos));
+}
+
 function normalize_cards($items): array {
     if (!is_array($items)) return [];
     $out = [];
     foreach ($items as $item) {
         if (!is_array($item)) continue;
         $images = normalize_images($item);
+        $videos = normalize_videos($item);
         $out[] = [
             'title' => (string)($item['title'] ?? 'Без названия'),
             'description' => (string)($item['description'] ?? ''),
             'images' => $images,
             'image' => $images[0] ?? '',
+            'videos' => $videos,
+            'video' => $videos[0] ?? '',
         ];
     }
     return $out;
@@ -324,6 +349,15 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     display:block;
     scroll-snap-align:start;
   }
+  .card-media video{
+    flex:0 0 100%;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+    scroll-snap-align:start;
+    background:#0f1118;
+  }
   .card-media::-webkit-scrollbar{
     height:8px;
   }
@@ -474,13 +508,23 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
               $title = (string)($travel['title'] ?? 'Без названия');
               $description = (string)($travel['description'] ?? '');
               $images = $travel['images'] ?? [];
+              $videos = $travel['videos'] ?? [];
               if (!is_array($images) || !$images) {
                   $legacy = trim((string)($travel['image'] ?? ''));
                   $images = $legacy !== '' ? [$legacy] : [];
               }
+              if (!is_array($videos) || !$videos) {
+                  $legacyVideo = trim((string)($travel['video'] ?? ''));
+                  $videos = $legacyVideo !== '' ? [$legacyVideo] : [];
+              }
             ?>
             <article class="card">
               <div class="card-media">
+                <?php if ($videos): ?>
+                  <?php foreach ($videos as $video_index => $video): ?>
+                    <video src="<?= e((string)$video) ?>" controls preload="metadata" playsinline title="<?= e($title . ' видео #' . ((int)$video_index + 1)) ?>"></video>
+                  <?php endforeach; ?>
+                <?php endif; ?>
                 <?php if ($images): ?>
                   <?php foreach ($images as $image_index => $image): ?>
                     <img src="<?= e((string)$image) ?>" alt="<?= e($title . ' #' . ((int)$image_index + 1)) ?>">
@@ -507,13 +551,23 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
               $title = (string)($photo['title'] ?? 'Без названия');
               $description = (string)($photo['description'] ?? '');
               $images = $photo['images'] ?? [];
+              $videos = $photo['videos'] ?? [];
               if (!is_array($images) || !$images) {
                   $legacy = trim((string)($photo['image'] ?? ''));
                   $images = $legacy !== '' ? [$legacy] : [];
               }
+              if (!is_array($videos) || !$videos) {
+                  $legacyVideo = trim((string)($photo['video'] ?? ''));
+                  $videos = $legacyVideo !== '' ? [$legacyVideo] : [];
+              }
             ?>
             <article class="card">
               <div class="card-media">
+                <?php if ($videos): ?>
+                  <?php foreach ($videos as $video_index => $video): ?>
+                    <video src="<?= e((string)$video) ?>" controls preload="metadata" playsinline title="<?= e($title . ' видео #' . ((int)$video_index + 1)) ?>"></video>
+                  <?php endforeach; ?>
+                <?php endif; ?>
                 <?php if ($images): ?>
                   <?php foreach ($images as $image_index => $image): ?>
                     <img src="<?= e((string)$image) ?>" alt="<?= e($title . ' #' . ((int)$image_index + 1)) ?>">

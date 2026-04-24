@@ -48,17 +48,42 @@ function cards_normalize_images($item): array {
     return array_values(array_unique($images));
 }
 
+function cards_normalize_videos($item): array {
+    if (!is_array($item)) return [];
+
+    $videos = [];
+    if (isset($item['videos']) && is_array($item['videos'])) {
+        foreach ($item['videos'] as $video) {
+            $url = trim((string)$video);
+            if ($url === '') continue;
+            $videos[] = $url;
+        }
+    }
+
+    if (!$videos) {
+        $legacy = trim((string)($item['video'] ?? ''));
+        if ($legacy !== '') {
+            $videos[] = $legacy;
+        }
+    }
+
+    return array_values(array_unique($videos));
+}
+
 function cards_normalize($items): array {
     if (!is_array($items)) return [];
     $out = [];
     foreach ($items as $item) {
         if (!is_array($item)) continue;
         $images = cards_normalize_images($item);
+        $videos = cards_normalize_videos($item);
         $out[] = [
             'title' => (string)($item['title'] ?? 'Без названия'),
             'description' => (string)($item['description'] ?? ''),
             'images' => $images,
             'image' => $images[0] ?? '',
+            'videos' => $videos,
+            'video' => $videos[0] ?? '',
         ];
     }
     return $out;
@@ -116,6 +141,15 @@ if (!$items && $fallback_key !== '') {
       display:block;
       scroll-snap-align:start;
     }
+    .card-media video{
+      flex:0 0 100%;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+      scroll-snap-align:start;
+      background:#0f1118;
+    }
     .card-media::-webkit-scrollbar{height:8px}
     .card-media::-webkit-scrollbar-track{background:#151518}
     .card-media::-webkit-scrollbar-thumb{background:#333340;border-radius:999px}
@@ -143,6 +177,11 @@ if (!$items && $fallback_key !== '') {
       <?php foreach ($items as $item): ?>
         <article class="card">
           <div class="card-media">
+            <?php if ($item['videos']): ?>
+              <?php foreach ($item['videos'] as $video_index => $video): ?>
+                <video src="<?= cards_e((string)$video) ?>" controls preload="metadata" playsinline title="<?= cards_e($item['title'] . ' видео #' . ((int)$video_index + 1)) ?>"></video>
+              <?php endforeach; ?>
+            <?php endif; ?>
             <?php if ($item['images']): ?>
               <?php foreach ($item['images'] as $image_index => $image): ?>
                 <img src="<?= cards_e((string)$image) ?>" alt="<?= cards_e($item['title'] . ' #' . ((int)$image_index + 1)) ?>">

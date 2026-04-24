@@ -38,6 +38,17 @@ function admin_clean_image_urls($raw): array {
     return array_values(array_unique($out));
 }
 
+function admin_clean_video_urls($raw): array {
+    if (!is_array($raw)) return [];
+    $out = [];
+    foreach ($raw as $value) {
+        $url = trim((string)$value);
+        if ($url === '') continue;
+        $out[] = $url;
+    }
+    return array_values(array_unique($out));
+}
+
 function admin_save_config_array(string $config_path, array $decoded, string &$err): ?string {
     $dir = dirname($config_path);
     if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
@@ -70,10 +81,17 @@ function admin_load_collection(array $config, string $primary, string $fallback 
     foreach ($raw as $item) {
         if (!is_array($item)) continue;
         $images = admin_clean_image_urls($item['images'] ?? []);
+        $videos = admin_clean_video_urls($item['videos'] ?? []);
         if (!$images) {
             $legacy_image = trim((string)($item['image'] ?? ''));
             if ($legacy_image !== '') {
                 $images[] = $legacy_image;
+            }
+        }
+        if (!$videos) {
+            $legacy_video = trim((string)($item['video'] ?? ''));
+            if ($legacy_video !== '') {
+                $videos[] = $legacy_video;
             }
         }
         $out[] = [
@@ -81,6 +99,8 @@ function admin_load_collection(array $config, string $primary, string $fallback 
             'description' => (string)($item['description'] ?? ''),
             'images' => $images,
             'image' => $images[0] ?? '',
+            'videos' => $videos,
+            'video' => $videos[0] ?? '',
         ];
     }
     return $out;
@@ -244,6 +264,149 @@ function admin_save_uploaded_image_nested(?array $files, int $item_index, int $f
     return '/uploads/site/' . $filename;
 }
 
+function admin_save_uploaded_video(?array $files, int $index, string &$err): string {
+    $err = '';
+    if (!$files || !isset($files['error']) || !is_array($files['error']) || !array_key_exists($index, $files['error'])) {
+        return '';
+    }
+
+    $error = (int)$files['error'][$index];
+    if ($error === UPLOAD_ERR_NO_FILE) return '';
+    if ($error !== UPLOAD_ERR_OK) {
+        $err = 'Ошибка загрузки видео (код: ' . $error . ').';
+        return '';
+    }
+
+    $tmp = (string)($files['tmp_name'][$index] ?? '');
+    $name = (string)($files['name'][$index] ?? '');
+    $size = (int)($files['size'][$index] ?? 0);
+
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        $err = 'Невалидный временный файл загрузки видео.';
+        return '';
+    }
+    if ($size <= 0 || $size > 64 * 1024 * 1024) {
+        $err = 'Видео слишком большое. Лимит: 64 МБ.';
+        return '';
+    }
+
+    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+    $allowed_ext = ['mp4', 'webm', 'ogg', 'mov', 'm4v'];
+    if (!in_array($ext, $allowed_ext, true)) {
+        $err = 'Разрешены только MP4, WEBM, OGG, MOV, M4V.';
+        return '';
+    }
+
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo) {
+            $mime = (string)finfo_file($finfo, $tmp);
+            finfo_close($finfo);
+            $allowed_mime = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'application/octet-stream'];
+            if ($mime !== '' && !in_array($mime, $allowed_mime, true)) {
+                $err = 'Файл не похож на видео.';
+                return '';
+            }
+        }
+    }
+
+    $doc_root = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? __DIR__), '/\\');
+    $upload_dir = $doc_root . '/uploads/site';
+    if (!is_dir($upload_dir) && !mkdir($upload_dir, 0775, true) && !is_dir($upload_dir)) {
+        $err = 'Не удалось создать папку uploads/site.';
+        return '';
+    }
+
+    try {
+        $rand = bin2hex(random_bytes(4));
+    } catch (Throwable $e) {
+        $rand = bin2hex(pack('N', mt_rand()));
+    }
+    $filename = 'card_' . date('Ymd_His') . '_' . $rand . '.' . $ext;
+    $dest = $upload_dir . '/' . $filename;
+
+    if (!move_uploaded_file($tmp, $dest)) {
+        $err = 'Не удалось сохранить загруженное видео.';
+        return '';
+    }
+
+    return '/uploads/site/' . $filename;
+}
+
+function admin_save_uploaded_video_nested(?array $files, int $item_index, int $file_index, string &$err): string {
+    $err = '';
+    if (
+        !$files
+        || !isset($files['error'][$item_index])
+        || !is_array($files['error'][$item_index])
+        || !array_key_exists($file_index, $files['error'][$item_index])
+    ) {
+        return '';
+    }
+
+    $error = (int)$files['error'][$item_index][$file_index];
+    if ($error === UPLOAD_ERR_NO_FILE) return '';
+    if ($error !== UPLOAD_ERR_OK) {
+        $err = 'Ошибка загрузки видео (код: ' . $error . ').';
+        return '';
+    }
+
+    $tmp = (string)($files['tmp_name'][$item_index][$file_index] ?? '');
+    $name = (string)($files['name'][$item_index][$file_index] ?? '');
+    $size = (int)($files['size'][$item_index][$file_index] ?? 0);
+
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        $err = 'Невалидный временный файл загрузки видео.';
+        return '';
+    }
+    if ($size <= 0 || $size > 64 * 1024 * 1024) {
+        $err = 'Видео слишком большое. Лимит: 64 МБ.';
+        return '';
+    }
+
+    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+    $allowed_ext = ['mp4', 'webm', 'ogg', 'mov', 'm4v'];
+    if (!in_array($ext, $allowed_ext, true)) {
+        $err = 'Разрешены только MP4, WEBM, OGG, MOV, M4V.';
+        return '';
+    }
+
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo) {
+            $mime = (string)finfo_file($finfo, $tmp);
+            finfo_close($finfo);
+            $allowed_mime = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'application/octet-stream'];
+            if ($mime !== '' && !in_array($mime, $allowed_mime, true)) {
+                $err = 'Файл не похож на видео.';
+                return '';
+            }
+        }
+    }
+
+    $doc_root = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? __DIR__), '/\\');
+    $upload_dir = $doc_root . '/uploads/site';
+    if (!is_dir($upload_dir) && !mkdir($upload_dir, 0775, true) && !is_dir($upload_dir)) {
+        $err = 'Не удалось создать папку uploads/site.';
+        return '';
+    }
+
+    try {
+        $rand = bin2hex(random_bytes(4));
+    } catch (Throwable $e) {
+        $rand = bin2hex(pack('N', mt_rand()));
+    }
+    $filename = 'card_' . date('Ymd_His') . '_' . $rand . '.' . $ext;
+    $dest = $upload_dir . '/' . $filename;
+
+    if (!move_uploaded_file($tmp, $dest)) {
+        $err = 'Не удалось сохранить загруженное видео.';
+        return '';
+    }
+
+    return '/uploads/site/' . $filename;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_check((string)($_POST['csrf'] ?? ''))) {
         $err = 'CSRF: обнови страницу.';
@@ -281,22 +444,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $titles = $_POST['item_title'] ?? [];
                 $descriptions = $_POST['item_description'] ?? [];
                 $images_by_item = $_POST['item_images'] ?? [];
+                $videos_by_item = $_POST['item_videos'] ?? [];
                 $legacy_images = $_POST['item_image'] ?? [];
+                $legacy_videos = $_POST['item_video'] ?? [];
                 $uploads_nested = $_FILES['item_upload_images'] ?? null;
+                $video_uploads_nested = $_FILES['item_upload_videos'] ?? null;
                 $uploads_legacy = $_FILES['item_upload_image'] ?? null;
+                $video_uploads_legacy = $_FILES['item_upload_video'] ?? null;
 
                 if (!is_array($titles)) $titles = [];
                 if (!is_array($descriptions)) $descriptions = [];
                 if (!is_array($images_by_item)) $images_by_item = [];
+                if (!is_array($videos_by_item)) $videos_by_item = [];
                 if (!is_array($legacy_images)) $legacy_images = [];
+                if (!is_array($legacy_videos)) $legacy_videos = [];
 
                 $max_count = max(
                     count($titles),
                     count($descriptions),
                     count($images_by_item),
+                    count($videos_by_item),
                     count($legacy_images),
+                    count($legacy_videos),
                     admin_nested_item_count($uploads_nested),
-                    admin_file_count($uploads_legacy)
+                    admin_nested_item_count($video_uploads_nested),
+                    admin_file_count($uploads_legacy),
+                    admin_file_count($video_uploads_legacy)
                 );
                 $items = [];
 
@@ -304,11 +477,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $title = trim((string)($titles[$i] ?? ''));
                     $description = trim((string)($descriptions[$i] ?? ''));
                     $images = admin_clean_image_urls($images_by_item[$i] ?? []);
+                    $videos = admin_clean_video_urls($videos_by_item[$i] ?? []);
 
                     if (!$images) {
                         $legacy_image = trim((string)($legacy_images[$i] ?? ''));
                         if ($legacy_image !== '') {
                             $images[] = $legacy_image;
+                        }
+                    }
+                    if (!$videos) {
+                        $legacy_video = trim((string)($legacy_videos[$i] ?? ''));
+                        if ($legacy_video !== '') {
+                            $videos[] = $legacy_video;
                         }
                     }
 
@@ -320,6 +500,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     if ($uploaded !== '') {
                         $images[] = $uploaded;
+                    }
+                    $video_upload_err = '';
+                    $video_uploaded = admin_save_uploaded_video($video_uploads_legacy, $i, $video_upload_err);
+                    if ($video_upload_err !== '') {
+                        $err = $video_upload_err;
+                        break;
+                    }
+                    if ($video_uploaded !== '') {
+                        $videos[] = $video_uploaded;
                     }
 
                     $nested_count = admin_nested_file_count($uploads_nested, $i);
@@ -334,9 +523,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $images[] = $nested_uploaded;
                         }
                     }
+                    $video_nested_count = admin_nested_file_count($video_uploads_nested, $i);
+                    for ($j = 0; $j < $video_nested_count; $j++) {
+                        $video_nested_err = '';
+                        $video_nested_uploaded = admin_save_uploaded_video_nested($video_uploads_nested, $i, $j, $video_nested_err);
+                        if ($video_nested_err !== '') {
+                            $err = $video_nested_err;
+                            break 2;
+                        }
+                        if ($video_nested_uploaded !== '') {
+                            $videos[] = $video_nested_uploaded;
+                        }
+                    }
 
                     $images = array_values(array_unique($images));
-                    if ($title === '' && $description === '' && !$images) {
+                    $videos = array_values(array_unique($videos));
+                    if ($title === '' && $description === '' && !$images && !$videos) {
                         continue;
                     }
 
@@ -345,6 +547,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'description' => $description,
                         'images' => $images,
                         'image' => $images[0] ?? '',
+                        'videos' => $videos,
+                        'video' => $videos[0] ?? '',
                     ];
                 }
 
@@ -388,9 +592,9 @@ $projects = admin_load_collection($config_data, 'cards', 'projects');
 $travels = admin_load_collection($config_data, 'travels', 'travel');
 $photos = admin_load_collection($config_data, 'photos', 'photo');
 
-if (!$projects) $projects[] = ['title' => '', 'description' => '', 'images' => [''], 'image' => ''];
-if (!$travels) $travels[] = ['title' => '', 'description' => '', 'images' => [''], 'image' => ''];
-if (!$photos) $photos[] = ['title' => '', 'description' => '', 'images' => [''], 'image' => ''];
+if (!$projects) $projects[] = ['title' => '', 'description' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
+if (!$travels) $travels[] = ['title' => '', 'description' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
+if (!$photos) $photos[] = ['title' => '', 'description' => '', 'images' => [''], 'videos' => [''], 'image' => '', 'video' => ''];
 
 $collections = [
     ['key' => 'cards', 'title' => 'Проекты', 'hint' => 'Раздел /projects/index.php', 'items' => $projects, 'list_id' => 'projectsList'],
@@ -407,54 +611,166 @@ $collections = [
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;700&display=swap');
     *{box-sizing:border-box}
-    body{margin:0;background:#151518;color:#efeff1;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
-    .page{width:min(1240px, calc(100vw - 24px));margin:28px auto 40px;display:grid;gap:18px}
-    .card{background:#1e1e25;border:1px solid #333340;border-radius:16px;padding:18px;box-shadow:0 18px 40px rgba(0,0,0,.18)}
-    .subcard{border:1px solid #333340;border-radius:12px;padding:12px;background:#151518;display:grid;gap:10px}
-    .title{font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:18px;margin:0 0 8px}
-    .subtitle{font-size:16px;margin:0}
-    .muted{color:#868899;font-size:13px;line-height:1.6}
+    :root{
+      --bg:#0f1015;
+      --panel:#171922;
+      --panel-soft:#12141b;
+      --line:#2a2f3d;
+      --line-soft:#252a36;
+      --text:#eff2ff;
+      --muted:#949db4;
+      --accent:#f9c940;
+      --accent-soft:#f9c94033;
+      --ok:#5fd7b0;
+      --err:#ff9e9e;
+    }
+    body{
+      margin:0;
+      background:
+        radial-gradient(1200px 420px at 10% -10%, #1e2434 0%, transparent 60%),
+        radial-gradient(900px 360px at 100% -20%, #1a2130 0%, transparent 62%),
+        var(--bg);
+      color:var(--text);
+      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif
+    }
+    .page{width:min(1160px, calc(100vw - 24px));margin:24px auto 36px;display:grid;gap:14px}
+    .card{
+      background:linear-gradient(180deg, #1a1d27, #151821);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:16px;
+      box-shadow:0 14px 34px rgba(0,0,0,.24);
+    }
+    .subcard{
+      border:1px solid var(--line-soft);
+      border-radius:14px;
+      padding:14px;
+      background:linear-gradient(180deg, #131621, #10131b);
+      display:grid;
+      gap:12px;
+    }
+    .title{font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:20px;margin:0 0 6px}
+    .subtitle{font-size:18px;margin:0}
+    .muted{color:var(--muted);font-size:13px;line-height:1.55}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
-    .ok{margin-top:10px;color:#61d1ad}
-    .err{margin-top:10px;color:#ff8f8f}
+    .ok{color:var(--ok)}
+    .err{color:var(--err)}
+    #adminSaveStatus{
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:var(--panel-soft);
+      font-size:14px;
+    }
     .btn, button{
-      appearance:none;border:1px solid #333340;background:#191920;color:#efeff1;border-radius:10px;padding:9px 12px;
-      font:inherit;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px
+      appearance:none;
+      border:1px solid var(--line);
+      background:#1a1e2a;
+      color:var(--text);
+      border-radius:11px;
+      padding:9px 12px;
+      font:inherit;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      transition:.15s ease;
+      transition-property:border-color,background,transform;
     }
-    .btn:hover, button:hover{background:#252532}
-    .btn.primary, button.primary{background:#f9c940;color:#151518;border-color:transparent;font-weight:700}
+    .btn:hover, button:hover{background:#202536;border-color:#38425b}
+    .btn:active, button:active{transform:translateY(1px)}
+    .btn.primary, button.primary{background:var(--accent);color:#171922;border-color:transparent;font-weight:700}
     .config-editor{
-      width:100%;min-height:320px;border:1px solid #333340;border-radius:12px;background:#151518;color:#efeff1;
-      padding:14px;font:12px/1.6 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical;outline:none
+      width:100%;
+      min-height:260px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#0f1219;
+      color:var(--text);
+      padding:12px;
+      font:12px/1.6 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      resize:vertical;
+      outline:none
     }
-    .collection-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px}
-    .projects-list{display:grid;gap:10px}
-    .project-item{border:1px solid #333340;border-radius:12px;padding:12px;background:#1a1a21;display:grid;gap:10px}
-    .project-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .project-item label{display:grid;gap:6px;color:#868899;font-size:12px}
+    .config-editor:focus,
+    input:focus,
+    textarea:focus{
+      border-color:var(--accent-soft);
+      box-shadow:0 0 0 3px #f9c9401f;
+    }
+    .collection-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:8px}
+    .projects-list{display:grid;gap:10px;counter-reset:item}
+    .project-item{
+      border:1px solid var(--line-soft);
+      border-radius:13px;
+      padding:12px;
+      background:#0f1219;
+      display:grid;
+      gap:10px;
+      counter-increment:item;
+    }
+    .project-item::before{
+      content:"Карточка " counter(item);
+      color:#9fb3ff;
+      font:600 11px/1.3 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      letter-spacing:.02em;
+    }
+    .project-row{display:grid;grid-template-columns:1fr;gap:10px}
+    .media-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .media-block{
+      border:1px dashed #323a4d;
+      border-radius:12px;
+      padding:10px;
+      background:#10141d;
+      display:grid;
+      gap:8px;
+    }
+    .media-head{font:700 12px/1.3 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#b2bdd9}
+    .project-item label{display:grid;gap:6px;color:var(--muted);font-size:12px}
     .project-item input,
     .project-item textarea{
-      width:100%;border:1px solid #333340;border-radius:10px;background:#1e1e25;color:#efeff1;padding:10px;font:13px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;outline:none
+      width:100%;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:#131826;
+      color:var(--text);
+      padding:9px 10px;
+      font:13px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      outline:none
     }
     .project-item input[type="file"]{padding:8px}
-    .project-item textarea{min-height:90px;resize:vertical}
-    .image-urls{display:grid;gap:8px}
-    .image-url-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
-    .remove-image-url{border-color:#4b2a2a;color:#ffb0b0;padding:8px 11px}
-    .remove-image-url:hover{background:#312024}
+    .project-item textarea{min-height:88px;resize:vertical}
+    .image-urls,
+    .video-urls{display:grid;gap:8px}
+    .image-url-row,
+    .video-url-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+    .remove-image-url,
+    .remove-video-url{
+      border-color:#5a3131;
+      color:#ffb9b9;
+      padding:8px 11px;
+      background:#271b1e;
+    }
+    .remove-image-url:hover,
+    .remove-video-url:hover{background:#322126}
     .project-tools{display:flex;justify-content:flex-end}
-    .remove-project{border-color:#4b2a2a;color:#ffb0b0}
-    .remove-project:hover{background:#312024}
-    .file-note{color:#868899;font-size:12px}
-    table{width:100%;border-collapse:collapse;margin-top:10px}
-    th,td{padding:12px 10px;border-bottom:1px solid #333340;text-align:left;font-size:14px;vertical-align:top}
-    th{color:#868899;font-weight:500}
-    .pill{display:inline-flex;padding:3px 9px;border:1px solid #333340;border-radius:999px;background:#151518;color:#efeff1;font-size:12px}
+    .remove-project{border-color:#5a3131;color:#ffb9b9;background:#271b1e}
+    .remove-project:hover{background:#322126}
+    .file-note{color:var(--muted);font-size:12px}
+    table{width:100%;border-collapse:collapse;margin-top:6px}
+    th,td{padding:11px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px;vertical-align:top}
+    th{color:var(--muted);font-weight:500}
+    .pill{display:inline-flex;padding:3px 9px;border:1px solid var(--line);border-radius:999px;background:#0f1219;color:var(--text);font-size:12px}
     .actions{display:flex;gap:8px;flex-wrap:wrap}
-    .hint-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
-    .hint{border:1px solid #333340;border-radius:12px;padding:12px;background:#151518}
-    .hint code{font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#f9c940}
-    @media (max-width: 900px){.project-row,.hint-grid,.image-url-row{grid-template-columns:1fr}}
+    @media (max-width: 900px){
+      .media-grid,
+      .image-url-row,
+      .video-url-row{
+        grid-template-columns:1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -471,15 +787,15 @@ $collections = [
     </div>
   </section>
 
-  <?php if ($ok): ?><div class="card ok"><?= admin_h($ok) ?></div><?php endif; ?>
-  <?php if ($err): ?><div class="card err"><?= admin_h($err) ?></div><?php endif; ?>
+  <?php if ($ok): ?><div class="card" style="color:var(--ok)"><?= admin_h($ok) ?></div><?php endif; ?>
+  <?php if ($err): ?><div class="card" style="color:var(--err)"><?= admin_h($err) ?></div><?php endif; ?>
   <div class="card" id="adminSaveStatus" hidden></div>
 
   <section class="card">
     <div class="row">
       <div>
         <h2 class="title">Карточки разделов</h2>
-        <div class="muted">Проекты теперь отдельный раздел. Здесь можно редактировать карточки и загружать фото прямо из панели.</div>
+        <div class="muted">Редактирование карточек: название, описание, фото и видео. Сохранение без перезагрузки.</div>
       </div>
     </div>
 
@@ -505,24 +821,19 @@ $collections = [
                 if (!$item_images) {
                     $item_images = [''];
                 }
+                $item_videos = $item['videos'] ?? [];
+                if (!is_array($item_videos) || !$item_videos) {
+                    $item_videos = [((string)($item['video'] ?? ''))];
+                }
+                if (!$item_videos) {
+                    $item_videos = [''];
+                }
               ?>
               <div class="project-item" data-project-item>
                 <div class="project-row">
                   <label>
                     Название
                     <input type="text" data-field="item-title" name="item_title[<?= (int)$item_index ?>]" value="<?= admin_h((string)($item['title'] ?? '')) ?>" placeholder="Название">
-                  </label>
-                  <label>
-                    Фото (URL или путь, можно несколько)
-                    <div class="image-urls" data-image-urls>
-                      <?php foreach ($item_images as $image_url): ?>
-                        <div class="image-url-row">
-                          <input type="text" data-field="item-image-url" name="item_images[<?= (int)$item_index ?>][]" value="<?= admin_h((string)$image_url) ?>" placeholder="/uploads/site/example.jpg">
-                          <button type="button" class="remove-image-url" data-remove-image-url>Убрать</button>
-                        </div>
-                      <?php endforeach; ?>
-                    </div>
-                    <button type="button" data-add-image-url>Добавить URL фото</button>
                   </label>
                 </div>
 
@@ -531,11 +842,48 @@ $collections = [
                   <textarea data-field="item-description" name="item_description[<?= (int)$item_index ?>]" placeholder="Коротко о карточке"><?= admin_h((string)($item['description'] ?? '')) ?></textarea>
                 </label>
 
-                <label>
-                  Загрузка фото (можно несколько)
-                  <input type="file" data-field="item-upload-images" name="item_upload_images[<?= (int)$item_index ?>][]" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
-                  <span class="file-note">Можно выбрать несколько файлов: они добавятся к списку фото карточки.</span>
-                </label>
+                <div class="media-grid">
+                  <div class="media-block">
+                    <div class="media-head">Фото</div>
+                    <label>
+                      URL фото
+                      <div class="image-urls" data-image-urls>
+                        <?php foreach ($item_images as $image_url): ?>
+                          <div class="image-url-row">
+                            <input type="text" data-field="item-image-url" name="item_images[<?= (int)$item_index ?>][]" value="<?= admin_h((string)$image_url) ?>" placeholder="/uploads/site/example.jpg">
+                            <button type="button" class="remove-image-url" data-remove-image-url>Убрать</button>
+                          </div>
+                        <?php endforeach; ?>
+                      </div>
+                      <button type="button" data-add-image-url>Добавить URL фото</button>
+                    </label>
+                    <label>
+                      Загрузка фото (несколько файлов)
+                      <input type="file" data-field="item-upload-images" name="item_upload_images[<?= (int)$item_index ?>][]" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
+                      <span class="file-note">JPG, PNG, WEBP, GIF, до 8 МБ на файл.</span>
+                    </label>
+                  </div>
+                  <div class="media-block">
+                    <div class="media-head">Видео</div>
+                    <label>
+                      URL видео
+                      <div class="video-urls" data-video-urls>
+                        <?php foreach ($item_videos as $video_url): ?>
+                          <div class="video-url-row">
+                            <input type="text" data-field="item-video-url" name="item_videos[<?= (int)$item_index ?>][]" value="<?= admin_h((string)$video_url) ?>" placeholder="/uploads/site/example.mp4">
+                            <button type="button" class="remove-video-url" data-remove-video-url>Убрать</button>
+                          </div>
+                        <?php endforeach; ?>
+                      </div>
+                      <button type="button" data-add-video-url>Добавить URL видео</button>
+                    </label>
+                    <label>
+                      Загрузка видео (несколько файлов)
+                      <input type="file" data-field="item-upload-videos" name="item_upload_videos[<?= (int)$item_index ?>][]" accept="video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
+                      <span class="file-note">MP4, WEBM, OGG, MOV, M4V, до 64 МБ на файл.</span>
+                    </label>
+                  </div>
+                </div>
 
                 <div class="project-tools">
                   <button type="button" class="remove-project" data-remove-project>Удалить</button>
@@ -569,21 +917,7 @@ $collections = [
         <button class="primary" type="submit">Сохранить конфиг</button>
       </div>
     </form>
-
-    <div class="hint-grid">
-      <div class="hint">
-        <div class="muted">Файл в терминале</div>
-        <code>{"type":"file","content":"текст"}</code>
-      </div>
-      <div class="hint">
-        <div class="muted">Папка в терминале</div>
-        <code>{"type":"dir","children":{}}</code>
-      </div>
-      <div class="hint">
-        <div class="muted">Массивы карточек</div>
-        <code>cards / travels / photos</code>
-      </div>
-    </div>
+    <div class="muted" style="margin-top:8px;">Данные карточек: <code>cards</code>, <code>travels</code>, <code>photos</code>. Медиа: массивы <code>images</code> и <code>videos</code>.</div>
   </section>
 
   <section class="card">
@@ -670,6 +1004,19 @@ $collections = [
     return row;
   }
 
+  function makeVideoUrlRow(value) {
+    const row = document.createElement('div');
+    row.className = 'video-url-row';
+    row.innerHTML = ''
+      + '<input type="text" data-field="item-video-url" placeholder="/uploads/site/example.mp4">'
+      + '<button type="button" class="remove-video-url" data-remove-video-url>Убрать</button>';
+    const input = row.querySelector('input[data-field="item-video-url"]');
+    if (input instanceof HTMLInputElement) {
+      input.value = value || '';
+    }
+    return row;
+  }
+
   function renumberCollection(list) {
     const items = list.querySelectorAll('[data-project-item]');
     items.forEach((item, itemIndex) => {
@@ -687,10 +1034,19 @@ $collections = [
       if (upload instanceof HTMLInputElement) {
         upload.name = `item_upload_images[${itemIndex}][]`;
       }
+      const videoUpload = item.querySelector('input[data-field="item-upload-videos"]');
+      if (videoUpload instanceof HTMLInputElement) {
+        videoUpload.name = `item_upload_videos[${itemIndex}][]`;
+      }
 
       item.querySelectorAll('input[data-field="item-image-url"]').forEach((input) => {
         if (input instanceof HTMLInputElement) {
           input.name = `item_images[${itemIndex}][]`;
+        }
+      });
+      item.querySelectorAll('input[data-field="item-video-url"]').forEach((input) => {
+        if (input instanceof HTMLInputElement) {
+          input.name = `item_videos[${itemIndex}][]`;
         }
       });
     });
@@ -708,21 +1064,41 @@ $collections = [
     item.innerHTML = ''
       + '<div class="project-row">'
       + '  <label>Название<input type="text" data-field="item-title" placeholder="Название"></label>'
-      + '  <label>Фото (URL или путь, можно несколько)'
-      + '    <div class="image-urls" data-image-urls></div>'
-      + '    <button type="button" data-add-image-url>Добавить URL фото</button>'
-      + '  </label>'
       + '</div>'
       + '<label>Описание<textarea data-field="item-description" placeholder="Коротко о карточке"></textarea></label>'
-      + '<label>Загрузка фото (можно несколько)'
-      + '  <input type="file" data-field="item-upload-images" accept="image/png,image/jpeg,image/webp,image/gif" multiple>'
-      + '  <span class="file-note">Можно выбрать несколько файлов: они добавятся к списку фото карточки.</span>'
-      + '</label>'
+      + '<div class="media-grid">'
+      + '  <div class="media-block">'
+      + '    <div class="media-head">Фото</div>'
+      + '    <label>URL фото'
+      + '      <div class="image-urls" data-image-urls></div>'
+      + '      <button type="button" data-add-image-url>Добавить URL фото</button>'
+      + '    </label>'
+      + '    <label>Загрузка фото (несколько файлов)'
+      + '      <input type="file" data-field="item-upload-images" accept="image/png,image/jpeg,image/webp,image/gif" multiple>'
+      + '      <span class="file-note">JPG, PNG, WEBP, GIF, до 8 МБ на файл.</span>'
+      + '    </label>'
+      + '  </div>'
+      + '  <div class="media-block">'
+      + '    <div class="media-head">Видео</div>'
+      + '    <label>URL видео'
+      + '      <div class="video-urls" data-video-urls></div>'
+      + '      <button type="button" data-add-video-url>Добавить URL видео</button>'
+      + '    </label>'
+      + '    <label>Загрузка видео (несколько файлов)'
+      + '      <input type="file" data-field="item-upload-videos" accept="video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>'
+      + '      <span class="file-note">MP4, WEBM, OGG, MOV, M4V, до 64 МБ на файл.</span>'
+      + '    </label>'
+      + '  </div>'
+      + '</div>'
       + '<div class="project-tools"><button type="button" class="remove-project" data-remove-project>Удалить</button></div>';
 
     const urls = item.querySelector('[data-image-urls]');
     if (urls) {
       urls.appendChild(makeImageUrlRow(''));
+    }
+    const videoUrls = item.querySelector('[data-video-urls]');
+    if (videoUrls) {
+      videoUrls.appendChild(makeVideoUrlRow(''));
     }
     return item;
   }
@@ -753,6 +1129,16 @@ $collections = [
         return;
       }
 
+      if (target.hasAttribute('data-add-video-url')) {
+        const item = target.closest('[data-project-item]');
+        if (!item) return;
+        const urls = item.querySelector('[data-video-urls]');
+        if (!urls) return;
+        urls.appendChild(makeVideoUrlRow(''));
+        renumberCollection(list);
+        return;
+      }
+
       if (target.hasAttribute('data-remove-image-url')) {
         const row = target.closest('.image-url-row');
         if (!row) return;
@@ -761,6 +1147,22 @@ $collections = [
         const rows = item.querySelectorAll('.image-url-row');
         if (rows.length <= 1) {
           const input = row.querySelector('input[data-field="item-image-url"]');
+          if (input instanceof HTMLInputElement) input.value = '';
+          return;
+        }
+        row.remove();
+        renumberCollection(list);
+        return;
+      }
+
+      if (target.hasAttribute('data-remove-video-url')) {
+        const row = target.closest('.video-url-row');
+        if (!row) return;
+        const item = target.closest('[data-project-item]');
+        if (!item) return;
+        const rows = item.querySelectorAll('.video-url-row');
+        if (rows.length <= 1) {
+          const input = row.querySelector('input[data-field="item-video-url"]');
           if (input instanceof HTMLInputElement) input.value = '';
           return;
         }

@@ -35,6 +35,17 @@ function admin_clean_image_urls($raw): array {
     return array_values(array_unique($out));
 }
 
+function admin_clean_video_urls($raw): array {
+    if (!is_array($raw)) return [];
+    $out = [];
+    foreach ($raw as $value) {
+        $url = trim((string)$value);
+        if ($url === '') continue;
+        $out[] = $url;
+    }
+    return array_values(array_unique($out));
+}
+
 function admin_save_config_array(string $config_path, array $decoded, string &$err): ?string {
     $dir = dirname($config_path);
     if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
@@ -214,6 +225,149 @@ function admin_save_uploaded_image_nested(?array $files, int $item_index, int $f
     return '/uploads/site/' . $filename;
 }
 
+function admin_save_uploaded_video(?array $files, int $index, string &$err): string {
+    $err = '';
+    if (!$files || !isset($files['error']) || !is_array($files['error']) || !array_key_exists($index, $files['error'])) {
+        return '';
+    }
+
+    $error = (int)$files['error'][$index];
+    if ($error === UPLOAD_ERR_NO_FILE) return '';
+    if ($error !== UPLOAD_ERR_OK) {
+        $err = 'Ошибка загрузки видео (код: ' . $error . ').';
+        return '';
+    }
+
+    $tmp = (string)($files['tmp_name'][$index] ?? '');
+    $name = (string)($files['name'][$index] ?? '');
+    $size = (int)($files['size'][$index] ?? 0);
+
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        $err = 'Невалидный временный файл загрузки видео.';
+        return '';
+    }
+    if ($size <= 0 || $size > 64 * 1024 * 1024) {
+        $err = 'Видео слишком большое. Лимит: 64 МБ.';
+        return '';
+    }
+
+    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+    $allowed_ext = ['mp4', 'webm', 'ogg', 'mov', 'm4v'];
+    if (!in_array($ext, $allowed_ext, true)) {
+        $err = 'Разрешены только MP4, WEBM, OGG, MOV, M4V.';
+        return '';
+    }
+
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo) {
+            $mime = (string)finfo_file($finfo, $tmp);
+            finfo_close($finfo);
+            $allowed_mime = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'application/octet-stream'];
+            if ($mime !== '' && !in_array($mime, $allowed_mime, true)) {
+                $err = 'Файл не похож на видео.';
+                return '';
+            }
+        }
+    }
+
+    $doc_root = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? __DIR__), '/\\');
+    $upload_dir = $doc_root . '/uploads/site';
+    if (!is_dir($upload_dir) && !mkdir($upload_dir, 0775, true) && !is_dir($upload_dir)) {
+        $err = 'Не удалось создать папку uploads/site.';
+        return '';
+    }
+
+    try {
+        $rand = bin2hex(random_bytes(4));
+    } catch (Throwable $e) {
+        $rand = bin2hex(pack('N', mt_rand()));
+    }
+    $filename = 'card_' . date('Ymd_His') . '_' . $rand . '.' . $ext;
+    $dest = $upload_dir . '/' . $filename;
+
+    if (!move_uploaded_file($tmp, $dest)) {
+        $err = 'Не удалось сохранить загруженное видео.';
+        return '';
+    }
+
+    return '/uploads/site/' . $filename;
+}
+
+function admin_save_uploaded_video_nested(?array $files, int $item_index, int $file_index, string &$err): string {
+    $err = '';
+    if (
+        !$files
+        || !isset($files['error'][$item_index])
+        || !is_array($files['error'][$item_index])
+        || !array_key_exists($file_index, $files['error'][$item_index])
+    ) {
+        return '';
+    }
+
+    $error = (int)$files['error'][$item_index][$file_index];
+    if ($error === UPLOAD_ERR_NO_FILE) return '';
+    if ($error !== UPLOAD_ERR_OK) {
+        $err = 'Ошибка загрузки видео (код: ' . $error . ').';
+        return '';
+    }
+
+    $tmp = (string)($files['tmp_name'][$item_index][$file_index] ?? '');
+    $name = (string)($files['name'][$item_index][$file_index] ?? '');
+    $size = (int)($files['size'][$item_index][$file_index] ?? 0);
+
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        $err = 'Невалидный временный файл загрузки видео.';
+        return '';
+    }
+    if ($size <= 0 || $size > 64 * 1024 * 1024) {
+        $err = 'Видео слишком большое. Лимит: 64 МБ.';
+        return '';
+    }
+
+    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+    $allowed_ext = ['mp4', 'webm', 'ogg', 'mov', 'm4v'];
+    if (!in_array($ext, $allowed_ext, true)) {
+        $err = 'Разрешены только MP4, WEBM, OGG, MOV, M4V.';
+        return '';
+    }
+
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo) {
+            $mime = (string)finfo_file($finfo, $tmp);
+            finfo_close($finfo);
+            $allowed_mime = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'application/octet-stream'];
+            if ($mime !== '' && !in_array($mime, $allowed_mime, true)) {
+                $err = 'Файл не похож на видео.';
+                return '';
+            }
+        }
+    }
+
+    $doc_root = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? __DIR__), '/\\');
+    $upload_dir = $doc_root . '/uploads/site';
+    if (!is_dir($upload_dir) && !mkdir($upload_dir, 0775, true) && !is_dir($upload_dir)) {
+        $err = 'Не удалось создать папку uploads/site.';
+        return '';
+    }
+
+    try {
+        $rand = bin2hex(random_bytes(4));
+    } catch (Throwable $e) {
+        $rand = bin2hex(pack('N', mt_rand()));
+    }
+    $filename = 'card_' . date('Ymd_His') . '_' . $rand . '.' . $ext;
+    $dest = $upload_dir . '/' . $filename;
+
+    if (!move_uploaded_file($tmp, $dest)) {
+        $err = 'Не удалось сохранить загруженное видео.';
+        return '';
+    }
+
+    return '/uploads/site/' . $filename;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     admin_json_response(false, 'Только POST-запросы.');
 }
@@ -265,22 +419,32 @@ if ($action === 'save_collection') {
     $titles = $_POST['item_title'] ?? [];
     $descriptions = $_POST['item_description'] ?? [];
     $images_by_item = $_POST['item_images'] ?? [];
+    $videos_by_item = $_POST['item_videos'] ?? [];
     $legacy_images = $_POST['item_image'] ?? [];
+    $legacy_videos = $_POST['item_video'] ?? [];
     $uploads_nested = $_FILES['item_upload_images'] ?? null;
+    $video_uploads_nested = $_FILES['item_upload_videos'] ?? null;
     $uploads_legacy = $_FILES['item_upload_image'] ?? null;
+    $video_uploads_legacy = $_FILES['item_upload_video'] ?? null;
 
     if (!is_array($titles)) $titles = [];
     if (!is_array($descriptions)) $descriptions = [];
     if (!is_array($images_by_item)) $images_by_item = [];
+    if (!is_array($videos_by_item)) $videos_by_item = [];
     if (!is_array($legacy_images)) $legacy_images = [];
+    if (!is_array($legacy_videos)) $legacy_videos = [];
 
     $max_count = max(
         count($titles),
         count($descriptions),
         count($images_by_item),
+        count($videos_by_item),
         count($legacy_images),
+        count($legacy_videos),
         admin_nested_item_count($uploads_nested),
-        admin_file_count($uploads_legacy)
+        admin_nested_item_count($video_uploads_nested),
+        admin_file_count($uploads_legacy),
+        admin_file_count($video_uploads_legacy)
     );
     $items = [];
 
@@ -288,11 +452,18 @@ if ($action === 'save_collection') {
         $title = trim((string)($titles[$i] ?? ''));
         $description = trim((string)($descriptions[$i] ?? ''));
         $images = admin_clean_image_urls($images_by_item[$i] ?? []);
+        $videos = admin_clean_video_urls($videos_by_item[$i] ?? []);
 
         if (!$images) {
             $legacy_image = trim((string)($legacy_images[$i] ?? ''));
             if ($legacy_image !== '') {
                 $images[] = $legacy_image;
+            }
+        }
+        if (!$videos) {
+            $legacy_video = trim((string)($legacy_videos[$i] ?? ''));
+            if ($legacy_video !== '') {
+                $videos[] = $legacy_video;
             }
         }
 
@@ -303,6 +474,14 @@ if ($action === 'save_collection') {
         }
         if ($uploaded !== '') {
             $images[] = $uploaded;
+        }
+        $video_upload_err = '';
+        $video_uploaded = admin_save_uploaded_video($video_uploads_legacy, $i, $video_upload_err);
+        if ($video_upload_err !== '') {
+            admin_json_response(false, $video_upload_err);
+        }
+        if ($video_uploaded !== '') {
+            $videos[] = $video_uploaded;
         }
 
         $nested_count = admin_nested_file_count($uploads_nested, $i);
@@ -316,9 +495,21 @@ if ($action === 'save_collection') {
                 $images[] = $nested_uploaded;
             }
         }
+        $video_nested_count = admin_nested_file_count($video_uploads_nested, $i);
+        for ($j = 0; $j < $video_nested_count; $j++) {
+            $video_nested_err = '';
+            $video_nested_uploaded = admin_save_uploaded_video_nested($video_uploads_nested, $i, $j, $video_nested_err);
+            if ($video_nested_err !== '') {
+                admin_json_response(false, $video_nested_err);
+            }
+            if ($video_nested_uploaded !== '') {
+                $videos[] = $video_nested_uploaded;
+            }
+        }
 
         $images = array_values(array_unique($images));
-        if ($title === '' && $description === '' && !$images) {
+        $videos = array_values(array_unique($videos));
+        if ($title === '' && $description === '' && !$images && !$videos) {
             continue;
         }
 
@@ -327,6 +518,8 @@ if ($action === 'save_collection') {
             'description' => $description,
             'images' => $images,
             'image' => $images[0] ?? '',
+            'videos' => $videos,
+            'video' => $videos[0] ?? '',
         ];
     }
 
