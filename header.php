@@ -76,6 +76,7 @@ function site_active(string $href, string $uri): bool {
     --violet:#9d8ff0;
     --danger:#ff8f8f;
     --shadow:0 18px 40px rgba(0,0,0,.24);
+    --header-h:60px;
   }
 
   body{
@@ -83,6 +84,9 @@ function site_active(string $href, string $uri): bool {
     background:var(--bg);
     color:var(--text);
     font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  }
+  body.nav-open{
+    overflow:hidden;
   }
 
   .site-header{
@@ -98,7 +102,7 @@ function site_active(string $href, string $uri): bool {
   .site-header .wrap{
     width:min(1280px, calc(100vw - 24px));
     margin:0 auto;
-    height:60px;
+    height:var(--header-h);
     display:flex;
     align-items:center;
     justify-content:space-between;
@@ -381,33 +385,80 @@ function site_active(string $href, string $uri): bool {
   .auth-err{ margin-top:10px; color:var(--danger); font-size:13px; }
 
   @media (max-width: 900px){
+    :root{
+      --header-h:56px;
+    }
     .site-header .wrap{
       width:calc(100vw - 24px);
+      gap:10px;
     }
     .nav{
       position:fixed;
       left:12px;
       right:12px;
-      top:64px;
+      top:calc(var(--header-h) + 8px);
       z-index:999;
       display:none;
       flex-direction:column;
       align-items:stretch;
-      padding:14px;
+      gap:10px;
+      padding:12px;
       border:1px solid var(--line);
       border-radius:14px;
       background:rgba(21,21,24,.98);
       box-shadow:var(--shadow);
+      max-height:calc(100vh - var(--header-h) - 20px);
+      overflow:auto;
     }
     .nav.open{ display:flex; }
+    .nav-link,
+    .nav-btn{
+      justify-content:flex-start;
+      min-height:38px;
+    }
+    .nav-link.active::after, .nav-btn.active::after{
+      bottom:4px;
+      left:0;
+      right:auto;
+      width:36px;
+    }
     .dd{ width:100%; }
     .dd-panel, .flyout{
       position:static;
       width:100%;
       min-width:0;
-      margin-top:10px;
+      margin-top:8px;
+    }
+    .menu-root button,
+    .menu-root a,
+    .dd-list a{
+      padding:11px 12px;
+    }
+    .auth-area{ gap:8px; }
+    .auth-user{ display:none; }
+    .auth-action{
+      padding:6px 10px !important;
+      max-width:118px;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
     .burger{ display:flex; }
+  }
+
+  @media (max-width: 520px){
+    .brand-text{ display:none; }
+    .site-header .wrap{
+      width:calc(100vw - 16px);
+    }
+    .auth-action{
+      max-width:90px;
+      font-size:12px;
+      padding:6px 8px !important;
+    }
+    .nav{
+      left:8px;
+      right:8px;
+    }
   }
 </style>
 
@@ -415,7 +466,7 @@ function site_active(string $href, string $uri): bool {
   <div class="wrap">
     <a class="brand" href="<?= site_h($brand_href) ?>">
       <span class="brand-mark">X</span>
-      <span><?= site_h($brand_name) ?></span>
+      <span class="brand-text"><?= site_h($brand_name) ?></span>
     </a>
 
     <nav class="nav" id="navRoot" aria-label="Навигация">
@@ -546,6 +597,20 @@ function site_active(string $href, string $uri): bool {
     return window.matchMedia('(max-width: 900px)').matches;
   }
 
+  function menuIsOpen() {
+    return !!(navRoot && navRoot.classList.contains('open'));
+  }
+
+  function setMenuOpen(open) {
+    if (!navRoot || !burgerBtn) return;
+    navRoot.classList.toggle('open', open);
+    burgerBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    document.body.classList.toggle('nav-open', open);
+    if (!open) {
+      closeAll();
+    }
+  }
+
   function closeFlyout() {
     if (!univerFlyout) return;
     univerFlyout.classList.remove('open');
@@ -590,15 +655,24 @@ function site_active(string $href, string $uri): bool {
   document.addEventListener('click', function (e) {
     if (!e.target.closest('#siteHeader')) {
       closeAll();
+      if (isMobile()) setMenuOpen(false);
     }
   });
 
   if (burgerBtn && navRoot) {
     burgerBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      const open = navRoot.classList.toggle('open');
-      burgerBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (!open) closeAll();
+      setMenuOpen(!menuIsOpen());
+    });
+  }
+
+  if (navRoot) {
+    navRoot.addEventListener('click', function (e) {
+      if (!isMobile()) return;
+      const link = e.target.closest('a[href]');
+      if (link) {
+        setMenuOpen(false);
+      }
     });
   }
 
@@ -634,6 +708,7 @@ function site_active(string $href, string $uri): bool {
 
   function openAuth(mode) {
     if (!authModal) return;
+    if (isMobile()) setMenuOpen(false);
     authModal.classList.add('open');
     authModal.setAttribute('aria-hidden', 'false');
     setAuthTab(mode || 'login');
@@ -680,5 +755,16 @@ function site_active(string $href, string $uri): bool {
     showAuthErr(map[err] || 'Ошибка.');
     openAuth(window.__AUTH_OPEN__ || 'login');
   }
+
+  window.addEventListener('resize', function () {
+    if (!isMobile() && menuIsOpen()) {
+      setMenuOpen(false);
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (menuIsOpen()) setMenuOpen(false);
+  });
 })();
 </script>

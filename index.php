@@ -252,13 +252,72 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   }
 
   @media (max-width: 980px){
+    .site-shell{
+      min-height:auto;
+    }
+    .site-container{
+      width:calc(100vw - 20px);
+    }
     .hero{
       grid-template-columns:1fr;
-      gap:18px;
-      padding-bottom:28px;
+      gap:14px;
+      padding:30px 0 22px;
+    }
+    .hero-tag{
+      margin-bottom:10px;
+      font-size:10px;
+    }
+    .hero-name{
+      font-size:clamp(32px, 9vw, 42px);
+      margin:0 0 10px;
+    }
+    .cursor{
+      width:3px;
+      height:clamp(32px, 9vw, 42px);
+    }
+    .hero-divider{
+      width:100%;
     }
     .terminal{ display:none; }
+    .section{
+      padding:0 0 28px;
+    }
+    .sec-title{
+      font-size:22px;
+      margin-bottom:14px;
+    }
     .cards{ grid-template-columns:1fr; }
+    .card-inner{
+      padding:12px 13px;
+    }
+    .footer-bar{
+      padding:12px 0 20px;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:8px;
+    }
+    .footer-up{
+      align-self:flex-end;
+    }
+  }
+
+  @media (max-width: 640px){
+    .site-shell::before{
+      background-size:58px 58px;
+      opacity:.55;
+    }
+    .hero-name{
+      font-size:clamp(28px, 11vw, 36px);
+    }
+    .sec-label{
+      font-size:10px;
+    }
+    .cards{
+      gap:10px;
+    }
+    .card-media{
+      aspect-ratio:4 / 3;
+    }
   }
 </style>
 
