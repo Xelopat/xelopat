@@ -127,32 +127,23 @@ if (!$items && $fallback_key !== '') {
       aspect-ratio:16/9;
       background:#151518;
       border-bottom:1px solid #333340;
-      display:flex;
-      overflow-x:auto;
-      scroll-snap-type:x mandatory;
-      scrollbar-width:thin;
-      scrollbar-color:#333340 #151518;
+      display:grid;
+      place-items:center;
+      padding:10px;
     }
     .card-media img{
-      flex:0 0 100%;
       width:100%;
       height:100%;
-      object-fit:cover;
+      object-fit:contain;
       display:block;
-      scroll-snap-align:start;
     }
     .card-media video{
-      flex:0 0 100%;
       width:100%;
       height:100%;
-      object-fit:cover;
+      object-fit:contain;
       display:block;
-      scroll-snap-align:start;
       background:#0f1118;
     }
-    .card-media::-webkit-scrollbar{height:8px}
-    .card-media::-webkit-scrollbar-track{background:#151518}
-    .card-media::-webkit-scrollbar-thumb{background:#333340;border-radius:999px}
     .card-inner{padding:14px 16px}
     .card-title{font-size:16px;font-weight:700;margin:0 0 6px}
     .card-desc{margin:0;font-size:13px;line-height:1.55;color:#868899}
@@ -177,15 +168,12 @@ if (!$items && $fallback_key !== '') {
       <?php foreach ($items as $item): ?>
         <article class="card">
           <div class="card-media">
-            <?php if ($item['videos']): ?>
-              <?php foreach ($item['videos'] as $video_index => $video): ?>
-                <video src="<?= cards_e((string)$video) ?>" controls preload="metadata" playsinline title="<?= cards_e($item['title'] . ' видео #' . ((int)$video_index + 1)) ?>"></video>
-              <?php endforeach; ?>
-            <?php endif; ?>
-            <?php if ($item['images']): ?>
-              <?php foreach ($item['images'] as $image_index => $image): ?>
-                <img src="<?= cards_e((string)$image) ?>" alt="<?= cards_e($item['title'] . ' #' . ((int)$image_index + 1)) ?>">
-              <?php endforeach; ?>
+            <?php $first_image = (string)($item['images'][0] ?? ''); ?>
+            <?php $first_video = (string)($item['videos'][0] ?? ''); ?>
+            <?php if ($first_image !== ''): ?>
+              <img src="<?= cards_e($first_image) ?>" alt="<?= cards_e($item['title']) ?>">
+            <?php elseif ($first_video !== ''): ?>
+              <video src="<?= cards_e($first_video) ?>" controls preload="metadata" playsinline title="<?= cards_e($item['title'] . ' видео') ?>"></video>
             <?php endif; ?>
           </div>
           <div class="card-inner">

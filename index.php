@@ -345,38 +345,22 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     aspect-ratio:16 / 9;
     background:#151518;
     border-bottom:1px solid #333340;
-    display:flex;
-    overflow-x:auto;
-    scroll-snap-type:x mandatory;
-    scrollbar-width:thin;
-    scrollbar-color:#333340 #151518;
+    display:grid;
+    place-items:center;
+    padding:10px;
   }
   .card-media img{
-    flex:0 0 100%;
     width:100%;
     height:100%;
-    object-fit:cover;
+    object-fit:contain;
     display:block;
-    scroll-snap-align:start;
   }
   .card-media video{
-    flex:0 0 100%;
     width:100%;
     height:100%;
-    object-fit:cover;
+    object-fit:contain;
     display:block;
-    scroll-snap-align:start;
     background:#0f1118;
-  }
-  .card-media::-webkit-scrollbar{
-    height:8px;
-  }
-  .card-media::-webkit-scrollbar-track{
-    background:#151518;
-  }
-  .card-media::-webkit-scrollbar-thumb{
-    background:#333340;
-    border-radius:999px;
   }
   .card-inner{ padding:14px 16px; }
   .card-title{ font-size:15px; font-weight:700; margin-bottom:6px; line-height:1.4; }
@@ -537,15 +521,12 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
             ?>
             <article class="card">
               <div class="card-media">
-                <?php if ($videos): ?>
-                  <?php foreach ($videos as $video_index => $video): ?>
-                    <video src="<?= e((string)$video) ?>" controls preload="metadata" playsinline title="<?= e($title . ' видео #' . ((int)$video_index + 1)) ?>"></video>
-                  <?php endforeach; ?>
-                <?php endif; ?>
-                <?php if ($images): ?>
-                  <?php foreach ($images as $image_index => $image): ?>
-                    <img src="<?= e((string)$image) ?>" alt="<?= e($title . ' #' . ((int)$image_index + 1)) ?>">
-                  <?php endforeach; ?>
+                <?php $first_image = (string)($images[0] ?? ''); ?>
+                <?php $first_video = (string)($videos[0] ?? ''); ?>
+                <?php if ($first_image !== ''): ?>
+                  <img src="<?= e($first_image) ?>" alt="<?= e($title) ?>">
+                <?php elseif ($first_video !== ''): ?>
+                  <video src="<?= e($first_video) ?>" controls preload="metadata" playsinline title="<?= e($title . ' видео') ?>"></video>
                 <?php endif; ?>
               </div>
               <div class="card-inner">
@@ -580,15 +561,12 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
             ?>
             <article class="card">
               <div class="card-media">
-                <?php if ($videos): ?>
-                  <?php foreach ($videos as $video_index => $video): ?>
-                    <video src="<?= e((string)$video) ?>" controls preload="metadata" playsinline title="<?= e($title . ' видео #' . ((int)$video_index + 1)) ?>"></video>
-                  <?php endforeach; ?>
-                <?php endif; ?>
-                <?php if ($images): ?>
-                  <?php foreach ($images as $image_index => $image): ?>
-                    <img src="<?= e((string)$image) ?>" alt="<?= e($title . ' #' . ((int)$image_index + 1)) ?>">
-                  <?php endforeach; ?>
+                <?php $first_image = (string)($images[0] ?? ''); ?>
+                <?php $first_video = (string)($videos[0] ?? ''); ?>
+                <?php if ($first_image !== ''): ?>
+                  <img src="<?= e($first_image) ?>" alt="<?= e($title) ?>">
+                <?php elseif ($first_video !== ''): ?>
+                  <video src="<?= e($first_video) ?>" controls preload="metadata" playsinline title="<?= e($title . ' видео') ?>"></video>
                 <?php endif; ?>
               </div>
               <div class="card-inner">

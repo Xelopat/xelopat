@@ -408,6 +408,153 @@ function admin_save_uploaded_video_nested(?array $files, int $item_index, int $f
     return '/uploads/site/' . $filename;
 }
 
+function admin_guess_media_kind(string $name, string $tmp): string {
+    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+    $image_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    $video_ext = ['mp4', 'webm', 'ogg', 'mov', 'm4v'];
+    if (in_array($ext, $image_ext, true)) return 'image';
+    if (in_array($ext, $video_ext, true)) return 'video';
+
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo) {
+            $mime = (string)finfo_file($finfo, $tmp);
+            finfo_close($finfo);
+            if (strpos($mime, 'image/') === 0) return 'image';
+            if (strpos($mime, 'video/') === 0) return 'video';
+        }
+    }
+    return '';
+}
+
+function admin_save_uploaded_media(?array $files, int $index, string &$err): array {
+    $err = '';
+    if (!$files || !isset($files['error']) || !is_array($files['error']) || !array_key_exists($index, $files['error'])) {
+        return ['path' => '', 'kind' => ''];
+    }
+
+    $error = (int)$files['error'][$index];
+    if ($error === UPLOAD_ERR_NO_FILE) return ['path' => '', 'kind' => ''];
+    if ($error !== UPLOAD_ERR_OK) {
+        $err = 'Ошибка загрузки файла (код: ' . $error . ').';
+        return ['path' => '', 'kind' => ''];
+    }
+
+    $tmp = (string)($files['tmp_name'][$index] ?? '');
+    $name = (string)($files['name'][$index] ?? '');
+    $size = (int)($files['size'][$index] ?? 0);
+
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        $err = 'Невалидный временный файл загрузки.';
+        return ['path' => '', 'kind' => ''];
+    }
+
+    $kind = admin_guess_media_kind($name, $tmp);
+    if ($kind === '') {
+        $err = 'Разрешены только фото и видео файлы.';
+        return ['path' => '', 'kind' => ''];
+    }
+    if ($kind === 'image' && ($size <= 0 || $size > 8 * 1024 * 1024)) {
+        $err = 'Фото слишком большое. Лимит: 8 МБ.';
+        return ['path' => '', 'kind' => ''];
+    }
+    if ($kind === 'video' && ($size <= 0 || $size > 64 * 1024 * 1024)) {
+        $err = 'Видео слишком большое. Лимит: 64 МБ.';
+        return ['path' => '', 'kind' => ''];
+    }
+
+    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+    if ($ext === '') {
+        $ext = $kind === 'image' ? 'jpg' : 'mp4';
+    }
+
+    $doc_root = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? __DIR__), '/\\');
+    $upload_dir = $doc_root . '/uploads/site';
+    if (!is_dir($upload_dir) && !mkdir($upload_dir, 0775, true) && !is_dir($upload_dir)) {
+        $err = 'Не удалось создать папку uploads/site.';
+        return ['path' => '', 'kind' => ''];
+    }
+
+    try {
+        $rand = bin2hex(random_bytes(4));
+    } catch (Throwable $e) {
+        $rand = bin2hex(pack('N', mt_rand()));
+    }
+    $filename = 'card_' . date('Ymd_His') . '_' . $rand . '.' . $ext;
+    $dest = $upload_dir . '/' . $filename;
+    if (!move_uploaded_file($tmp, $dest)) {
+        $err = 'Не удалось сохранить загруженный файл.';
+        return ['path' => '', 'kind' => ''];
+    }
+    return ['path' => '/uploads/site/' . $filename, 'kind' => $kind];
+}
+
+function admin_save_uploaded_media_nested(?array $files, int $item_index, int $file_index, string &$err): array {
+    $err = '';
+    if (
+        !$files
+        || !isset($files['error'][$item_index])
+        || !is_array($files['error'][$item_index])
+        || !array_key_exists($file_index, $files['error'][$item_index])
+    ) {
+        return ['path' => '', 'kind' => ''];
+    }
+
+    $error = (int)$files['error'][$item_index][$file_index];
+    if ($error === UPLOAD_ERR_NO_FILE) return ['path' => '', 'kind' => ''];
+    if ($error !== UPLOAD_ERR_OK) {
+        $err = 'Ошибка загрузки файла (код: ' . $error . ').';
+        return ['path' => '', 'kind' => ''];
+    }
+
+    $tmp = (string)($files['tmp_name'][$item_index][$file_index] ?? '');
+    $name = (string)($files['name'][$item_index][$file_index] ?? '');
+    $size = (int)($files['size'][$item_index][$file_index] ?? 0);
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        $err = 'Невалидный временный файл загрузки.';
+        return ['path' => '', 'kind' => ''];
+    }
+
+    $kind = admin_guess_media_kind($name, $tmp);
+    if ($kind === '') {
+        $err = 'Разрешены только фото и видео файлы.';
+        return ['path' => '', 'kind' => ''];
+    }
+    if ($kind === 'image' && ($size <= 0 || $size > 8 * 1024 * 1024)) {
+        $err = 'Фото слишком большое. Лимит: 8 МБ.';
+        return ['path' => '', 'kind' => ''];
+    }
+    if ($kind === 'video' && ($size <= 0 || $size > 64 * 1024 * 1024)) {
+        $err = 'Видео слишком большое. Лимит: 64 МБ.';
+        return ['path' => '', 'kind' => ''];
+    }
+
+    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+    if ($ext === '') {
+        $ext = $kind === 'image' ? 'jpg' : 'mp4';
+    }
+
+    $doc_root = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? __DIR__), '/\\');
+    $upload_dir = $doc_root . '/uploads/site';
+    if (!is_dir($upload_dir) && !mkdir($upload_dir, 0775, true) && !is_dir($upload_dir)) {
+        $err = 'Не удалось создать папку uploads/site.';
+        return ['path' => '', 'kind' => ''];
+    }
+
+    try {
+        $rand = bin2hex(random_bytes(4));
+    } catch (Throwable $e) {
+        $rand = bin2hex(pack('N', mt_rand()));
+    }
+    $filename = 'card_' . date('Ymd_His') . '_' . $rand . '.' . $ext;
+    $dest = $upload_dir . '/' . $filename;
+    if (!move_uploaded_file($tmp, $dest)) {
+        $err = 'Не удалось сохранить загруженный файл.';
+        return ['path' => '', 'kind' => ''];
+    }
+    return ['path' => '/uploads/site/' . $filename, 'kind' => $kind];
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_check((string)($_POST['csrf'] ?? ''))) {
         $err = 'CSRF: обнови страницу.';
@@ -451,10 +598,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $legacy_videos = $_POST['item_video'] ?? [];
                 $uploads_nested = $_FILES['item_upload_images'] ?? null;
                 $video_uploads_nested = $_FILES['item_upload_videos'] ?? null;
+                $media_uploads_nested = $_FILES['item_upload_media'] ?? null;
                 $uploads_legacy = $_FILES['item_upload_image'] ?? null;
                 $video_uploads_legacy = $_FILES['item_upload_video'] ?? null;
                 $bulk_images = $_FILES['bulk_upload_images'] ?? null;
                 $bulk_videos = $_FILES['bulk_upload_videos'] ?? null;
+                $bulk_media = $_FILES['bulk_upload_media'] ?? null;
 
                 if (!is_array($titles)) $titles = [];
                 if (!is_array($dates)) $dates = [];
@@ -474,10 +623,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     count($legacy_videos),
                     admin_nested_item_count($uploads_nested),
                     admin_nested_item_count($video_uploads_nested),
+                    admin_nested_item_count($media_uploads_nested),
                     admin_file_count($uploads_legacy),
                     admin_file_count($video_uploads_legacy),
                     admin_file_count($bulk_images),
-                    admin_file_count($bulk_videos)
+                    admin_file_count($bulk_videos),
+                    admin_file_count($bulk_media)
                 );
                 $items = [];
 
@@ -551,6 +702,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $videos[] = $video_nested_uploaded;
                         }
                     }
+                    $media_nested_count = admin_nested_file_count($media_uploads_nested, $i);
+                    for ($j = 0; $j < $media_nested_count; $j++) {
+                        $media_nested_err = '';
+                        $media_nested_uploaded = admin_save_uploaded_media_nested($media_uploads_nested, $i, $j, $media_nested_err);
+                        if ($media_nested_err !== '') {
+                            $err = $media_nested_err;
+                            break 2;
+                        }
+                        if (($media_nested_uploaded['path'] ?? '') === '') {
+                            continue;
+                        }
+                        if (($media_nested_uploaded['kind'] ?? '') === 'video') {
+                            $videos[] = (string)$media_nested_uploaded['path'];
+                        } else {
+                            $images[] = (string)$media_nested_uploaded['path'];
+                        }
+                    }
 
                     $images = array_values(array_unique($images));
                     $videos = array_values(array_unique($videos));
@@ -619,6 +787,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'image' => '',
                             'videos' => [$bulk_video],
                             'video' => $bulk_video,
+                        ];
+                    }
+                }
+
+                if ($err === '') {
+                    $bulk_media_count = admin_file_count($bulk_media);
+                    for ($i = 0; $i < $bulk_media_count; $i++) {
+                        $bulk_err = '';
+                        $bulk_item = admin_save_uploaded_media($bulk_media, $i, $bulk_err);
+                        if ($bulk_err !== '') {
+                            $err = $bulk_err;
+                            break;
+                        }
+                        if (($bulk_item['path'] ?? '') === '') continue;
+
+                        $name = (string)($bulk_media['name'][$i] ?? '');
+                        $title_from_name = pathinfo($name, PATHINFO_FILENAME);
+                        $title_from_name = trim((string)$title_from_name);
+                        $kind = (string)($bulk_item['kind'] ?? '');
+                        $path = (string)($bulk_item['path'] ?? '');
+
+                        $items[] = [
+                            'title' => $title_from_name !== '' ? $title_from_name : 'Без названия',
+                            'date' => '',
+                            'description' => '',
+                            'images' => $kind === 'image' ? [$path] : [],
+                            'image' => $kind === 'image' ? $path : '',
+                            'videos' => $kind === 'video' ? [$path] : [],
+                            'video' => $kind === 'video' ? $path : '',
                         ];
                     }
                 }
@@ -847,7 +1044,89 @@ $collections = [
     .image-urls,
     .video-urls{display:grid;gap:8px}
     .image-url-row,
-    .video-url-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+    .video-url-row{display:grid;grid-template-columns:72px 1fr auto;gap:8px;align-items:center}
+    .image-url-thumb{
+      width:72px;
+      height:54px;
+      border:1px solid var(--line-soft);
+      border-radius:6px;
+      background:#0c0f17;
+      object-fit:contain;
+      display:block;
+    }
+    .video-url-badge{
+      width:72px;
+      height:54px;
+      border:1px solid var(--line-soft);
+      border-radius:6px;
+      background:#0c0f17;
+      color:var(--muted);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font:700 11px/1 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      letter-spacing:.04em;
+    }
+    .row-actions{
+      display:flex;
+      gap:6px;
+      align-items:center;
+    }
+    .row-actions button{
+      min-width:34px;
+      padding:7px 8px;
+    }
+    .selected-media-list{
+      display:grid;
+      gap:6px;
+      margin-top:6px;
+    }
+    .media-file-row{
+      display:grid;
+      grid-template-columns:60px 1fr auto;
+      gap:8px;
+      align-items:center;
+      border:1px solid var(--line-soft);
+      border-radius:7px;
+      padding:6px;
+      background:#10141c;
+    }
+    .media-file-thumb{
+      width:60px;
+      height:44px;
+      border-radius:5px;
+      border:1px solid #263044;
+      object-fit:contain;
+      background:#0a0d14;
+    }
+    .media-file-icon{
+      width:60px;
+      height:44px;
+      border-radius:5px;
+      border:1px solid #263044;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font:700 10px/1 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      color:var(--muted);
+      background:#0a0d14;
+    }
+    .media-file-meta{
+      min-width:0;
+      display:grid;
+      gap:3px;
+    }
+    .media-file-name{
+      font-size:12px;
+      color:var(--text);
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .media-file-size{
+      font-size:11px;
+      color:var(--muted);
+    }
     .remove-image-url,
     .remove-video-url,
     .remove-project{
@@ -999,19 +1278,19 @@ $collections = [
                         <div class="image-urls" data-image-urls>
                           <?php foreach ($item_images as $image_url): ?>
                             <div class="image-url-row">
+                              <img class="image-url-thumb" data-image-preview src="<?= admin_h((string)$image_url) ?>" alt="preview"<?= trim((string)$image_url) === '' ? ' style="visibility:hidden"' : '' ?>>
                               <input type="text" data-field="item-image-url" name="item_images[<?= (int)$item_index ?>][]" value="<?= admin_h((string)$image_url) ?>" placeholder="/uploads/site/example.jpg">
-                              <button type="button" class="remove-image-url" data-remove-image-url>Убрать</button>
+                              <div class="row-actions">
+                                <button type="button" data-move-image-url-up title="Выше">↑</button>
+                                <button type="button" data-move-image-url-down title="Ниже">↓</button>
+                                <button type="button" class="remove-image-url" data-remove-image-url>×</button>
+                              </div>
                             </div>
                           <?php endforeach; ?>
                         </div>
                         <button type="button" data-add-image-url>Добавить URL фото</button>
                       </label>
                     </details>
-                    <label>
-                      Загрузка фото (несколько файлов)
-                      <input type="file" data-field="item-upload-images" name="item_upload_images[<?= (int)$item_index ?>][]" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
-                      <span class="file-note">JPG, PNG, WEBP, GIF, до 8 МБ на файл.</span>
-                    </label>
                   </div>
                   <div class="media-block">
                     <div class="media-head">Видео</div>
@@ -1021,21 +1300,28 @@ $collections = [
                         <div class="video-urls" data-video-urls>
                           <?php foreach ($item_videos as $video_url): ?>
                             <div class="video-url-row">
+                              <div class="video-url-badge">VIDEO</div>
                               <input type="text" data-field="item-video-url" name="item_videos[<?= (int)$item_index ?>][]" value="<?= admin_h((string)$video_url) ?>" placeholder="/uploads/site/example.mp4">
-                              <button type="button" class="remove-video-url" data-remove-video-url>Убрать</button>
+                              <div class="row-actions">
+                                <button type="button" data-move-video-url-up title="Выше">↑</button>
+                                <button type="button" data-move-video-url-down title="Ниже">↓</button>
+                                <button type="button" class="remove-video-url" data-remove-video-url>×</button>
+                              </div>
                             </div>
                           <?php endforeach; ?>
                         </div>
                         <button type="button" data-add-video-url>Добавить URL видео</button>
                       </label>
                     </details>
-                    <label>
-                      Загрузка видео (несколько файлов)
-                      <input type="file" data-field="item-upload-videos" name="item_upload_videos[<?= (int)$item_index ?>][]" accept="video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
-                      <span class="file-note">MP4, WEBM, OGG, MOV, M4V, до 64 МБ на файл.</span>
-                    </label>
                   </div>
                 </div>
+
+                <label>
+                  Загрузка медиа (фото и видео)
+                  <input type="file" data-field="item-upload-media" name="item_upload_media[<?= (int)$item_index ?>][]" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
+                  <span class="file-note">Можно выбрать несколько файлов или вставить из буфера через Ctrl+V.</span>
+                  <div class="selected-media-list" data-selected-media-list></div>
+                </label>
 
                 <div class="project-tools">
                   <div class="project-order">
@@ -1056,12 +1342,9 @@ $collections = [
             <div class="collection-actions-right">
               <div class="bulk-inline">
                 <label>
-                  Массово: фото
-                  <input type="file" name="bulk_upload_images[]" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
-                </label>
-                <label>
-                  Массово: видео
-                  <input type="file" name="bulk_upload_videos[]" accept="video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
+                  Массово: медиа
+                  <input type="file" data-field="bulk-upload-media" name="bulk_upload_media[]" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
+                  <div class="selected-media-list" data-selected-media-list></div>
                 </label>
               </div>
               <button class="primary" type="submit">Сохранить</button>
@@ -1163,16 +1446,64 @@ $collections = [
     });
   }
 
+  function formatBytes(bytes) {
+    const value = Number(bytes || 0);
+    if (!Number.isFinite(value) || value <= 0) return '0 Б';
+    if (value >= 1024 * 1024) return (value / (1024 * 1024)).toFixed(1) + ' МБ';
+    if (value >= 1024) return Math.round(value / 1024) + ' КБ';
+    return value + ' Б';
+  }
+
+  function syncImageUrlRow(row) {
+    if (!(row instanceof Element)) return;
+    const input = row.querySelector('input[data-field="item-image-url"]');
+    const preview = row.querySelector('img[data-image-preview]');
+    if (!(input instanceof HTMLInputElement) || !(preview instanceof HTMLImageElement)) return;
+    const value = (input.value || '').trim();
+    if (value === '') {
+      preview.removeAttribute('src');
+      preview.style.visibility = 'hidden';
+      return;
+    }
+    preview.src = value;
+    preview.style.visibility = 'visible';
+  }
+
+  function updateUrlMoveButtons(containerSelector) {
+    document.querySelectorAll(containerSelector).forEach((container) => {
+      const rows = Array.from(container.children);
+      rows.forEach((row, index) => {
+        const up = row.querySelector('[data-move-image-url-up], [data-move-video-url-up]');
+        const down = row.querySelector('[data-move-image-url-down], [data-move-video-url-down]');
+        if (up instanceof HTMLButtonElement) up.disabled = index === 0;
+        if (down instanceof HTMLButtonElement) down.disabled = index === rows.length - 1;
+      });
+    });
+  }
+
+  function initUrlRowPreviews(scope) {
+    const root = scope instanceof Element ? scope : document;
+    root.querySelectorAll('.image-url-row').forEach((row) => syncImageUrlRow(row));
+    updateUrlMoveButtons('[data-image-urls]');
+    updateUrlMoveButtons('[data-video-urls]');
+  }
+
   function makeImageUrlRow(value) {
     const row = document.createElement('div');
     row.className = 'image-url-row';
     row.innerHTML = ''
+      + '<img class="image-url-thumb" data-image-preview alt="preview">'
       + '<input type="text" data-field="item-image-url" placeholder="/uploads/site/example.jpg">'
-      + '<button type="button" class="remove-image-url" data-remove-image-url>Убрать</button>';
+      + '<div class="row-actions">'
+      + '  <button type="button" data-move-image-url-up title="Выше">↑</button>'
+      + '  <button type="button" data-move-image-url-down title="Ниже">↓</button>'
+      + '  <button type="button" class="remove-image-url" data-remove-image-url>×</button>'
+      + '</div>';
     const input = row.querySelector('input[data-field="item-image-url"]');
     if (input instanceof HTMLInputElement) {
       input.value = value || '';
     }
+    syncImageUrlRow(row);
     return row;
   }
 
@@ -1180,8 +1511,13 @@ $collections = [
     const row = document.createElement('div');
     row.className = 'video-url-row';
     row.innerHTML = ''
+      + '<div class="video-url-badge">VIDEO</div>'
       + '<input type="text" data-field="item-video-url" placeholder="/uploads/site/example.mp4">'
-      + '<button type="button" class="remove-video-url" data-remove-video-url>Убрать</button>';
+      + '<div class="row-actions">'
+      + '  <button type="button" data-move-video-url-up title="Выше">↑</button>'
+      + '  <button type="button" data-move-video-url-down title="Ниже">↓</button>'
+      + '  <button type="button" class="remove-video-url" data-remove-video-url>×</button>'
+      + '</div>';
     const input = row.querySelector('input[data-field="item-video-url"]');
     if (input instanceof HTMLInputElement) {
       input.value = value || '';
@@ -1207,13 +1543,9 @@ $collections = [
         description.name = `item_description[${itemIndex}]`;
       }
 
-      const upload = item.querySelector('input[data-field="item-upload-images"]');
-      if (upload instanceof HTMLInputElement) {
-        upload.name = `item_upload_images[${itemIndex}][]`;
-      }
-      const videoUpload = item.querySelector('input[data-field="item-upload-videos"]');
-      if (videoUpload instanceof HTMLInputElement) {
-        videoUpload.name = `item_upload_videos[${itemIndex}][]`;
+      const mediaUpload = item.querySelector('input[data-field="item-upload-media"]');
+      if (mediaUpload instanceof HTMLInputElement) {
+        mediaUpload.name = `item_upload_media[${itemIndex}][]`;
       }
 
       item.querySelectorAll('input[data-field="item-image-url"]').forEach((input) => {
@@ -1253,10 +1585,6 @@ $collections = [
       + '        <button type="button" data-add-image-url>Добавить URL фото</button>'
       + '      </label>'
       + '    </details>'
-      + '    <label>Загрузка фото (несколько файлов)'
-      + '      <input type="file" data-field="item-upload-images" accept="image/png,image/jpeg,image/webp,image/gif" multiple>'
-      + '      <span class="file-note">JPG, PNG, WEBP, GIF, до 8 МБ на файл.</span>'
-      + '    </label>'
       + '  </div>'
       + '  <div class="media-block">'
       + '    <div class="media-head">Видео</div>'
@@ -1266,12 +1594,13 @@ $collections = [
       + '        <button type="button" data-add-video-url>Добавить URL видео</button>'
       + '      </label>'
       + '    </details>'
-      + '    <label>Загрузка видео (несколько файлов)'
-      + '      <input type="file" data-field="item-upload-videos" accept="video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>'
-      + '      <span class="file-note">MP4, WEBM, OGG, MOV, M4V, до 64 МБ на файл.</span>'
-      + '    </label>'
       + '  </div>'
       + '</div>'
+      + '<label>Загрузка медиа (фото и видео)'
+      + '  <input type="file" data-field="item-upload-media" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>'
+      + '  <span class="file-note">Можно выбрать несколько файлов или вставить из буфера через Ctrl+V.</span>'
+      + '  <div class="selected-media-list" data-selected-media-list></div>'
+      + '</label>'
       + '<div class="project-tools">'
       + '  <div class="project-order"><button type="button" data-move-up title="Выше">↑</button><button type="button" data-move-down title="Ниже">↓</button></div>'
       + '  <button type="button" class="remove-project" data-remove-project>Удалить</button>'
@@ -1288,13 +1617,251 @@ $collections = [
     return item;
   }
 
+  function extractClipboardMediaFiles(event) {
+    const data = event.clipboardData;
+    if (!data || !data.items) return [];
+    const out = [];
+    for (const item of Array.from(data.items)) {
+      if (item.kind !== 'file') continue;
+      const file = item.getAsFile();
+      if (!file) continue;
+      const t = (file.type || '').toLowerCase();
+      if (t.startsWith('image/') || t.startsWith('video/')) {
+        out.push(file);
+      }
+    }
+    return out;
+  }
+
+  function mergeFilesIntoInput(input, files) {
+    if (!(input instanceof HTMLInputElement)) return false;
+    if (!files.length) return false;
+    if (typeof DataTransfer === 'undefined') return false;
+    const dt = new DataTransfer();
+    const existing = input.files ? Array.from(input.files) : [];
+    existing.forEach((file) => dt.items.add(file));
+    files.forEach((file) => dt.items.add(file));
+    input.files = dt.files;
+    return true;
+  }
+
+  function getListForMediaInput(input) {
+    if (!(input instanceof HTMLInputElement)) return null;
+    const label = input.closest('label');
+    if (!(label instanceof Element)) return null;
+    const list = label.querySelector('[data-selected-media-list]');
+    return list instanceof HTMLElement ? list : null;
+  }
+
+  function ensureMediaInputId(input) {
+    if (!(input instanceof HTMLInputElement)) return '';
+    if (!input.dataset.mediaInputId) {
+      input.dataset.mediaInputId = 'm' + Math.random().toString(36).slice(2, 10);
+    }
+    return input.dataset.mediaInputId || '';
+  }
+
+  function getMediaInputById(id) {
+    if (!id) return null;
+    const node = document.querySelector(`input[data-media-input-id="${id}"]`);
+    return node instanceof HTMLInputElement ? node : null;
+  }
+
+  function renderSelectedMediaList(input) {
+    const list = getListForMediaInput(input);
+    if (!list) return;
+    const inputId = ensureMediaInputId(input);
+    list.dataset.mediaInputId = inputId;
+
+    list.querySelectorAll('img[data-object-url]').forEach((img) => {
+      const src = img.getAttribute('src');
+      if (src && src.startsWith('blob:')) {
+        URL.revokeObjectURL(src);
+      }
+    });
+    list.innerHTML = '';
+
+    const files = input.files ? Array.from(input.files) : [];
+    files.forEach((file, index) => {
+      const row = document.createElement('div');
+      row.className = 'media-file-row';
+
+      let previewNode;
+      const type = (file.type || '').toLowerCase();
+      if (type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.className = 'media-file-thumb';
+        img.alt = 'preview';
+        img.src = URL.createObjectURL(file);
+        img.setAttribute('data-object-url', '1');
+        previewNode = img;
+      } else {
+        const icon = document.createElement('div');
+        icon.className = 'media-file-icon';
+        icon.textContent = 'VIDEO';
+        previewNode = icon;
+      }
+
+      const meta = document.createElement('div');
+      meta.className = 'media-file-meta';
+      const name = document.createElement('div');
+      name.className = 'media-file-name';
+      name.textContent = file.name || 'file';
+      const size = document.createElement('div');
+      size.className = 'media-file-size';
+      size.textContent = formatBytes(file.size);
+      meta.appendChild(name);
+      meta.appendChild(size);
+
+      const actions = document.createElement('div');
+      actions.className = 'row-actions';
+      const isFirst = index === 0;
+      const isLast = index === files.length - 1;
+      actions.innerHTML = ''
+        + `<button type="button" data-media-file-up="${index}" title="Выше"${isFirst ? ' disabled' : ''}>↑</button>`
+        + `<button type="button" data-media-file-down="${index}" title="Ниже"${isLast ? ' disabled' : ''}>↓</button>`
+        + `<button type="button" class="remove-project" data-media-file-remove="${index}" title="Убрать">×</button>`;
+
+      row.appendChild(previewNode);
+      row.appendChild(meta);
+      row.appendChild(actions);
+      list.appendChild(row);
+    });
+  }
+
+  function reorderInputFiles(input, fromIndex, toIndex) {
+    if (!(input instanceof HTMLInputElement)) return false;
+    if (typeof DataTransfer === 'undefined') return false;
+    const files = input.files ? Array.from(input.files) : [];
+    if (!files.length) return false;
+    if (fromIndex < 0 || fromIndex >= files.length) return false;
+    if (toIndex < 0 || toIndex >= files.length) return false;
+    if (fromIndex === toIndex) return false;
+
+    const moved = files.splice(fromIndex, 1)[0];
+    files.splice(toIndex, 0, moved);
+    const dt = new DataTransfer();
+    files.forEach((file) => dt.items.add(file));
+    input.files = dt.files;
+    return true;
+  }
+
+  function removeInputFileAt(input, index) {
+    if (!(input instanceof HTMLInputElement)) return false;
+    if (typeof DataTransfer === 'undefined') return false;
+    const files = input.files ? Array.from(input.files) : [];
+    if (!files.length) return false;
+    if (index < 0 || index >= files.length) return false;
+    files.splice(index, 1);
+    const dt = new DataTransfer();
+    files.forEach((file) => dt.items.add(file));
+    input.files = dt.files;
+    return true;
+  }
+
+  function processMediaFileAction(target) {
+    if (!(target instanceof HTMLElement)) return false;
+    if (!target.hasAttribute('data-media-file-up') && !target.hasAttribute('data-media-file-down') && !target.hasAttribute('data-media-file-remove')) {
+      return false;
+    }
+    const wrap = target.closest('[data-selected-media-list]');
+    if (!(wrap instanceof HTMLElement)) return true;
+    const inputId = wrap.dataset.mediaInputId || '';
+    const input = getMediaInputById(inputId);
+    if (!(input instanceof HTMLInputElement)) return true;
+
+    if (target.hasAttribute('data-media-file-up')) {
+      const from = Number(target.getAttribute('data-media-file-up'));
+      if (reorderInputFiles(input, from, from - 1)) {
+        renderSelectedMediaList(input);
+      }
+      return true;
+    }
+    if (target.hasAttribute('data-media-file-down')) {
+      const from = Number(target.getAttribute('data-media-file-down'));
+      if (reorderInputFiles(input, from, from + 1)) {
+        renderSelectedMediaList(input);
+      }
+      return true;
+    }
+    if (target.hasAttribute('data-media-file-remove')) {
+      const index = Number(target.getAttribute('data-media-file-remove'));
+      if (removeInputFileAt(input, index)) {
+        renderSelectedMediaList(input);
+      }
+      return true;
+    }
+    return true;
+  }
+
+  function initMediaInput(input) {
+    if (!(input instanceof HTMLInputElement)) return;
+    ensureMediaInputId(input);
+    if (!input.dataset.mediaInputReady) {
+      input.addEventListener('change', function () {
+        renderSelectedMediaList(input);
+      });
+      input.dataset.mediaInputReady = '1';
+    }
+    renderSelectedMediaList(input);
+  }
+
+  function initMediaInputs(scope) {
+    const root = scope instanceof Element ? scope : document;
+    root.querySelectorAll('input[data-field="item-upload-media"], input[data-field="bulk-upload-media"]').forEach((input) => {
+      initMediaInput(input);
+    });
+  }
+
+  function resolvePasteTargetInput() {
+    const active = document.activeElement;
+    if (active instanceof Element) {
+      const item = active.closest('[data-project-item]');
+      if (item) {
+        const itemInput = item.querySelector('input[data-field="item-upload-media"]');
+        if (itemInput instanceof HTMLInputElement) return itemInput;
+      }
+      const form = active.closest('.js-admin-save-form');
+      if (form) {
+        const bulk = form.querySelector('input[data-field="bulk-upload-media"]');
+        if (bulk instanceof HTMLInputElement) return bulk;
+      }
+    }
+
+    const cardsPane = document.querySelector('[data-tab-pane="cards"].is-active');
+    if (cardsPane instanceof Element) {
+      const bulk = cardsPane.querySelector('input[data-field="bulk-upload-media"]');
+      if (bulk instanceof HTMLInputElement) return bulk;
+    }
+    return null;
+  }
+
+  document.addEventListener('paste', function (event) {
+    const files = extractClipboardMediaFiles(event);
+    if (!files.length) return;
+    const targetInput = resolvePasteTargetInput();
+    if (!(targetInput instanceof HTMLInputElement)) return;
+
+    const ok = mergeFilesIntoInput(targetInput, files);
+    if (!ok) return;
+    renderSelectedMediaList(targetInput);
+    event.preventDefault();
+    const names = files.map((f) => f.name).filter(Boolean).slice(0, 2).join(', ');
+    const suffix = files.length > 2 ? ` и ещё ${files.length - 2}` : '';
+    const preview = names ? ` (${names}${suffix})` : '';
+    setStatus('ok', `Добавлено из буфера: ${files.length} файл(ов)${preview}.`);
+  });
+
   document.querySelectorAll('[data-add-item]').forEach((btn) => {
     btn.addEventListener('click', function () {
       const target = btn.getAttribute('data-target');
       if (!target) return;
       const list = document.getElementById(target);
       if (!list) return;
-      list.appendChild(makeItem());
+      const item = makeItem();
+      list.appendChild(item);
+      initUrlRowPreviews(item);
+      initMediaInputs(item);
       renumberCollection(list);
     });
   });
@@ -1324,16 +1891,32 @@ $collections = [
   });
 
   document.querySelectorAll('[data-collection-list]').forEach((list) => {
+    list.addEventListener('input', function (event) {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.matches('input[data-field="item-image-url"]')) {
+        const row = target.closest('.image-url-row');
+        if (row) syncImageUrlRow(row);
+      }
+    });
+
     list.addEventListener('click', function (event) {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
+      if (processMediaFileAction(target)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
 
       if (target.hasAttribute('data-add-image-url')) {
         const item = target.closest('[data-project-item]');
         if (!item) return;
         const urls = item.querySelector('[data-image-urls]');
         if (!urls) return;
-        urls.appendChild(makeImageUrlRow(''));
+        const row = makeImageUrlRow('');
+        urls.appendChild(row);
+        updateUrlMoveButtons('[data-image-urls]');
         renumberCollection(list);
         return;
       }
@@ -1343,7 +1926,9 @@ $collections = [
         if (!item) return;
         const urls = item.querySelector('[data-video-urls]');
         if (!urls) return;
-        urls.appendChild(makeVideoUrlRow(''));
+        const row = makeVideoUrlRow('');
+        urls.appendChild(row);
+        updateUrlMoveButtons('[data-video-urls]');
         renumberCollection(list);
         return;
       }
@@ -1357,9 +1942,26 @@ $collections = [
         if (rows.length <= 1) {
           const input = row.querySelector('input[data-field="item-image-url"]');
           if (input instanceof HTMLInputElement) input.value = '';
+          syncImageUrlRow(row);
+          updateUrlMoveButtons('[data-image-urls]');
           return;
         }
         row.remove();
+        updateUrlMoveButtons('[data-image-urls]');
+        renumberCollection(list);
+        return;
+      }
+
+      if (target.hasAttribute('data-move-image-url-up') || target.hasAttribute('data-move-image-url-down')) {
+        const row = target.closest('.image-url-row');
+        if (!row) return;
+        if (target.hasAttribute('data-move-image-url-up') && row.previousElementSibling) {
+          row.parentElement.insertBefore(row, row.previousElementSibling);
+        }
+        if (target.hasAttribute('data-move-image-url-down') && row.nextElementSibling) {
+          row.parentElement.insertBefore(row.nextElementSibling, row);
+        }
+        updateUrlMoveButtons('[data-image-urls]');
         renumberCollection(list);
         return;
       }
@@ -1373,9 +1975,25 @@ $collections = [
         if (rows.length <= 1) {
           const input = row.querySelector('input[data-field="item-video-url"]');
           if (input instanceof HTMLInputElement) input.value = '';
+          updateUrlMoveButtons('[data-video-urls]');
           return;
         }
         row.remove();
+        updateUrlMoveButtons('[data-video-urls]');
+        renumberCollection(list);
+        return;
+      }
+
+      if (target.hasAttribute('data-move-video-url-up') || target.hasAttribute('data-move-video-url-down')) {
+        const row = target.closest('.video-url-row');
+        if (!row) return;
+        if (target.hasAttribute('data-move-video-url-up') && row.previousElementSibling) {
+          row.parentElement.insertBefore(row, row.previousElementSibling);
+        }
+        if (target.hasAttribute('data-move-video-url-down') && row.nextElementSibling) {
+          row.parentElement.insertBefore(row.nextElementSibling, row);
+        }
+        updateUrlMoveButtons('[data-video-urls]');
         renumberCollection(list);
         return;
       }
@@ -1407,6 +2025,16 @@ $collections = [
   });
 
   renumberAllCollections(document);
+  initUrlRowPreviews(document);
+  initMediaInputs(document);
+
+  document.addEventListener('click', function (event) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (processMediaFileAction(target)) {
+      event.preventDefault();
+    }
+  });
 
   const tabButtons = Array.from(document.querySelectorAll('[data-tab-target]'));
   const tabPanes = Array.from(document.querySelectorAll('[data-tab-pane]'));
