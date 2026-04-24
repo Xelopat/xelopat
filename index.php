@@ -94,12 +94,23 @@ function normalize_cards($items): array {
     return $out;
 }
 
+function load_cards_collection(array $config, string $primary, string $fallback): array {
+    $items = normalize_cards(cfg($config, $primary, []));
+    if (!$items && $fallback !== '') {
+        $fallback_items = normalize_cards(cfg($config, $fallback, []));
+        if ($fallback_items) {
+            return $fallback_items;
+        }
+    }
+    return $items;
+}
+
 $hero_tag = (string)cfg($config, 'hero.tag', '// личный сайт');
 $hero_name = (string)cfg($config, 'hero.name', 'Xelopat');
 $hero_subtitle = (string)cfg($config, 'hero.subtitle', '');
 
-$travels = normalize_cards(cfg($config, 'travels', cfg($config, 'travel', [])));
-$photos = normalize_cards(cfg($config, 'photos', cfg($config, 'photo', [])));
+$travels = load_cards_collection($config, 'travels', 'travel');
+$photos = load_cards_collection($config, 'photos', 'photo');
 
 $terminal_config = cfg($config, 'terminal', []);
 if (!is_array($terminal_config)) {
@@ -344,22 +355,25 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   }
   .card-media{
     width:100%;
-    aspect-ratio:16 / 9;
     background:#151518;
     border-bottom:1px solid #333340;
-    display:grid;
-    place-items:center;
+    display:flex;
+    align-items:center;
+    justify-content:center;
     padding:10px;
+    min-height:180px;
   }
   .card-media img{
     width:100%;
-    height:100%;
+    height:auto;
+    max-height:560px;
     object-fit:contain;
     display:block;
   }
   .card-media video{
     width:100%;
-    height:100%;
+    height:auto;
+    max-height:560px;
     object-fit:contain;
     display:block;
     background:#0f1118;
@@ -481,8 +495,9 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     .cards{
       gap:10px;
     }
-    .card-media{
-      aspect-ratio:4 / 3;
+    .card-media img,
+    .card-media video{
+      max-height:72vh;
     }
   }
 </style>

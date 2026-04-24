@@ -156,6 +156,9 @@ $back_path = (string)$map[$section]['path'];
 $page_title = $item ? ((string)$item['title'] . ' - ' . $section_title) : 'Карточка не найдена';
 $details_source = $item ? ((string)$item['details'] !== '' ? (string)$item['details'] : (string)$item['description']) : '';
 $details_html = card_sanitize_rich_text($details_source);
+$image_count = $item ? count((array)$item['images']) : 0;
+$video_count = $item ? count((array)$item['videos']) : 0;
+$has_mixed_media = $image_count > 0 && $video_count > 0;
 ?>
 <!doctype html>
 <html lang="ru">
@@ -178,9 +181,64 @@ $details_html = card_sanitize_rich_text($details_source);
       border:1px solid #3a3f51;border-radius:8px;background:#191d29;color:#efeff1;text-decoration:none;
       font-size:12px;line-height:1;padding:8px 10px;
     }
-    .grid{display:grid;gap:14px;grid-template-columns:repeat(2,minmax(0,1fr))}
-    .media{background:#1e1e25;border:1px solid #333340;border-radius:12px;overflow:hidden}
-    .media img,.media video{width:100%;height:360px;object-fit:contain;display:block;background:#0f1118}
+    .media-toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-bottom:12px;
+    }
+    .filter-btn{
+      border:1px solid #343a4c;
+      background:#161b27;
+      color:#bfc5dd;
+      border-radius:8px;
+      padding:7px 10px;
+      font-size:12px;
+      line-height:1;
+      cursor:pointer;
+    }
+    .filter-btn.is-active{
+      border-color:#f9c940;
+      color:#f9c940;
+      background:#232313;
+    }
+    .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+    .media{
+      background:#1e1e25;
+      border:1px solid #333340;
+      border-radius:12px;
+      overflow:hidden;
+      position:relative;
+      padding:8px;
+      min-height:140px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .media img,.media video{
+      width:auto;
+      height:auto;
+      max-width:100%;
+      max-height:72vh;
+      object-fit:contain;
+      display:block;
+      background:#0f1118;
+      border-radius:8px;
+    }
+    .media img[data-open-media]{cursor:zoom-in}
+    .media-open{
+      position:absolute;
+      top:12px;
+      right:12px;
+      border:1px solid #434a5f;
+      background:rgba(13,16,25,.86);
+      color:#eff1ff;
+      border-radius:8px;
+      padding:6px 8px;
+      font-size:12px;
+      line-height:1;
+      cursor:pointer;
+    }
     .content{
       margin-top:14px;padding:16px 18px;border:1px solid #333340;border-radius:12px;background:#1e1e25;
       color:#d8dceb;line-height:1.7;font-size:15px;overflow-wrap:anywhere;
@@ -190,11 +248,61 @@ $details_html = card_sanitize_rich_text($details_source);
     .content img{max-width:100%;height:auto;display:block;margin:12px auto;border-radius:8px;border:1px solid #333340;background:#0f1118}
     .content a{color:#f9c940}
     .empty{color:#9aa0b8}
+    .viewer{
+      position:fixed;
+      inset:0;
+      z-index:1000;
+      background:rgba(9,10,16,.92);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+    }
+    .viewer[hidden]{display:none}
+    .viewer-inner{
+      width:min(96vw, 1400px);
+      height:min(92vh, 900px);
+      border:1px solid #343a4d;
+      border-radius:12px;
+      background:#10131d;
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+    }
+    .viewer-inner img,
+    .viewer-inner video{
+      width:auto;
+      height:auto;
+      max-width:100%;
+      max-height:100%;
+      object-fit:contain;
+      background:#0a0d14;
+    }
+    .viewer-actions{
+      position:absolute;
+      top:10px;
+      right:10px;
+      display:flex;
+      gap:8px;
+      z-index:2;
+    }
+    .viewer-btn{
+      border:1px solid #434a5f;
+      background:rgba(13,16,25,.86);
+      color:#eff1ff;
+      border-radius:8px;
+      padding:7px 10px;
+      font-size:12px;
+      line-height:1;
+      cursor:pointer;
+    }
     @media (max-width:980px){
       .page{width:calc(100vw - 20px)}
       .title{font-size:24px}
       .grid{grid-template-columns:1fr}
-      .media img,.media video{height:260px}
+      .media img,.media video{max-height:62vh}
       .content{font-size:14px}
     }
   </style>
@@ -220,12 +328,25 @@ $details_html = card_sanitize_rich_text($details_source);
     </div>
 
     <?php if (!empty($item['images']) || !empty($item['videos'])): ?>
+      <?php if ($has_mixed_media): ?>
+        <div class="media-toolbar" id="mediaToolbar">
+          <button class="filter-btn is-active" type="button" data-filter="all">Все (<?= (int)($image_count + $video_count) ?>)</button>
+          <button class="filter-btn" type="button" data-filter="image">Фото (<?= (int)$image_count ?>)</button>
+          <button class="filter-btn" type="button" data-filter="video">Видео (<?= (int)$video_count ?>)</button>
+        </div>
+      <?php endif; ?>
       <div class="grid">
         <?php foreach ((array)$item['images'] as $image): ?>
-          <div class="media"><img src="<?= card_e((string)$image) ?>" alt="<?= card_e((string)$item['title']) ?>"></div>
+          <article class="media" data-kind="image">
+            <button class="media-open" type="button" data-open-media data-type="image" data-src="<?= card_e((string)$image) ?>">⤢</button>
+            <img src="<?= card_e((string)$image) ?>" alt="<?= card_e((string)$item['title']) ?>" loading="lazy" decoding="async" data-open-media data-type="image" data-src="<?= card_e((string)$image) ?>">
+          </article>
         <?php endforeach; ?>
         <?php foreach ((array)$item['videos'] as $video): ?>
-          <div class="media"><video src="<?= card_e((string)$video) ?>" controls preload="metadata" playsinline></video></div>
+          <article class="media" data-kind="video">
+            <button class="media-open" type="button" data-open-media data-type="video" data-src="<?= card_e((string)$video) ?>">⤢</button>
+            <video src="<?= card_e((string)$video) ?>" controls preload="metadata" playsinline></video>
+          </article>
         <?php endforeach; ?>
       </div>
     <?php endif; ?>
@@ -239,5 +360,112 @@ $details_html = card_sanitize_rich_text($details_source);
     </div>
   <?php endif; ?>
 </div>
+<div class="viewer" id="mediaViewer" hidden>
+  <div class="viewer-inner" id="mediaViewerInner">
+    <div class="viewer-actions">
+      <button class="viewer-btn" type="button" id="viewerFullscreenBtn">На весь экран</button>
+      <button class="viewer-btn" type="button" id="viewerCloseBtn">Закрыть</button>
+    </div>
+    <img id="viewerImage" alt="" hidden>
+    <video id="viewerVideo" controls playsinline hidden></video>
+  </div>
+</div>
+<script>
+(function () {
+  const toolbar = document.getElementById('mediaToolbar');
+  if (toolbar) {
+    const buttons = Array.from(toolbar.querySelectorAll('[data-filter]'));
+    const mediaItems = Array.from(document.querySelectorAll('.media[data-kind]'));
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', function () {
+        const filter = String(btn.getAttribute('data-filter') || 'all');
+        buttons.forEach((b) => b.classList.toggle('is-active', b === btn));
+        mediaItems.forEach((item) => {
+          const kind = String(item.getAttribute('data-kind') || 'all');
+          item.hidden = filter !== 'all' && filter !== kind;
+        });
+      });
+    });
+  }
+
+  const viewer = document.getElementById('mediaViewer');
+  const viewerInner = document.getElementById('mediaViewerInner');
+  const viewerImage = document.getElementById('viewerImage');
+  const viewerVideo = document.getElementById('viewerVideo');
+  const closeBtn = document.getElementById('viewerCloseBtn');
+  const fsBtn = document.getElementById('viewerFullscreenBtn');
+  if (!viewer || !viewerInner || !viewerImage || !viewerVideo || !closeBtn || !fsBtn) return;
+
+  function openViewer(type, src) {
+    const mediaType = String(type || '');
+    const mediaSrc = String(src || '');
+    if (!mediaSrc) return;
+
+    if (mediaType === 'video') {
+      viewerImage.hidden = true;
+      viewerImage.removeAttribute('src');
+      viewerVideo.hidden = false;
+      viewerVideo.src = mediaSrc;
+      viewerVideo.currentTime = 0;
+      viewerVideo.play().catch(() => {});
+    } else {
+      viewerVideo.pause();
+      viewerVideo.hidden = true;
+      viewerVideo.removeAttribute('src');
+      viewerImage.hidden = false;
+      viewerImage.src = mediaSrc;
+    }
+    viewer.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeViewer() {
+    viewer.hidden = true;
+    document.body.style.overflow = '';
+    viewerVideo.pause();
+    viewerVideo.removeAttribute('src');
+    viewerImage.removeAttribute('src');
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  document.addEventListener('click', function (event) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const trigger = target.closest('[data-open-media]');
+    if (!trigger) return;
+    const type = trigger.getAttribute('data-type') || 'image';
+    const src = trigger.getAttribute('data-src') || '';
+    openViewer(type, src);
+  });
+
+  viewer.addEventListener('click', function (event) {
+    if (event.target === viewer) {
+      closeViewer();
+    }
+  });
+
+  closeBtn.addEventListener('click', closeViewer);
+
+  fsBtn.addEventListener('click', function () {
+    if (!document.fullscreenElement) {
+      if (typeof viewerInner.requestFullscreen === 'function') {
+        viewerInner.requestFullscreen().catch(() => {});
+      }
+    } else {
+      if (typeof document.exitFullscreen === 'function') {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && !viewer.hidden) {
+      closeViewer();
+    }
+  });
+})();
+</script>
 </body>
 </html>

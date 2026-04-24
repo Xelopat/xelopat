@@ -71,39 +71,45 @@ function admin_save_config_array(string $config_path, array $decoded, string &$e
 }
 
 function admin_load_collection(array $config, string $primary, string $fallback = ''): array {
-    $raw = $config[$primary] ?? [];
-    if (!is_array($raw) && $fallback !== '') {
-        $raw = $config[$fallback] ?? [];
-    }
-    if (!is_array($raw)) return [];
+    $normalize = static function ($raw): array {
+        if (!is_array($raw)) return [];
+        $out = [];
+        foreach ($raw as $item) {
+            if (!is_array($item)) continue;
+            $images = admin_clean_image_urls($item['images'] ?? []);
+            $videos = admin_clean_video_urls($item['videos'] ?? []);
+            if (!$images) {
+                $legacy_image = trim((string)($item['image'] ?? ''));
+                if ($legacy_image !== '') {
+                    $images[] = $legacy_image;
+                }
+            }
+            if (!$videos) {
+                $legacy_video = trim((string)($item['video'] ?? ''));
+                if ($legacy_video !== '') {
+                    $videos[] = $legacy_video;
+                }
+            }
+            $out[] = [
+                'title' => (string)($item['title'] ?? ''),
+                'date' => (string)($item['date'] ?? ''),
+                'description' => (string)($item['description'] ?? ''),
+                'details' => (string)($item['details'] ?? ''),
+                'images' => $images,
+                'image' => $images[0] ?? '',
+                'videos' => $videos,
+                'video' => $videos[0] ?? '',
+            ];
+        }
+        return $out;
+    };
 
-    $out = [];
-    foreach ($raw as $item) {
-        if (!is_array($item)) continue;
-        $images = admin_clean_image_urls($item['images'] ?? []);
-        $videos = admin_clean_video_urls($item['videos'] ?? []);
-        if (!$images) {
-            $legacy_image = trim((string)($item['image'] ?? ''));
-            if ($legacy_image !== '') {
-                $images[] = $legacy_image;
-            }
+    $out = $normalize($config[$primary] ?? []);
+    if (!$out && $fallback !== '') {
+        $fallback_out = $normalize($config[$fallback] ?? []);
+        if ($fallback_out) {
+            return $fallback_out;
         }
-        if (!$videos) {
-            $legacy_video = trim((string)($item['video'] ?? ''));
-            if ($legacy_video !== '') {
-                $videos[] = $legacy_video;
-            }
-        }
-        $out[] = [
-            'title' => (string)($item['title'] ?? ''),
-            'date' => (string)($item['date'] ?? ''),
-            'description' => (string)($item['description'] ?? ''),
-            'details' => (string)($item['details'] ?? ''),
-            'images' => $images,
-            'image' => $images[0] ?? '',
-            'videos' => $videos,
-            'video' => $videos[0] ?? '',
-        ];
     }
     return $out;
 }
