@@ -162,9 +162,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($action === 'save_collection') {
-            $collection = (string)($_POST['collection'] ?? '');
+            $collection_raw = (string)($_POST['collection'] ?? '');
+            $collection = $collection_raw === 'projects' ? 'cards' : $collection_raw;
             $labels = [
-                'projects' => 'Проекты',
+                'cards' => 'Проекты',
                 'travels' => 'Путешествия',
                 'photos' => 'Фото',
             ];
@@ -248,7 +249,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $config_data = admin_decode_config($config_json);
-$projects = admin_load_collection($config_data, 'projects', 'cards');
+$projects = admin_load_collection($config_data, 'cards', 'projects');
 $travels = admin_load_collection($config_data, 'travels', 'travel');
 $photos = admin_load_collection($config_data, 'photos', 'photo');
 
@@ -257,7 +258,7 @@ if (!$travels) $travels[] = ['title' => '', 'description' => '', 'image' => ''];
 if (!$photos) $photos[] = ['title' => '', 'description' => '', 'image' => ''];
 
 $collections = [
-    ['key' => 'projects', 'title' => 'Проекты', 'hint' => 'Раздел /projects/index.php', 'items' => $projects, 'list_id' => 'projectsList'],
+    ['key' => 'cards', 'title' => 'Проекты', 'hint' => 'Раздел /projects/index.php', 'items' => $projects, 'list_id' => 'projectsList'],
     ['key' => 'travels', 'title' => 'Путешествия', 'hint' => 'Раздел /travel/index.php и блок на главной', 'items' => $travels, 'list_id' => 'travelsList'],
     ['key' => 'photos', 'title' => 'Фото', 'hint' => 'Раздел /photo/index.php и блок на главной', 'items' => $photos, 'list_id' => 'photosList'],
 ];
@@ -424,7 +425,7 @@ $collections = [
       </div>
       <div class="hint">
         <div class="muted">Массивы карточек</div>
-        <code>projects / travels / photos</code>
+        <code>cards / travels / photos</code>
       </div>
     </div>
   </section>
@@ -517,4 +518,3 @@ $collections = [
 </script>
 </body>
 </html>
-

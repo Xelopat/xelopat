@@ -296,15 +296,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   .card-inner{ padding:14px 16px; }
   .card-title{ font-size:15px; font-weight:700; margin-bottom:6px; line-height:1.4; }
   .card-desc{ font-size:12px; color:#868899; line-height:1.6; margin:0; }
-  .cards-empty{
-    border:1px dashed #333340;
-    border-radius:12px;
-    padding:16px;
-    color:#868899;
-    font-size:13px;
-    background:#1a1a21;
-  }
-
   .footer-bar{
     border-top:1px solid #333340;
     padding:14px 0 28px;
@@ -435,9 +426,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     <section class="section" id="travel">
       <div class="sec-label">// travel</div>
       <div class="sec-title">Путешествия</div>
-      <?php if (!$travels): ?>
-        <div class="cards-empty">Пока нет карточек путешествий. Добавь массив <code>travels</code> в конфиге.</div>
-      <?php else: ?>
+      <?php if ($travels): ?>
         <div class="cards">
           <?php foreach ($travels as $travel): ?>
             <?php
@@ -464,9 +453,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     <section class="section" id="photo">
       <div class="sec-label">// photo</div>
       <div class="sec-title">Фото</div>
-      <?php if (!$photos): ?>
-        <div class="cards-empty">Пока нет карточек фото. Добавь массив <code>photos</code> в конфиге.</div>
-      <?php else: ?>
+      <?php if ($photos): ?>
         <div class="cards">
           <?php foreach ($photos as $photo): ?>
             <?php

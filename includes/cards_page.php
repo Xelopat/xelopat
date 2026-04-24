@@ -5,10 +5,9 @@ $page_title = isset($page_title) ? (string)$page_title : 'Раздел';
 $section_label = isset($section_label) ? (string)$section_label : '// section';
 $data_key = isset($data_key) ? (string)$data_key : '';
 $fallback_key = isset($fallback_key) ? (string)$fallback_key : '';
-$empty_hint = isset($empty_hint) ? (string)$empty_hint : 'Пока пусто.';
 
 if ($data_key === '') {
-    $data_key = 'projects';
+    $data_key = 'cards';
 }
 
 function cards_cfg(array $source, string $path, $default = null) {
@@ -79,7 +78,6 @@ if (!$items && $fallback_key !== '') {
     .card-inner{padding:14px 16px}
     .card-title{font-size:16px;font-weight:700;margin:0 0 6px}
     .card-desc{margin:0;font-size:13px;line-height:1.55;color:#868899}
-    .empty{border:1px dashed #333340;border-radius:12px;padding:16px;background:#1a1a21;color:#868899}
     @media (max-width:980px){
       .page{width:calc(100vw - 20px)}
       .sec-title{font-size:24px}
@@ -96,9 +94,7 @@ if (!$items && $fallback_key !== '') {
   <div class="sec-label"><?= cards_e($section_label) ?></div>
   <h1 class="sec-title"><?= cards_e($page_title) ?></h1>
 
-  <?php if (!$items): ?>
-    <div class="empty"><?= cards_e($empty_hint) ?></div>
-  <?php else: ?>
+  <?php if ($items): ?>
     <div class="cards">
       <?php foreach ($items as $item): ?>
         <article class="card">
@@ -118,4 +114,3 @@ if (!$items && $fallback_key !== '') {
 </div>
 </body>
 </html>
-
