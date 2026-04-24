@@ -94,6 +94,7 @@ function normalize_cards($items): array {
 
 $hero_tag = (string)cfg($config, 'hero.tag', '// личный сайт');
 $hero_name = (string)cfg($config, 'hero.name', 'Xelopat');
+$hero_subtitle = (string)cfg($config, 'hero.subtitle', '');
 
 $travels = normalize_cards(cfg($config, 'travels', cfg($config, 'travel', [])));
 $photos = normalize_cards(cfg($config, 'photos', cfg($config, 'photo', [])));
@@ -164,6 +165,13 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     line-height:1.1;
     margin:0 0 12px;
   }
+  .hero-subtitle{
+    margin:0 0 14px;
+    color:#a4a8bb;
+    font-size:14px;
+    line-height:1.55;
+    max-width:540px;
+  }
 
   .cursor{
     display:inline-block;
@@ -191,13 +199,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     overflow:hidden;
     box-shadow:0 18px 40px rgba(0,0,0,.18);
     transition:border-color .18s ease, box-shadow .18s ease;
-  }
-  .terminal--focus{
-    border-color:#61d1ad66;
-    box-shadow:0 22px 48px rgba(0,0,0,.26);
-  }
-  .terminal--focus .term-body{
-    height:560px;
   }
   .terminal--collapsed .term-body{
     display:none;
@@ -236,10 +237,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   }
   .term-dot-btn--collapse{ background:#f9c940; }
   .term-dot-btn--clear{ background:#ff8f8f; }
-  .term-dot-btn--focus{ background:#61d1ad; }
-  .term-dot-btn[aria-pressed="true"]{
-    box-shadow:0 0 0 2px #ffffff33;
-  }
+  .term-dot-btn--retype{ background:#61d1ad; }
 
   .term-body{
     padding:14px 16px;
@@ -410,6 +408,10 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
       font-size:clamp(36px, 10vw, 48px);
       margin:0 0 10px;
     }
+    .hero-subtitle{
+      margin:0 0 12px;
+      font-size:14px;
+    }
     .cursor{
       width:3px;
       height:clamp(36px, 10vw, 48px);
@@ -459,6 +461,9 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     .hero-name{
       font-size:clamp(32px, 12vw, 40px);
     }
+    .hero-subtitle{
+      font-size:13px;
+    }
     .sec-label{
       font-size:11px;
     }
@@ -476,7 +481,10 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     <section class="hero">
       <div>
         <div class="hero-tag"><?= e($hero_tag) ?></div>
-        <h1 class="hero-name"><?= e($hero_name) ?><span class="cursor"></span></h1>
+        <h1 class="hero-name"><span id="heroNameText" data-hero-name="<?= e($hero_name) ?>"></span><span class="cursor"></span></h1>
+        <?php if ($hero_subtitle !== ''): ?>
+          <p class="hero-subtitle"><?= e($hero_subtitle) ?></p>
+        <?php endif; ?>
         <div class="hero-divider"></div>
       </div>
 
@@ -485,7 +493,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
           <div class="term-actions" role="toolbar" aria-label="Управление терминалом">
             <button type="button" class="term-dot-btn term-dot-btn--collapse" data-term-action="collapse" title="Свернуть/развернуть" aria-label="Свернуть/развернуть"></button>
             <button type="button" class="term-dot-btn term-dot-btn--clear" data-term-action="clear" title="Очистить вывод" aria-label="Очистить вывод"></button>
-            <button type="button" class="term-dot-btn term-dot-btn--focus" data-term-action="focus" title="Режим фокуса" aria-label="Режим фокуса" aria-pressed="false"></button>
+            <button type="button" class="term-dot-btn term-dot-btn--retype" data-term-action="retype" title="Перепечатать имя" aria-label="Перепечатать имя"></button>
           </div>
         </div>
         <div class="term-body">
@@ -597,10 +605,12 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
 
   const output = document.getElementById('termOutput');
   const input = document.getElementById('termInput');
-  const termBody = terminal.querySelector('.term-body');
+  const heroNameText = document.getElementById('heroNameText');
   const collapseBtn = terminal.querySelector('[data-term-action="collapse"]');
   const clearBtn = terminal.querySelector('[data-term-action="clear"]');
-  const focusBtn = terminal.querySelector('[data-term-action="focus"]');
+  const retypeBtn = terminal.querySelector('[data-term-action="retype"]');
+  const heroNameValue = heroNameText ? String(heroNameText.getAttribute('data-hero-name') || '') : '';
+  let heroTypeTimer = null;
 
   let config = {};
   try {
@@ -687,10 +697,23 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     if (!next) input.focus();
   }
 
-  function setFocusMode(next) {
-    terminal.classList.toggle('terminal--focus', !!next);
-    if (focusBtn) focusBtn.setAttribute('aria-pressed', next ? 'true' : 'false');
-    output.scrollTop = output.scrollHeight;
+  function typeHeroName() {
+    if (!heroNameText) return;
+    if (heroTypeTimer) {
+      clearInterval(heroTypeTimer);
+      heroTypeTimer = null;
+    }
+    heroNameText.textContent = '';
+    let i = 0;
+    const speedMs = 72;
+    heroTypeTimer = setInterval(() => {
+      i += 1;
+      heroNameText.textContent = heroNameValue.slice(0, i);
+      if (i >= heroNameValue.length) {
+        clearInterval(heroTypeTimer);
+        heroTypeTimer = null;
+      }
+    }, speedMs);
   }
 
   function getNode(pathParts) {
@@ -1001,12 +1024,14 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     });
   }
 
-  if (focusBtn) {
-    focusBtn.addEventListener('click', function (e) {
+  if (retypeBtn) {
+    retypeBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      setFocusMode(!terminal.classList.contains('terminal--focus'));
+      typeHeroName();
       input.focus();
     });
   }
+
+  typeHeroName();
 })();
 </script>
