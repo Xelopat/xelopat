@@ -166,11 +166,14 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     margin:0 0 12px;
   }
   .hero-subtitle{
-    margin:0 0 14px;
+    margin:0;
     color:#a4a8bb;
     font-size:14px;
     line-height:1.55;
     max-width:540px;
+  }
+  .hero-meta-block--hidden{
+    display:none;
   }
 
   .cursor{
@@ -189,7 +192,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     width:min(320px, 100%);
     height:1px;
     background:#333340;
-    margin-bottom:0;
+    margin-bottom:10px;
   }
 
   .terminal{
@@ -276,31 +279,28 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   .term-output::-webkit-scrollbar-thumb:hover{
     background:linear-gradient(180deg, #71e2be, #56c7a2);
   }
-  .term-line{ display:flex; gap:6px; flex-wrap:wrap; line-height:1.5; word-break:break-word; }
+  .term-line{ display:flex; gap:6px; flex-wrap:wrap; line-height:1.5; word-break:break-word; color:#14d977; }
   .term-line a{ color:#61d1ad; text-decoration:underline; }
   .term-line a:hover{ opacity:.88; }
-  .term-prompt{ color:#61d1ad; }
-  .term-arrow{ color:#f9c940; }
+  .term-host{ color:#11df7f; }
+  .term-path{ color:#44f0bb; }
+  .term-symbol{ color:#11df7f; }
   .term-error{ color:#ff8f8f; }
-
-  .term-input-row{
-    display:flex;
+  .term-line--prompt{
     align-items:center;
-    gap:8px;
-    margin-top:12px;
-    padding-top:10px;
-    border-top:1px solid #2a2a34;
-    flex-shrink:0;
+    gap:0;
+    white-space:nowrap;
   }
-
-  .term-input{
+  .term-inline-input{
     flex:1;
+    min-width:24px;
     background:transparent;
     border:none;
-    color:#efeff1;
+    color:#14d977;
     font:inherit;
     outline:none;
-    min-width:0;
+    margin-left:6px;
+    caret-color:#14d977;
   }
 
   .section{ padding:0 0 40px; position:relative; z-index:1; }
@@ -409,7 +409,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
       margin:0 0 10px;
     }
     .hero-subtitle{
-      margin:0 0 12px;
       font-size:14px;
     }
     .cursor{
@@ -482,10 +481,12 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
       <div>
         <div class="hero-tag"><?= e($hero_tag) ?></div>
         <h1 class="hero-name"><span id="heroNameText" data-hero-name="<?= e($hero_name) ?>"></span><span class="cursor"></span></h1>
-        <?php if ($hero_subtitle !== ''): ?>
-          <p class="hero-subtitle"><?= e($hero_subtitle) ?></p>
-        <?php endif; ?>
-        <div class="hero-divider"></div>
+        <div class="hero-meta-block" id="heroMetaBlock">
+          <div class="hero-divider"></div>
+          <?php if ($hero_subtitle !== ''): ?>
+            <p class="hero-subtitle"><?= e($hero_subtitle) ?></p>
+          <?php endif; ?>
+        </div>
       </div>
 
       <div class="terminal" id="fakeTerminal" data-terminal='<?= e($terminal_json) ?>'>
@@ -498,10 +499,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
         </div>
         <div class="term-body">
           <div class="term-output" id="termOutput"></div>
-          <div class="term-input-row">
-            <span class="term-prompt">$</span>
-            <input class="term-input" id="termInput" type="text" autocomplete="off" spellcheck="false" placeholder="">
-          </div>
         </div>
       </div>
     </section>
@@ -604,13 +601,14 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   if (!terminal) return;
 
   const output = document.getElementById('termOutput');
-  const input = document.getElementById('termInput');
   const heroNameText = document.getElementById('heroNameText');
+  const heroMetaBlock = document.getElementById('heroMetaBlock');
   const collapseBtn = terminal.querySelector('[data-term-action="collapse"]');
   const clearBtn = terminal.querySelector('[data-term-action="clear"]');
   const retypeBtn = terminal.querySelector('[data-term-action="retype"]');
   const heroNameValue = heroNameText ? String(heroNameText.getAttribute('data-hero-name') || '') : '';
   let heroTypeTimer = null;
+  let input = null;
 
   let config = {};
   try {
@@ -627,6 +625,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   const COMMANDS_WITH_ARG = new Set(['ls', 'cd', 'cat', 'tree', 'echo']);
   const PATH_COMMANDS = new Set(['ls', 'cd', 'cat', 'tree']);
   const LINK_PATTERN = /\[([^\]]+)\]\((\/[^)\s]+|https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s]+)/g;
+  const hostname = String(config.hostname || 'xelopat@site');
 
   function appendLinkedText(container, text) {
     const source = String(text ?? '');
@@ -680,21 +679,102 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     output.scrollTop = output.scrollHeight;
   }
 
-  function printCommand(command) {
-    printLine([{ text: '$', className: 'term-prompt' }, command]);
-  }
-
   function printInfo(text) {
-    printLine([{ text: '→', className: 'term-arrow' }, text]);
+    printLine([String(text ?? '')]);
   }
 
   function printError(text) {
-    printLine([{ text: '!', className: 'term-error' }, text], 'term-error');
+    printLine(['error: ' + String(text ?? '')], 'term-error');
+  }
+
+  function getPromptPath() {
+    if (!cwd.length) return '~';
+    return '~/' + cwd.join('/');
+  }
+
+  function focusInput() {
+    if (!input) return;
+    input.focus();
+    const end = input.value.length;
+    input.setSelectionRange(end, end);
+  }
+
+  function createPromptLine(prefill) {
+    const row = document.createElement('div');
+    row.className = 'term-line term-line--prompt';
+    row.setAttribute('data-prompt-path', getPromptPath());
+
+    const host = document.createElement('span');
+    host.className = 'term-host';
+    host.textContent = hostname;
+    row.appendChild(host);
+
+    const sep = document.createElement('span');
+    sep.className = 'term-symbol';
+    sep.textContent = ':';
+    row.appendChild(sep);
+
+    const path = document.createElement('span');
+    path.className = 'term-path';
+    path.textContent = getPromptPath();
+    row.appendChild(path);
+
+    const symbol = document.createElement('span');
+    symbol.className = 'term-symbol';
+    symbol.textContent = '$';
+    row.appendChild(symbol);
+
+    const inputEl = document.createElement('input');
+    inputEl.type = 'text';
+    inputEl.className = 'term-inline-input';
+    inputEl.autocomplete = 'off';
+    inputEl.spellcheck = false;
+    inputEl.value = typeof prefill === 'string' ? prefill : '';
+    row.appendChild(inputEl);
+
+    bindPromptInput(row, inputEl);
+    output.appendChild(row);
+    output.scrollTop = output.scrollHeight;
+    input = inputEl;
+    focusInput();
+  }
+
+  function finalizePromptRow(row, raw) {
+    const path = row.getAttribute('data-prompt-path') || '~';
+    row.classList.remove('term-line--prompt');
+    row.innerHTML = '';
+
+    const host = document.createElement('span');
+    host.className = 'term-host';
+    host.textContent = hostname;
+    row.appendChild(host);
+
+    const sep = document.createElement('span');
+    sep.className = 'term-symbol';
+    sep.textContent = ':';
+    row.appendChild(sep);
+
+    const pathNode = document.createElement('span');
+    pathNode.className = 'term-path';
+    pathNode.textContent = path;
+    row.appendChild(pathNode);
+
+    const symbol = document.createElement('span');
+    symbol.className = 'term-symbol';
+    symbol.textContent = '$';
+    row.appendChild(symbol);
+
+    const commandText = document.createElement('span');
+    commandText.textContent = raw;
+    row.appendChild(commandText);
   }
 
   function setCollapsed(next) {
     terminal.classList.toggle('terminal--collapsed', !!next);
-    if (!next) input.focus();
+    if (heroMetaBlock) {
+      heroMetaBlock.classList.toggle('hero-meta-block--hidden', !!next);
+    }
+    if (!next) focusInput();
   }
 
   function typeHeroName() {
@@ -814,6 +894,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   }
 
   function handleTabCompletion() {
+    if (!input) return;
     const raw = input.value;
     const trimmed = raw.trim();
     if (!trimmed) return;
@@ -886,14 +967,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     });
   }
 
-  function handleCommand(raw) {
-    const command = raw.trim();
-    if (!command) return;
-
-    history.push(command);
-    historyIndex = history.length;
-    printCommand(command);
-
+  function handleCommand(command) {
     const parts = command.split(/\s+/);
     const cmd = parts[0].toLowerCase();
     const arg = parts.slice(1).join(' ');
@@ -905,7 +979,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
 
     if (cmd === 'clear') {
       output.innerHTML = '';
-      return;
+      return { cleared: true };
     }
 
     if (cmd === 'pwd') {
@@ -974,39 +1048,65 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     }
 
     printError('Неизвестная команда. Напиши help.');
+    return { cleared: false };
   }
 
-  input.addEventListener('keydown', function (e) {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      handleTabCompletion();
+  function runCurrentPrompt(row, inputEl) {
+    const raw = String(inputEl.value || '');
+    const command = raw.trim();
+    finalizePromptRow(row, raw);
+    input = null;
+
+    if (!command) {
+      createPromptLine('');
       return;
     }
 
-    if (e.key === 'Enter') {
-      handleCommand(input.value);
-      input.value = '';
+    history.push(command);
+    historyIndex = history.length;
+    const result = handleCommand(command);
+
+    if (result && result.cleared) {
+      createPromptLine('');
       return;
     }
+    createPromptLine('');
+  }
 
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (!history.length) return;
-      historyIndex = Math.max(0, historyIndex - 1);
-      input.value = history[historyIndex] || '';
-    }
+  function bindPromptInput(row, inputEl) {
+    inputEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        handleTabCompletion();
+        return;
+      }
 
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (!history.length) return;
-      historyIndex = Math.min(history.length, historyIndex + 1);
-      input.value = history[historyIndex] || '';
-    }
-  });
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        runCurrentPrompt(row, inputEl);
+        return;
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!history.length) return;
+        historyIndex = Math.max(0, historyIndex - 1);
+        inputEl.value = history[historyIndex] || '';
+        return;
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (!history.length) return;
+        historyIndex = Math.min(history.length, historyIndex + 1);
+        inputEl.value = history[historyIndex] || '';
+      }
+    });
+  }
 
   terminal.addEventListener('click', function () {
     if (terminal.classList.contains('terminal--collapsed')) return;
-    input.focus();
+    focusInput();
   });
 
   if (collapseBtn) {
@@ -1020,7 +1120,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     clearBtn.addEventListener('click', function (e) {
       e.stopPropagation();
       output.innerHTML = '';
-      input.focus();
+      createPromptLine('');
     });
   }
 
@@ -1028,10 +1128,13 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     retypeBtn.addEventListener('click', function (e) {
       e.stopPropagation();
       typeHeroName();
-      input.focus();
+      focusInput();
     });
   }
 
+  const welcome = Array.isArray(config.welcome) ? config.welcome : [];
+  welcome.forEach((line) => printInfo(String(line)));
+  createPromptLine('');
   typeHeroName();
 })();
 </script>
