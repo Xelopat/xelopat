@@ -335,6 +335,7 @@ $collections = [
 
   <?php if ($ok): ?><div class="card ok"><?= admin_h($ok) ?></div><?php endif; ?>
   <?php if ($err): ?><div class="card err"><?= admin_h($err) ?></div><?php endif; ?>
+  <div class="card" id="adminSaveStatus" hidden></div>
 
   <section class="card">
     <div class="row">
@@ -346,7 +347,7 @@ $collections = [
 
     <div class="collection-grid">
       <?php foreach ($collections as $collection): ?>
-        <form method="post" enctype="multipart/form-data" class="subcard">
+        <form method="post" enctype="multipart/form-data" class="subcard js-admin-save-form">
           <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
           <input type="hidden" name="action" value="save_collection">
           <input type="hidden" name="collection" value="<?= admin_h((string)$collection['key']) ?>">
@@ -405,7 +406,7 @@ $collections = [
       </div>
     </div>
 
-    <form method="post" style="margin-top:14px;display:grid;gap:12px;">
+    <form method="post" class="js-admin-save-form" style="margin-top:14px;display:grid;gap:12px;">
       <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
       <input type="hidden" name="action" value="save_site_config">
       <textarea class="config-editor" name="site_config_json"><?= admin_h($config_json) ?></textarea>
@@ -475,6 +476,32 @@ $collections = [
 </div>
 <script>
 (function () {
+  const endpoint = '/admin_save.php';
+  const statusBox = document.getElementById('adminSaveStatus');
+
+  function setStatus(kind, message) {
+    if (!statusBox) return;
+    statusBox.hidden = false;
+    statusBox.classList.remove('ok', 'err');
+    statusBox.classList.add(kind === 'ok' ? 'ok' : 'err');
+    statusBox.textContent = message;
+  }
+
+  function setFormPending(form, pending) {
+    const submitButtons = form.querySelectorAll('button[type="submit"]');
+    submitButtons.forEach((btn) => {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      if (pending) {
+        btn.dataset.prevText = btn.textContent || '';
+        btn.disabled = true;
+        btn.textContent = 'Сохранение...';
+      } else {
+        btn.disabled = false;
+        if (btn.dataset.prevText) btn.textContent = btn.dataset.prevText;
+      }
+    });
+  }
+
   function makeItem() {
     const item = document.createElement('div');
     item.className = 'project-item';
@@ -512,6 +539,48 @@ $collections = [
       if (items.length <= 1) return;
       const row = target.closest('[data-project-item]');
       if (row) row.remove();
+    });
+  });
+
+  document.querySelectorAll('.js-admin-save-form').forEach((form) => {
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      setFormPending(form, true);
+
+      const body = new FormData(form);
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          body,
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (e) {
+          payload = null;
+        }
+
+        if (!response.ok || !payload || !payload.ok) {
+          const message = payload && payload.message ? payload.message : 'Сохранение не удалось.';
+          setStatus('err', message);
+          return;
+        }
+
+        if (payload.config_json) {
+          const configEditor = document.querySelector('textarea[name="site_config_json"]');
+          if (configEditor instanceof HTMLTextAreaElement) {
+            configEditor.value = payload.config_json;
+          }
+        }
+
+        setStatus('ok', payload.message || 'Сохранено.');
+      } catch (e) {
+        setStatus('err', 'Ошибка сети при сохранении.');
+      } finally {
+        setFormPending(form, false);
+      }
     });
   });
 })();
