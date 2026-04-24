@@ -36,9 +36,9 @@ $univer_sections = [
 ];
 
 $hobby_items = [
-    ['Духи', '/perfumes/index.php'],
+    ['Путешествия', '/travel/index.php'],
     ['Фото', '/photo/index.php'],
-    ['3D', '/3d/index.php'],
+    ['Духи', '/perfumes/index.php'],
 ];
 
 $uri = strtok((string)($_SERVER['REQUEST_URI'] ?? '/'), '?');
@@ -61,11 +61,27 @@ function site_active(string $href, string $uri): bool {
 ?>
 <script>
 (function () {
-  if (document.querySelector('meta[name="viewport"]')) return;
-  const meta = document.createElement('meta');
-  meta.name = 'viewport';
-  meta.content = 'width=device-width, initial-scale=1, viewport-fit=cover';
-  document.head.appendChild(meta);
+  if (!document.querySelector('meta[name="viewport"]')) {
+    const meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = 'width=device-width, initial-scale=1, viewport-fit=cover';
+    document.head.appendChild(meta);
+  }
+
+  if (!document.querySelector('link[rel="icon"]')) {
+    const icon = document.createElement('link');
+    icon.rel = 'icon';
+    icon.type = 'image/png';
+    icon.href = '/img/xelopat.png';
+    document.head.appendChild(icon);
+  }
+
+  if (!document.querySelector('link[rel="apple-touch-icon"]')) {
+    const appleIcon = document.createElement('link');
+    appleIcon.rel = 'apple-touch-icon';
+    appleIcon.href = '/img/xelopat.png';
+    document.head.appendChild(appleIcon);
+  }
 })();
 </script>
 <style>
@@ -132,12 +148,20 @@ function site_active(string $href, string $uri): bool {
     width:30px;
     height:30px;
     border-radius:6px;
-    background:var(--accent);
-    color:#151518;
+    border:1px solid var(--line);
+    background:#151518;
+    overflow:hidden;
     display:flex;
     align-items:center;
     justify-content:center;
-    font-weight:700;
+    flex:0 0 auto;
+  }
+
+  .brand-mark img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
   }
 
   .nav{
@@ -248,18 +272,27 @@ function site_active(string $href, string $uri): bool {
   .flyout{
     display:none;
     position:absolute;
-    top:calc(100% + 16px);
+    top:calc(100% + 4px);
     left:0;
     min-width:250px;
-    background:var(--panel);
-    border:1px solid var(--line);
-    border-radius:12px;
-    box-shadow:var(--shadow);
-    padding:8px;
+    background:linear-gradient(180deg, rgba(37,37,46,.96), rgba(24,24,31,.96));
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;
+    box-shadow:0 24px 48px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.04);
+    backdrop-filter: blur(12px);
+    padding:10px;
   }
 
   .dd-panel.open,
-  .flyout.open{ display:block; }
+  .flyout.open{
+    display:block;
+    animation:ddIn .16s ease both;
+  }
+
+  @keyframes ddIn{
+    from{ opacity:0; transform:translateY(-4px) scale(.985); }
+    to{ opacity:1; transform:translateY(0) scale(1); }
+  }
 
   .menu-root, .dd-list{
     list-style:none;
@@ -278,9 +311,9 @@ function site_active(string $href, string $uri): bool {
     justify-content:space-between;
     width:100%;
     padding:10px 12px;
-    border-radius:8px;
-    border:none;
-    background:transparent;
+    border-radius:12px;
+    border:1px solid transparent;
+    background:rgba(255,255,255,.01);
     color:var(--text);
     text-decoration:none;
     font-size:13px;
@@ -288,13 +321,16 @@ function site_active(string $href, string $uri): bool {
     font-family:inherit;
     font-weight:500;
     cursor:pointer;
+    transition:background .14s ease, border-color .14s ease, color .14s ease;
   }
 
   .menu-root button:hover,
   .menu-root a:hover,
   .dd-list a:hover,
   .menu-root button.active{
-    background:#262632;
+    background:rgba(249,201,64,.1);
+    border-color:rgba(249,201,64,.25);
+    color:#fff4cb;
   }
 
   .menu-root button[data-sub]::after{
@@ -303,15 +339,28 @@ function site_active(string $href, string $uri): bool {
   }
 
   .flyout{
-    left:calc(100% + 10px);
+    left:calc(100% - 4px);
     top:0;
     min-width:280px;
   }
 
   @media (min-width: 901px){
+    .dd::after{
+      content:"";
+      position:absolute;
+      left:-8px;
+      right:-8px;
+      top:100%;
+      height:14px;
+      display:none;
+    }
+    .dd:hover::after{
+      display:block;
+    }
     #dd-univer-wrap:hover > #dd-univer,
     #dd-hobby-wrap:hover > #dd-hobby{
       display:block;
+      animation:ddIn .16s ease both;
     }
   }
 
@@ -477,12 +526,13 @@ function site_active(string $href, string $uri): bool {
 <header class="site-header" id="siteHeader">
   <div class="wrap">
     <a class="brand" href="<?= site_h($brand_href) ?>">
-      <span class="brand-mark">X</span>
+      <span class="brand-mark"><img src="/img/xelopat.png" alt="xelopat"></span>
       <span class="brand-text"><?= site_h($brand_name) ?></span>
     </a>
 
     <nav class="nav" id="navRoot" aria-label="Навигация">
       <a class="nav-link<?= $uri === '/' ? ' active' : '' ?>" href="/">Главная</a>
+      <a class="nav-link<?= strpos($uri, '/projects/') === 0 ? ' active' : '' ?>" href="/projects/index.php">Проекты</a>
 
       <div class="dd" id="dd-univer-wrap">
         <button type="button" class="nav-btn<?= strpos($uri, '/crypto/') === 0 || strpos($uri, '/adminis/') === 0 || strpos($uri, '/coursework/') === 0 ? ' active' : '' ?>" data-dd-btn="univer" aria-expanded="false">Универ</button>
@@ -509,7 +559,7 @@ function site_active(string $href, string $uri): bool {
       </div>
 
       <div class="dd" id="dd-hobby-wrap">
-        <button type="button" class="nav-btn<?= strpos($uri, '/perfumes/') === 0 || strpos($uri, '/photo/') === 0 || strpos($uri, '/3d/') === 0 ? ' active' : '' ?>" data-dd-btn="hobby" aria-expanded="false">Хобби</button>
+        <button type="button" class="nav-btn<?= strpos($uri, '/perfumes/') === 0 || strpos($uri, '/photo/') === 0 || strpos($uri, '/travel/') === 0 ? ' active' : '' ?>" data-dd-btn="hobby" aria-expanded="false">Хобби</button>
         <div class="dd-panel" id="dd-hobby" role="dialog" aria-label="Хобби">
           <ul class="menu-root">
             <?php foreach ($hobby_items as $it): ?>

@@ -29,16 +29,29 @@ function e(string $value): string {
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+function normalize_cards($items): array {
+    if (!is_array($items)) return [];
+    $out = [];
+    foreach ($items as $item) {
+        if (!is_array($item)) continue;
+        $out[] = [
+            'title' => (string)($item['title'] ?? 'Без названия'),
+            'description' => (string)($item['description'] ?? ''),
+            'image' => (string)($item['image'] ?? ''),
+        ];
+    }
+    return $out;
+}
+
 $hero_tag = (string)cfg($config, 'hero.tag', '// личный сайт');
 $hero_name = (string)cfg($config, 'hero.name', 'Xelopat');
 
-$projects = cfg($config, 'projects', []);
-if (!is_array($projects) || !$projects) {
-    $projects = cfg($config, 'cards', []);
+$projects = normalize_cards(cfg($config, 'projects', []));
+if (!$projects) {
+    $projects = normalize_cards(cfg($config, 'cards', []));
 }
-if (!is_array($projects)) {
-    $projects = [];
-}
+$travels = normalize_cards(cfg($config, 'travels', cfg($config, 'travel', [])));
+$photos = normalize_cards(cfg($config, 'photos', cfg($config, 'photo', [])));
 
 $terminal_config = cfg($config, 'terminal', []);
 if (!is_array($terminal_config)) {
@@ -132,6 +145,17 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     border-radius:12px;
     overflow:hidden;
     box-shadow:0 18px 40px rgba(0,0,0,.18);
+    transition:border-color .18s ease, box-shadow .18s ease;
+  }
+  .terminal--focus{
+    border-color:#61d1ad66;
+    box-shadow:0 22px 48px rgba(0,0,0,.26);
+  }
+  .terminal--focus .term-body{
+    height:560px;
+  }
+  .terminal--collapsed .term-body{
+    display:none;
   }
 
   .term-bar{
@@ -139,11 +163,38 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     padding:10px 14px;
     display:flex;
     align-items:center;
-    gap:6px;
+    justify-content:flex-end;
     border-bottom:1px solid #2a2a34;
   }
 
-  .dot{ width:11px; height:11px; border-radius:50%; }
+  .term-actions{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .term-dot-btn{
+    width:12px;
+    height:12px;
+    border-radius:999px;
+    border:none;
+    cursor:pointer;
+    opacity:.9;
+    transition:transform .12s ease, opacity .12s ease, filter .12s ease;
+  }
+  .term-dot-btn:hover{
+    opacity:1;
+    transform:translateY(-1px);
+    filter:brightness(1.06);
+  }
+  .term-dot-btn:active{
+    transform:translateY(0);
+  }
+  .term-dot-btn--collapse{ background:#f9c940; }
+  .term-dot-btn--clear{ background:#ff8f8f; }
+  .term-dot-btn--focus{ background:#61d1ad; }
+  .term-dot-btn[aria-pressed="true"]{
+    box-shadow:0 0 0 2px #ffffff33;
+  }
 
   .term-body{
     padding:14px 16px;
@@ -163,6 +214,24 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     min-height:0;
     overflow:auto;
     padding-right:2px;
+    scrollbar-width:thin;
+    scrollbar-color:#61d1ad #1a1a22;
+  }
+  .term-output::-webkit-scrollbar{
+    width:10px;
+    height:10px;
+  }
+  .term-output::-webkit-scrollbar-track{
+    background:#1a1a22;
+    border-radius:999px;
+  }
+  .term-output::-webkit-scrollbar-thumb{
+    background:linear-gradient(180deg, #61d1ad, #4bb996);
+    border-radius:999px;
+    border:2px solid #1a1a22;
+  }
+  .term-output::-webkit-scrollbar-thumb:hover{
+    background:linear-gradient(180deg, #71e2be, #56c7a2);
   }
   .term-line{ display:flex; gap:6px; flex-wrap:wrap; line-height:1.5; word-break:break-word; }
   .term-line a{ color:#61d1ad; text-decoration:underline; }
@@ -231,6 +300,14 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   .card-inner{ padding:14px 16px; }
   .card-title{ font-size:15px; font-weight:700; margin-bottom:6px; line-height:1.4; }
   .card-desc{ font-size:12px; color:#868899; line-height:1.6; margin:0; }
+  .cards-empty{
+    border:1px dashed #333340;
+    border-radius:12px;
+    padding:16px;
+    color:#868899;
+    font-size:13px;
+    background:#1a1a21;
+  }
 
   .footer-bar{
     border-top:1px solid #333340;
@@ -343,9 +420,11 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
 
       <div class="terminal" id="fakeTerminal" data-terminal='<?= e($terminal_json) ?>'>
         <div class="term-bar">
-          <div class="dot" style="background:#f9c940"></div>
-          <div class="dot" style="background:#61d1ad"></div>
-          <div class="dot" style="background:#868899"></div>
+          <div class="term-actions" role="toolbar" aria-label="Управление терминалом">
+            <button type="button" class="term-dot-btn term-dot-btn--collapse" data-term-action="collapse" title="Свернуть/развернуть" aria-label="Свернуть/развернуть"></button>
+            <button type="button" class="term-dot-btn term-dot-btn--clear" data-term-action="clear" title="Очистить вывод" aria-label="Очистить вывод"></button>
+            <button type="button" class="term-dot-btn term-dot-btn--focus" data-term-action="focus" title="Режим фокуса" aria-label="Режим фокуса" aria-pressed="false"></button>
+          </div>
         </div>
         <div class="term-body">
           <div class="term-output" id="termOutput"></div>
@@ -357,30 +436,91 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
       </div>
     </section>
 
-    <section class="section">
+    <section class="section" id="projects">
       <div class="sec-label">// projects</div>
       <div class="sec-title">Проекты</div>
-      <div class="cards">
-        <?php foreach ($projects as $project): ?>
-          <?php
-            if (!is_array($project)) continue;
-            $title = (string)($project['title'] ?? 'Без названия');
-            $description = (string)($project['description'] ?? '');
-            $image = (string)($project['image'] ?? '');
-          ?>
-          <article class="card">
-            <div class="card-media">
-              <?php if ($image !== ''): ?>
-                <img src="<?= e($image) ?>" alt="<?= e($title) ?>">
-              <?php endif; ?>
-            </div>
-            <div class="card-inner">
-              <div class="card-title"><?= e($title) ?></div>
-              <div class="card-desc"><?= e($description) ?></div>
-            </div>
-          </article>
-        <?php endforeach; ?>
-      </div>
+      <?php if (!$projects): ?>
+        <div class="cards-empty">Пока нет проектов. Добавь их в админке.</div>
+      <?php else: ?>
+        <div class="cards">
+          <?php foreach ($projects as $project): ?>
+            <?php
+              $title = (string)($project['title'] ?? 'Без названия');
+              $description = (string)($project['description'] ?? '');
+              $image = (string)($project['image'] ?? '');
+            ?>
+            <article class="card">
+              <div class="card-media">
+                <?php if ($image !== ''): ?>
+                  <img src="<?= e($image) ?>" alt="<?= e($title) ?>">
+                <?php endif; ?>
+              </div>
+              <div class="card-inner">
+                <div class="card-title"><?= e($title) ?></div>
+                <div class="card-desc"><?= e($description) ?></div>
+              </div>
+            </article>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+    </section>
+
+    <section class="section" id="travel">
+      <div class="sec-label">// travel</div>
+      <div class="sec-title">Путешествия</div>
+      <?php if (!$travels): ?>
+        <div class="cards-empty">Пока нет карточек путешествий. Добавь массив <code>travels</code> в конфиге.</div>
+      <?php else: ?>
+        <div class="cards">
+          <?php foreach ($travels as $travel): ?>
+            <?php
+              $title = (string)($travel['title'] ?? 'Без названия');
+              $description = (string)($travel['description'] ?? '');
+              $image = (string)($travel['image'] ?? '');
+            ?>
+            <article class="card">
+              <div class="card-media">
+                <?php if ($image !== ''): ?>
+                  <img src="<?= e($image) ?>" alt="<?= e($title) ?>">
+                <?php endif; ?>
+              </div>
+              <div class="card-inner">
+                <div class="card-title"><?= e($title) ?></div>
+                <div class="card-desc"><?= e($description) ?></div>
+              </div>
+            </article>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+    </section>
+
+    <section class="section" id="photo">
+      <div class="sec-label">// photo</div>
+      <div class="sec-title">Фото</div>
+      <?php if (!$photos): ?>
+        <div class="cards-empty">Пока нет карточек фото. Добавь массив <code>photos</code> в конфиге.</div>
+      <?php else: ?>
+        <div class="cards">
+          <?php foreach ($photos as $photo): ?>
+            <?php
+              $title = (string)($photo['title'] ?? 'Без названия');
+              $description = (string)($photo['description'] ?? '');
+              $image = (string)($photo['image'] ?? '');
+            ?>
+            <article class="card">
+              <div class="card-media">
+                <?php if ($image !== ''): ?>
+                  <img src="<?= e($image) ?>" alt="<?= e($title) ?>">
+                <?php endif; ?>
+              </div>
+              <div class="card-inner">
+                <div class="card-title"><?= e($title) ?></div>
+                <div class="card-desc"><?= e($description) ?></div>
+              </div>
+            </article>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
     </section>
 
     <footer class="footer-bar">
@@ -397,6 +537,9 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   const output = document.getElementById('termOutput');
   const input = document.getElementById('termInput');
   const termBody = terminal.querySelector('.term-body');
+  const collapseBtn = terminal.querySelector('[data-term-action="collapse"]');
+  const clearBtn = terminal.querySelector('[data-term-action="clear"]');
+  const focusBtn = terminal.querySelector('[data-term-action="focus"]');
 
   let config = {};
   try {
@@ -476,6 +619,17 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
 
   function printError(text) {
     printLine([{ text: '!', className: 'term-error' }, text], 'term-error');
+  }
+
+  function setCollapsed(next) {
+    terminal.classList.toggle('terminal--collapsed', !!next);
+    if (!next) input.focus();
+  }
+
+  function setFocusMode(next) {
+    terminal.classList.toggle('terminal--focus', !!next);
+    if (focusBtn) focusBtn.setAttribute('aria-pressed', next ? 'true' : 'false');
+    output.scrollTop = output.scrollHeight;
   }
 
   function getNode(pathParts) {
@@ -767,7 +921,31 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   });
 
   terminal.addEventListener('click', function () {
+    if (terminal.classList.contains('terminal--collapsed')) return;
     input.focus();
   });
+
+  if (collapseBtn) {
+    collapseBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setCollapsed(!terminal.classList.contains('terminal--collapsed'));
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      output.innerHTML = '';
+      input.focus();
+    });
+  }
+
+  if (focusBtn) {
+    focusBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setFocusMode(!terminal.classList.contains('terminal--focus'));
+      input.focus();
+    });
+  }
 })();
 </script>
