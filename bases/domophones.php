@@ -1,5 +1,6 @@
 <?php
-include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
+$site_root = dirname(__DIR__);
+include $site_root . '/header.php';
 
 function dom_h(string $value): string {
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -10,12 +11,38 @@ function dom_int($value, int $default): int {
     return $filtered === false ? $default : max(1, (int)$filtered);
 }
 
-$db_path = $_SERVER['DOCUMENT_ROOT'] . '/data/domophones.sqlite';
+function dom_database_candidates(string $site_root): array {
+    $candidates = [
+        $site_root . '/data/domophones.sqlite',
+    ];
+
+    $document_root = (string)($_SERVER['DOCUMENT_ROOT'] ?? '');
+    if ($document_root !== '') {
+        $candidates[] = rtrim($document_root, '/\\') . '/data/domophones.sqlite';
+        $candidates[] = dirname(rtrim($document_root, '/\\')) . '/data/domophones.sqlite';
+    }
+
+    $candidates[] = dirname($site_root) . '/data/domophones.sqlite';
+
+    return array_values(array_unique($candidates));
+}
+
+$db_candidates = dom_database_candidates($site_root);
+$db_path = '';
+foreach ($db_candidates as $candidate) {
+    if (is_file($candidate)) {
+        $db_path = $candidate;
+        break;
+    }
+}
 $query = trim((string)($_GET['q'] ?? ''));
 $page = dom_int($_GET['page'] ?? 1, 1);
 $per_page = 80;
 $offset = ($page - 1) * $per_page;
-$db_ready = is_file($db_path);
+$db_ready = $db_path !== '';
+if (!$db_ready) {
+    error_log('Domophones SQLite not found. Checked: ' . implode('; ', $db_candidates));
+}
 $db_error = '';
 $stats = [
     'streets' => 0,

@@ -41,6 +41,9 @@ jobs:
         run: |
           PORT="${DEPLOY_PORT:-22}"
           rsync -az --delete \
+            --include="/data/" \
+            --include="/data/domophones.sqlite" \
+            --exclude="/data/***" \
             --exclude-from=".deployignore" \
             -e "ssh -i ~/.ssh/deploy_key -p $PORT -o IdentitiesOnly=yes" \
             ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
