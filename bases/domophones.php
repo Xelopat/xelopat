@@ -359,7 +359,7 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
       <div>
         <span class="db-kicker">// базы</span>
         <h1 class="db-title">Домофоны<span style="color:#f9c940">_</span></h1>
-        <p class="db-subtitle">Поиск по улице, дому, корпусу, подъезду и коду. Источник: локальная SQLite-база из папки «База Домофонов».</p>
+        <p class="db-subtitle">Поиск по улице, дому, корпусу, подъезду и коду.</p>
       </div>
       <div class="db-stats" aria-label="Статистика базы">
         <div class="db-stat"><strong><?= dom_h(number_format($stats['streets'], 0, '.', ' ')) ?></strong><span>улиц</span></div>
@@ -374,9 +374,8 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
         <input class="search-input" type="search" name="q" value="<?= dom_h($query) ?>" placeholder="Например: Беговая 3 2 или 18в" autofocus>
         <button class="search-btn" type="submit">Найти</button>
       </form>
-      <div class="db-note">Файл базы: <span class="muted">data/domophones.sqlite</span></div>
       <?php if (!$db_ready): ?>
-        <div class="db-alert">База не найдена. Запусти: <span class="muted">python .\scripts\build_domophones_sqlite.py</span></div>
+        <div class="db-alert">База не найдена.</div>
       <?php elseif ($db_error !== ''): ?>
         <div class="db-alert">SQLite не открылся: <?= dom_h($db_error) ?></div>
       <?php endif; ?>

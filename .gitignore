@@ -13,6 +13,7 @@ perfumes/data.json
 coursework/library.db
 coursework/books/
 data/
+База Домофонов/
 *.log
 .vscode/
 .idea/
