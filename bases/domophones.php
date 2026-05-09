@@ -1,0 +1,439 @@
+<?php
+include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
+
+function dom_h(string $value): string {
+    return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+function dom_int($value, int $default): int {
+    $filtered = filter_var($value, FILTER_VALIDATE_INT);
+    return $filtered === false ? $default : max(1, (int)$filtered);
+}
+
+$db_path = $_SERVER['DOCUMENT_ROOT'] . '/data/domophones.sqlite';
+$query = trim((string)($_GET['q'] ?? ''));
+$page = dom_int($_GET['page'] ?? 1, 1);
+$per_page = 80;
+$offset = ($page - 1) * $per_page;
+$db_ready = is_file($db_path);
+$db_error = '';
+$stats = [
+    'streets' => 0,
+    'houses' => 0,
+    'entrances' => 0,
+    'codes' => 0,
+];
+$results = [];
+$has_more = false;
+
+if ($db_ready) {
+    try {
+        $pdo = new PDO('sqlite:' . $db_path);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        foreach ($stats as $table => $_) {
+            $stats[$table] = (int)$pdo->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
+        }
+
+        if ($query !== '') {
+            $terms = preg_split('/\s+/u', $query, -1, PREG_SPLIT_NO_EMPTY);
+            $where = [];
+            $params = [];
+            foreach ($terms as $i => $term) {
+                $key = ':t' . $i;
+                $where[] = "(
+                    s.name LIKE {$key}
+                    OR h.house_number LIKE {$key}
+                    OR h.building LIKE {$key}
+                    OR h.raw_house LIKE {$key}
+                    OR e.entrance_number LIKE {$key}
+                    OR c.code LIKE {$key}
+                    OR c.raw LIKE {$key}
+                )";
+                $params[$key] = '%' . $term . '%';
+            }
+
+            $sql = "
+                SELECT
+                    s.name AS street,
+                    h.house_number,
+                    h.building,
+                    h.raw_house,
+                    e.entrance_number,
+                    c.code,
+                    c.raw,
+                    src.path AS source_path
+                FROM codes c
+                JOIN entrances e ON e.id = c.entrance_id
+                JOIN houses h ON h.id = e.house_id
+                JOIN streets s ON s.id = h.street_id
+                LEFT JOIN sources src ON src.id = c.source_id
+                WHERE " . implode(' AND ', $where) . "
+                ORDER BY s.name, h.house_number, h.building, e.entrance_number, c.code
+                LIMIT :limit OFFSET :offset
+            ";
+            $stmt = $pdo->prepare($sql);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value, PDO::PARAM_STR);
+            }
+            $stmt->bindValue(':limit', $per_page + 1, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            if (count($results) > $per_page) {
+                $has_more = true;
+                array_pop($results);
+            }
+        }
+    } catch (Throwable $e) {
+        $db_error = $e->getMessage();
+    }
+}
+
+$result_count = count($results);
+$base_url = '/bases/domophones.php?q=' . rawurlencode($query);
+?>
+
+<style>
+  .db-shell{
+    min-height:calc(100vh - 60px);
+    background:#151518;
+    color:#efeff1;
+    position:relative;
+    overflow:hidden;
+  }
+  .db-shell::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background-image:radial-gradient(circle at 1px 1px, rgba(51,51,64,.48) 1px, transparent 0);
+    background-size:80px 80px;
+    pointer-events:none;
+  }
+  .db-container{
+    width:min(1280px, calc(100vw - 24px));
+    margin:0 auto;
+    position:relative;
+    z-index:1;
+    padding:42px 0 64px;
+  }
+  .db-head{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:24px;
+    margin-bottom:22px;
+  }
+  .db-kicker{
+    display:inline-flex;
+    align-items:center;
+    border-radius:4px;
+    background:#0f3328;
+    color:#61d1ad;
+    font:11px/1.3 "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding:4px 10px;
+    margin-bottom:12px;
+  }
+  .db-title{
+    margin:0;
+    font:700 38px/1.1 "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .db-subtitle{
+    margin:10px 0 0;
+    color:#a4a8bb;
+    font-size:14px;
+    line-height:1.55;
+    max-width:680px;
+  }
+  .db-stats{
+    display:grid;
+    grid-template-columns:repeat(4, minmax(86px, 1fr));
+    gap:8px;
+    flex:0 0 min(470px, 100%);
+  }
+  .db-stat{
+    border:1px solid #333340;
+    background:#1e1e25;
+    border-radius:8px;
+    padding:10px 12px;
+  }
+  .db-stat strong{
+    display:block;
+    color:#f9c940;
+    font:700 18px/1.1 "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .db-stat span{
+    display:block;
+    margin-top:5px;
+    color:#868899;
+    font-size:11px;
+  }
+  .search-panel{
+    border:1px solid #333340;
+    background:#1e1e25;
+    border-radius:12px;
+    padding:14px;
+    box-shadow:0 18px 40px rgba(0,0,0,.18);
+  }
+  .search-form{
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:10px;
+  }
+  .search-input{
+    width:100%;
+    border:1px solid #333340;
+    background:#151518;
+    color:#efeff1;
+    border-radius:8px;
+    min-height:46px;
+    padding:0 14px;
+    font:500 14px/1.3 Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    outline:none;
+  }
+  .search-input:focus{
+    border-color:rgba(249,201,64,.72);
+    box-shadow:0 0 0 3px rgba(249,201,64,.08);
+  }
+  .search-btn{
+    border:1px solid transparent;
+    border-radius:8px;
+    background:#f9c940;
+    color:#151518;
+    min-height:46px;
+    padding:0 18px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .db-note{
+    margin-top:10px;
+    color:#868899;
+    font-size:12px;
+  }
+  .db-alert{
+    margin-top:16px;
+    border:1px solid rgba(255,143,143,.36);
+    background:rgba(255,143,143,.08);
+    color:#ffb7b7;
+    border-radius:8px;
+    padding:12px 14px;
+    font-size:13px;
+  }
+  .results-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    margin:22px 0 10px;
+    color:#868899;
+    font-size:13px;
+  }
+  .results-table{
+    width:100%;
+    border-collapse:separate;
+    border-spacing:0;
+    overflow:hidden;
+    border:1px solid #333340;
+    border-radius:12px;
+    background:#1e1e25;
+  }
+  .results-table th,
+  .results-table td{
+    text-align:left;
+    padding:11px 12px;
+    border-bottom:1px solid #2a2a34;
+    vertical-align:top;
+    font-size:13px;
+  }
+  .results-table th{
+    color:#61d1ad;
+    background:#191920;
+    font:700 11px/1.2 "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    text-transform:uppercase;
+  }
+  .results-table tr:last-child td{
+    border-bottom:none;
+  }
+  .code-pill{
+    display:inline-flex;
+    align-items:center;
+    border:1px solid rgba(249,201,64,.28);
+    background:rgba(249,201,64,.08);
+    color:#f9c940;
+    border-radius:6px;
+    padding:3px 8px;
+    font:700 13px/1.3 "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .muted{
+    color:#868899;
+  }
+  .source{
+    color:#868899;
+    font-size:11px;
+    word-break:break-word;
+  }
+  .pager{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:14px;
+  }
+  .pager a{
+    color:#efeff1;
+    text-decoration:none;
+    border:1px solid #333340;
+    background:#1e1e25;
+    border-radius:8px;
+    padding:8px 12px;
+    font-size:13px;
+  }
+  .pager a:hover{
+    color:#f9c940;
+  }
+  .empty-state{
+    border:1px solid #333340;
+    background:#1e1e25;
+    border-radius:12px;
+    padding:20px;
+    margin-top:18px;
+    color:#a4a8bb;
+  }
+  @media (max-width: 900px){
+    .db-head{
+      display:block;
+    }
+    .db-stats{
+      margin-top:18px;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+    }
+    .results-table,
+    .results-table tbody,
+    .results-table tr,
+    .results-table td{
+      display:block;
+      width:100%;
+    }
+    .results-table thead{
+      display:none;
+    }
+    .results-table tr{
+      border-bottom:1px solid #2a2a34;
+      padding:10px 0;
+    }
+    .results-table tr:last-child{
+      border-bottom:none;
+    }
+    .results-table td{
+      border-bottom:none;
+      padding:6px 12px;
+    }
+    .results-table td::before{
+      content:attr(data-label);
+      display:block;
+      color:#61d1ad;
+      font-size:10px;
+      font-family:"Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-transform:uppercase;
+      margin-bottom:3px;
+    }
+  }
+  @media (max-width: 560px){
+    .db-container{
+      width:calc(100vw - 16px);
+      padding-top:28px;
+    }
+    .db-title{
+      font-size:30px;
+    }
+    .search-form{
+      grid-template-columns:1fr;
+    }
+    .search-btn{
+      width:100%;
+    }
+  }
+</style>
+
+<main class="db-shell">
+  <div class="db-container">
+    <section class="db-head">
+      <div>
+        <span class="db-kicker">// базы</span>
+        <h1 class="db-title">Домофоны<span style="color:#f9c940">_</span></h1>
+        <p class="db-subtitle">Поиск по улице, дому, корпусу, подъезду и коду. Источник: локальная SQLite-база из папки «База Домофонов».</p>
+      </div>
+      <div class="db-stats" aria-label="Статистика базы">
+        <div class="db-stat"><strong><?= dom_h(number_format($stats['streets'], 0, '.', ' ')) ?></strong><span>улиц</span></div>
+        <div class="db-stat"><strong><?= dom_h(number_format($stats['houses'], 0, '.', ' ')) ?></strong><span>домов</span></div>
+        <div class="db-stat"><strong><?= dom_h(number_format($stats['entrances'], 0, '.', ' ')) ?></strong><span>подъездов</span></div>
+        <div class="db-stat"><strong><?= dom_h(number_format($stats['codes'], 0, '.', ' ')) ?></strong><span>кодов</span></div>
+      </div>
+    </section>
+
+    <section class="search-panel">
+      <form class="search-form" method="get" action="/bases/domophones.php">
+        <input class="search-input" type="search" name="q" value="<?= dom_h($query) ?>" placeholder="Например: Беговая 3 2 или 18в" autofocus>
+        <button class="search-btn" type="submit">Найти</button>
+      </form>
+      <div class="db-note">Файл базы: <span class="muted">data/domophones.sqlite</span></div>
+      <?php if (!$db_ready): ?>
+        <div class="db-alert">База не найдена. Запусти: <span class="muted">python .\scripts\build_domophones_sqlite.py</span></div>
+      <?php elseif ($db_error !== ''): ?>
+        <div class="db-alert">SQLite не открылся: <?= dom_h($db_error) ?></div>
+      <?php endif; ?>
+    </section>
+
+    <?php if ($query !== '' && $db_ready && $db_error === ''): ?>
+      <div class="results-bar">
+        <span>Показано: <?= dom_h((string)$result_count) ?><?= $has_more ? '+' : '' ?></span>
+        <span class="muted">страница <?= dom_h((string)$page) ?></span>
+      </div>
+
+      <?php if ($results): ?>
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>Адрес</th>
+              <th>Подъезд</th>
+              <th>Код</th>
+              <th>Источник</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($results as $row): ?>
+              <?php
+                $house = (string)($row['house_number'] ?? '');
+                $building = (string)($row['building'] ?? '');
+                $house_label = (string)($row['raw_house'] ?? '');
+                if ($house_label === '') {
+                    $house_label = $house . ($building !== '' ? ' к. ' . $building : '');
+                }
+                $entrance = (string)($row['entrance_number'] ?? '');
+              ?>
+              <tr>
+                <td data-label="Адрес">
+                  <?= dom_h((string)$row['street']) ?>, <?= dom_h($house_label) ?>
+                </td>
+                <td data-label="Подъезд"><?= $entrance !== '' ? dom_h($entrance) : '<span class="muted">не указан</span>' ?></td>
+                <td data-label="Код"><span class="code-pill"><?= dom_h((string)$row['code']) ?></span></td>
+                <td data-label="Источник"><span class="source"><?= dom_h((string)($row['source_path'] ?? '')) ?></span></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+
+        <div class="pager">
+          <?php if ($page > 1): ?>
+            <a href="<?= dom_h($base_url . '&page=' . ($page - 1)) ?>">Назад</a>
+          <?php endif; ?>
+          <?php if ($has_more): ?>
+            <a href="<?= dom_h($base_url . '&page=' . ($page + 1)) ?>">Дальше</a>
+          <?php endif; ?>
+        </div>
+      <?php else: ?>
+        <div class="empty-state">Ничего не найдено.</div>
+      <?php endif; ?>
+    <?php elseif ($query === '' && $db_ready && $db_error === ''): ?>
+      <div class="empty-state">Введи улицу, дом, подъезд или код в поле поиска.</div>
+    <?php endif; ?>
+  </div>
+</main>

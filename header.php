@@ -41,6 +41,10 @@ $hobby_items = [
     ['Духи', '/perfumes/index.php'],
 ];
 
+$base_items = [
+    ['Домофоны', '/bases/domophones.php'],
+];
+
 $uri = strtok((string)($_SERVER['REQUEST_URI'] ?? '/'), '?');
 
 function site_h(string $s): string {
@@ -540,6 +544,18 @@ function site_active(string $href, string $uri): bool {
           </ul>
         </div>
       </div>
+
+      <div class="dd" id="dd-bases-wrap">
+        <button type="button" class="nav-btn<?= strpos($uri, '/bases/') === 0 ? ' active' : '' ?>" data-dd-btn="bases" aria-expanded="false">Базы</button>
+        <div class="dd-panel" id="dd-bases" role="dialog" aria-label="Базы">
+          <ul class="menu-root">
+            <?php foreach ($base_items as $it): ?>
+              <?php $label = (string)$it[0]; $href = (string)$it[1]; ?>
+              <li><a href="<?= site_h($href) ?>" class="<?= site_active($href, $uri) ? 'active' : '' ?>"><?= site_h($label) ?></a></li>
+            <?php endforeach; ?>
+          </ul>
+        </div>
+      </div>
     </nav>
 
     <div class="auth-area">
@@ -620,12 +636,16 @@ function site_active(string $href, string $uri): bool {
 
   const btnUniver = document.querySelector('[data-dd-btn="univer"]');
   const btnHobby = document.querySelector('[data-dd-btn="hobby"]');
+  const btnBases = document.querySelector('[data-dd-btn="bases"]');
   const univerWrap = document.getElementById('dd-univer-wrap');
   const hobbyWrap = document.getElementById('dd-hobby-wrap');
+  const basesWrap = document.getElementById('dd-bases-wrap');
   const panelUniver = document.getElementById('dd-univer');
   const panelHobby = document.getElementById('dd-hobby');
+  const panelBases = document.getElementById('dd-bases');
   let univerCloseTimer = null;
   let hobbyCloseTimer = null;
+  let basesCloseTimer = null;
   const DESKTOP_CLOSE_DELAY = 420;
 
   function isMobile() {
@@ -665,6 +685,10 @@ function site_active(string $href, string $uri): bool {
       clearTimeout(hobbyCloseTimer);
       hobbyCloseTimer = null;
     }
+    if (basesCloseTimer) {
+      clearTimeout(basesCloseTimer);
+      basesCloseTimer = null;
+    }
   }
 
   function openDesktopPanel(which) {
@@ -674,24 +698,31 @@ function site_active(string $href, string $uri): bool {
         clearTimeout(univerCloseTimer);
         univerCloseTimer = null;
       }
-    } else {
+    } else if (which === 'hobby') {
       if (hobbyCloseTimer) {
         clearTimeout(hobbyCloseTimer);
         hobbyCloseTimer = null;
       }
+    } else if (which === 'bases') {
+      if (basesCloseTimer) {
+        clearTimeout(basesCloseTimer);
+        basesCloseTimer = null;
+      }
     }
-    const panel = which === 'univer' ? panelUniver : panelHobby;
-    const btn = which === 'univer' ? btnUniver : btnHobby;
-    const otherPanel = which === 'univer' ? panelHobby : panelUniver;
-    const otherBtn = which === 'univer' ? btnHobby : btnUniver;
+    const panel = which === 'univer' ? panelUniver : (which === 'hobby' ? panelHobby : panelBases);
+    const btn = which === 'univer' ? btnUniver : (which === 'hobby' ? btnHobby : btnBases);
     if (!panel || !btn) return;
     panel.classList.remove('closing');
-    if (otherPanel) otherPanel.classList.remove('open');
-    if (otherPanel) otherPanel.classList.remove('closing');
-    if (otherBtn) {
+    [panelUniver, panelHobby, panelBases].forEach(otherPanel => {
+      if (!otherPanel || otherPanel === panel) return;
+      otherPanel.classList.remove('open');
+      otherPanel.classList.remove('closing');
+    });
+    [btnUniver, btnHobby, btnBases].forEach(otherBtn => {
+      if (!otherBtn || otherBtn === btn) return;
       otherBtn.classList.remove('active');
       otherBtn.setAttribute('aria-expanded', 'false');
-    }
+    });
     panel.classList.add('open');
     btn.classList.add('active');
     btn.setAttribute('aria-expanded', 'true');
@@ -699,7 +730,7 @@ function site_active(string $href, string $uri): bool {
 
   function scheduleDesktopPanelClose(which) {
     if (isMobile()) return;
-    const timerRef = which === 'univer' ? 'univer' : 'hobby';
+    const timerRef = which === 'univer' ? 'univer' : (which === 'hobby' ? 'hobby' : 'bases');
     if (timerRef === 'univer') {
       if (univerCloseTimer) clearTimeout(univerCloseTimer);
       univerCloseTimer = setTimeout(() => {
@@ -710,7 +741,7 @@ function site_active(string $href, string $uri): bool {
           btnUniver.setAttribute('aria-expanded', 'false');
         }
       }, DESKTOP_CLOSE_DELAY);
-    } else {
+    } else if (timerRef === 'hobby') {
       if (hobbyCloseTimer) clearTimeout(hobbyCloseTimer);
       hobbyCloseTimer = setTimeout(() => {
         if (hobbyWrap && hobbyWrap.matches(':hover')) return;
@@ -720,13 +751,23 @@ function site_active(string $href, string $uri): bool {
           btnHobby.setAttribute('aria-expanded', 'false');
         }
       }, DESKTOP_CLOSE_DELAY);
+    } else {
+      if (basesCloseTimer) clearTimeout(basesCloseTimer);
+      basesCloseTimer = setTimeout(() => {
+        if (basesWrap && basesWrap.matches(':hover')) return;
+        if (panelBases) fadeClose(panelBases);
+        if (btnBases) {
+          btnBases.classList.remove('active');
+          btnBases.setAttribute('aria-expanded', 'false');
+        }
+      }, DESKTOP_CLOSE_DELAY);
     }
   }
 
   function closeAll() {
     clearDesktopCloseTimers();
-    [panelUniver, panelHobby].forEach(panel => panel && fadeClose(panel));
-    [btnUniver, btnHobby].forEach(btn => {
+    [panelUniver, panelHobby, panelBases].forEach(panel => panel && fadeClose(panel));
+    [btnUniver, btnHobby, btnBases].forEach(btn => {
       if (!btn) return;
       btn.classList.remove('active');
       btn.setAttribute('aria-expanded', 'false');
@@ -734,8 +775,8 @@ function site_active(string $href, string $uri): bool {
   }
 
   function togglePanel(which) {
-    const panel = which === 'univer' ? panelUniver : panelHobby;
-    const btn = which === 'univer' ? btnUniver : btnHobby;
+    const panel = which === 'univer' ? panelUniver : (which === 'hobby' ? panelHobby : panelBases);
+    const btn = which === 'univer' ? btnUniver : (which === 'hobby' ? btnHobby : btnBases);
     if (!panel || !btn) return;
     const open = panel.classList.contains('open');
     closeAll();
@@ -754,6 +795,11 @@ function site_active(string $href, string $uri): bool {
   if (btnHobby) btnHobby.addEventListener('click', function (e) {
     e.stopPropagation();
     togglePanel('hobby');
+  });
+
+  if (btnBases) btnBases.addEventListener('click', function (e) {
+    e.stopPropagation();
+    togglePanel('bases');
   });
 
   document.addEventListener('click', function (e) {
@@ -795,6 +841,15 @@ function site_active(string $href, string $uri): bool {
     });
     hobbyWrap.addEventListener('mouseleave', function () {
       scheduleDesktopPanelClose('hobby');
+    });
+  }
+
+  if (basesWrap) {
+    basesWrap.addEventListener('mouseenter', function () {
+      openDesktopPanel('bases');
+    });
+    basesWrap.addEventListener('mouseleave', function () {
+      scheduleDesktopPanelClose('bases');
     });
   }
 
