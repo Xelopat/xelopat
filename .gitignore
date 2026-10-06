@@ -12,7 +12,8 @@ perfumes/uploads/
 perfumes/data.json
 coursework/library.db
 coursework/books/
-data/
+data/*
+!data/.htaccess
 База Домофонов/
 *.log
 .vscode/

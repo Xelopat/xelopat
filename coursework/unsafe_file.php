@@ -144,6 +144,11 @@ if ($book === '') {
         exit();
     }
     $filePath = realpath($baseDir . '/' . $book);
+    // Демо допускает выход на уровень вверх, но не дальше папки coursework — остальной сервер недоступен
+    $demoRoot = realpath(__DIR__) . DIRECTORY_SEPARATOR;
+    if ($filePath !== false && strpos($filePath, $demoRoot) !== 0) {
+        $filePath = false;
+    }
     if ($filePath === false) {
         echo "<p class='error'>Недопустимый путь или файл не существует.</p>";
     } else {

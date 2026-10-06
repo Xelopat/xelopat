@@ -43,6 +43,7 @@ jobs:
           rsync -az --delete \
             --include="/data/" \
             --include="/data/domophones.sqlite" \
+            --include="/data/.htaccess" \
             --exclude="/data/***" \
             --exclude-from=".deployignore" \
             -e "ssh -i ~/.ssh/deploy_key -p $PORT -o IdentitiesOnly=yes" \
