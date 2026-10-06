@@ -241,7 +241,6 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .la-bar.future i{ background:transparent; }
   .la-bar.today i{ background:linear-gradient(180deg, #ffe08a, var(--gold)); }
   .la-bar.today.empty i{ background:var(--gold); }
-  .la-bar.sel::after{ content:""; position:absolute; left:50%; bottom:-6px; width:4px; height:4px; border-radius:50%; background:var(--fox-2); transform:translateX(-50%); }
   .la-axis{ display:grid; grid-template-columns:repeat(var(--days), minmax(0,1fr)); gap:3px; margin-bottom:16px; }
   .la-axis span{ font-family:var(--mono); font-size:9px; color:var(--muted); text-align:center; }
   .la-axis span.we{ color:#7f6a5c; }
@@ -300,7 +299,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     .la-axis{ gap:1px; }
     .la-axis span:nth-child(even){ visibility:hidden; }
     .la-table th, .la-table td{ padding:8px 4px; font-size:12.5px; }
-    .la-table tr.today td:first-child::after{ content:"•"; margin-left:4px; }
+    .la-table tr.today td:first-child::after{ content:none; }
     .la-month-name{ min-width:110px; }
   }
 </style>
