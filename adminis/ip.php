@@ -209,19 +209,31 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   }
 
   function calculateSubnets(networkAddress, userGroups) {
-    const { baseIp } = parseNetwork(networkAddress);
-    const baseDecimal = ipToDecimal(baseIp);
+    const { baseIp, cidr } = parseNetwork(networkAddress);
+    const networkSize = 2 ** (32 - cidr);
+    // Приводим адрес к началу сети: 192.168.0.5/24 -> 192.168.0.0
+    const baseDecimal = ipToDecimal(baseIp) - (ipToDecimal(baseIp) % networkSize);
     let currentDecimal = baseDecimal;
     const results = [];
 
-    const groups = userGroups.slice().sort((a, b) => b - a);
-    groups.forEach((users) => {
+    const groups = userGroups.slice().sort((a, b) => b - a).map((users) => {
       const requiredBits = Math.ceil(Math.log2(users + 2));
+      return { users, requiredBits, subnetSize: 2 ** requiredBits };
+    });
+
+    const tooBig = groups.find((g) => g.requiredBits > 32 - cidr);
+    if (tooBig) {
+      throw new Error(`Подсеть на ${tooBig.users} ПК требует /${32 - tooBig.requiredBits} (${tooBig.subnetSize} адресов), а вся сеть /${cidr} — только ${networkSize} адресов`);
+    }
+
+    // Подсети — степени двойки и идут по убыванию, поэтому они влезают ровно тогда, когда влезает их сумма
+    const totalRequired = groups.reduce((sum, g) => sum + g.subnetSize, 0);
+    if (totalRequired > networkSize) {
+      throw new Error(`Не хватает адресов: требуется ${totalRequired}, а в сети /${cidr} доступно ${networkSize}`);
+    }
+
+    groups.forEach(({ users, requiredBits, subnetSize }) => {
       const subnetMask = 32 - requiredBits;
-      const subnetSize = 2 ** requiredBits;
-      if (subnetMask < 1 || subnetMask > 32) {
-        throw new Error(`Невозможно создать подсеть для ${users} ПК`);
-      }
 
       results.push({
         users,
@@ -235,11 +247,12 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       currentDecimal += subnetSize;
     });
 
-    return results;
+    return { results, totalRequired, networkSize };
   }
 
-  function renderResults(results) {
+  function renderResults({ results, totalRequired, networkSize }) {
     return `
+      <p class="ip-sub" style="margin:0 0 10px">Использовано ${totalRequired} из ${networkSize} адресов, свободно ${networkSize - totalRequired}.</p>
       <table class="ip-table">
         <thead>
           <tr>
@@ -273,10 +286,13 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
     const networkAddress = document.getElementById('networkAddress').value.trim();
     const userGroupsRaw = document.getElementById('userGroups').value.trim();
-    const userGroups = userGroupsRaw
-      .split(/\s+/)
-      .map(Number)
-      .filter((n) => Number.isFinite(n) && n > 0);
+    const tokens = userGroupsRaw.split(/\s+/).filter(Boolean);
+    const userGroups = tokens.map(Number);
+
+    if (userGroups.some((n) => !Number.isInteger(n) || n <= 0)) {
+      outputNode.innerHTML = '<p class="ip-error">Количество ПК должно быть целым положительным числом.</p>';
+      return;
+    }
 
     if (!userGroups.length) {
       outputNode.innerHTML = '<p class="ip-error">Добавьте хотя бы одно число для подсети.</p>';
