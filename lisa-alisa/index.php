@@ -2,15 +2,37 @@
 // /lisa-alisa/index.php — учёт квадратов на упаковке мебели. Редактировать может кто угодно.
 declare(strict_types=1);
 
-const LA_RATE = 18;          // ₽ за квадрат
+const LA_RATE = 18;          // ставка по умолчанию, ₽ за квадрат
 const LA_MAX_SQUARES = 100000;
+const LA_MAX_RATE = 100000;
+const LA_LOG_LIMIT = 500;     // сколько последних изменений хранить
+const LA_LOG_SEND = 60;       // сколько отдавать на страницу
+const LA_BACKUP_DAYS = 7;     // сколько ежедневных копий держать
+
+date_default_timezone_set('Europe/Moscow');
 
 $LA_DATA_FILE = $_SERVER['DOCUMENT_ROOT'] . '/data/lisa_alisa.json';
+$LA_BACKUP_DIR = $_SERVER['DOCUMENT_ROOT'] . '/data/lisa_alisa_backup';
 
-function la_read(string $file): array {
-    if (!is_file($file)) return [];
-    $data = json_decode((string)file_get_contents($file), true);
-    return is_array($data['entries'] ?? null) ? $data['entries'] : [];
+// Старые записи хранились просто числом квадратов — приводим к {s, r}
+function la_entries(array $data): array {
+    $out = [];
+    foreach ((array)($data['entries'] ?? []) as $date => $v) {
+        if (is_array($v)) {
+            $out[$date] = ['s' => (float)($v['s'] ?? 0), 'r' => (float)($v['r'] ?? LA_RATE)];
+        } else {
+            $out[$date] = ['s' => (float)$v, 'r' => (float)LA_RATE];
+        }
+    }
+    return $out;
+}
+
+function la_payload(array $entries, array $log): array {
+    return [
+        'entries' => (object)$entries,
+        'log' => array_slice($log, -LA_LOG_SEND),
+        'defaultRate' => LA_RATE,
+    ];
 }
 
 function la_json(int $code, array $payload): void {
@@ -21,9 +43,22 @@ function la_json(int $code, array $payload): void {
     exit;
 }
 
+// Раз в день перед первой правкой кладём копию файла; старые копии чистим
+function la_backup(string $file, string $dir): void {
+    if (!is_file($file)) return;
+    if (!is_dir($dir)) @mkdir($dir, 0755, true);
+    $target = $dir . '/' . date('Y-m-d') . '.json';
+    if (!is_file($target)) @copy($file, $target);
+    $all = glob($dir . '/*.json') ?: [];
+    sort($all);
+    foreach (array_slice($all, 0, max(0, count($all) - LA_BACKUP_DAYS)) as $old) @unlink($old);
+}
+
 if (isset($_GET['api'])) {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        la_json(200, ['entries' => (object)la_read($LA_DATA_FILE)]);
+        $data = is_file($LA_DATA_FILE) ? json_decode((string)file_get_contents($LA_DATA_FILE), true) : [];
+        $data = is_array($data) ? $data : [];
+        la_json(200, la_payload(la_entries($data), (array)($data['log'] ?? [])));
     }
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -33,6 +68,7 @@ if (isset($_GET['api'])) {
     $in = json_decode((string)file_get_contents('php://input'), true);
     $date = (string)($in['date'] ?? '');
     $raw = $in['squares'] ?? null;
+    $rawRate = $in['rate'] ?? null;
 
     $d = DateTime::createFromFormat('!Y-m-d', $date);
     if (!$d || $d->format('Y-m-d') !== $date) {
@@ -45,6 +81,9 @@ if (isset($_GET['api'])) {
     if ($squares < 0 || $squares > LA_MAX_SQUARES) {
         la_json(400, ['error' => 'Число квадратов должно быть от 0 до ' . LA_MAX_SQUARES]);
     }
+    if ($rawRate !== null && $rawRate !== '' && !is_numeric($rawRate)) {
+        la_json(400, ['error' => 'Ставка должна быть числом']);
+    }
 
     $dir = dirname($LA_DATA_FILE);
     if (!is_dir($dir)) @mkdir($dir, 0755, true);
@@ -52,24 +91,42 @@ if (isset($_GET['api'])) {
     $fp = @fopen($LA_DATA_FILE, 'c+');
     if (!$fp) la_json(500, ['error' => 'Не удалось открыть файл данных']);
     flock($fp, LOCK_EX);
-    $data = json_decode((string)stream_get_contents($fp), true);
-    $entries = is_array($data['entries'] ?? null) ? $data['entries'] : [];
+    la_backup($LA_DATA_FILE, $LA_BACKUP_DIR);
 
-    if ($squares == 0) {
+    $data = json_decode((string)stream_get_contents($fp), true);
+    $data = is_array($data) ? $data : [];
+    $entries = la_entries($data);
+    $log = (array)($data['log'] ?? []);
+
+    $before = $entries[$date] ?? null;
+    $rate = ($rawRate === null || $rawRate === '') ? ($before['r'] ?? LA_RATE) : round((float)$rawRate, 2);
+    if ($rate <= 0 || $rate > LA_MAX_RATE) {
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        la_json(400, ['error' => 'Ставка должна быть больше нуля']);
+    }
+
+    $after = $squares == 0 ? null : ['s' => $squares, 'r' => (float)$rate];
+    if ($after === null) {
         unset($entries[$date]);
     } else {
-        $entries[$date] = $squares;
+        $entries[$date] = $after;
     }
     ksort($entries);
 
+    if ($before != $after) {
+        $log[] = ['t' => time(), 'date' => $date, 'from' => $before, 'to' => $after];
+        $log = array_slice($log, -LA_LOG_LIMIT);
+    }
+
     ftruncate($fp, 0);
     rewind($fp);
-    fwrite($fp, json_encode(['entries' => (object)$entries], JSON_PRETTY_PRINT));
+    fwrite($fp, json_encode(['entries' => (object)$entries, 'log' => $log], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
     fflush($fp);
     flock($fp, LOCK_UN);
     fclose($fp);
 
-    la_json(200, ['entries' => (object)$entries]);
+    la_json(200, la_payload($entries, $log));
 }
 
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
@@ -156,6 +213,31 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     border-radius:10px; padding:0 12px; font:inherit; font-size:13px; cursor:pointer; white-space:nowrap;
   }
   .la-chip:hover{ color:var(--text); border-color:var(--fox); }
+
+  .la-num-row{ display:grid; grid-template-columns:minmax(0,1fr) 110px; gap:8px; }
+  .la-rate .la-input.big{ color:var(--gold); }
+
+  .la-log-card{ margin-top:14px; }
+  .la-log{ display:grid; gap:2px; }
+  .la-log-row{
+    display:grid; grid-template-columns:120px minmax(0,1fr) auto; gap:12px; align-items:center;
+    padding:9px 4px; border-bottom:1px solid var(--line-soft); font-size:14px;
+  }
+  .la-log-row:last-child{ border-bottom:none; }
+  .la-log-time{ font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .la-log-what b{ font-weight:700; }
+  .la-log-what .day{ cursor:pointer; color:var(--fox-2); }
+  .la-log-what .day:hover{ text-decoration:underline; }
+  .la-log-what .was{ color:var(--muted); text-decoration:line-through; }
+  .la-log-what .add{ color:var(--mint); }
+  .la-log-what .del{ color:var(--bad); }
+  .la-undo{
+    border:1px solid var(--line); background:var(--bg); color:var(--muted);
+    border-radius:8px; padding:6px 10px; font:inherit; font-size:12px; cursor:pointer; white-space:nowrap;
+  }
+  .la-undo:hover{ color:var(--text); border-color:var(--fox); }
+  .la-undo:disabled{ opacity:.5; cursor:default; }
+  .la-log-more{ margin-top:10px; padding:8px 12px; }
 
   .la-preview{ font-size:13px; color:var(--muted); min-height:18px; }
   .la-preview b{ color:var(--gold); font-weight:700; }
@@ -302,6 +384,9 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     .la-table th, .la-table td{ padding:8px 4px; font-size:12.5px; }
     .la-table tr.today td:first-child::after{ content:none; }
     .la-month-name{ min-width:110px; }
+    .la-num-row{ grid-template-columns:minmax(0,1fr) 92px; }
+    .la-log-row{ grid-template-columns:minmax(0,1fr) auto; gap:4px 10px; }
+    .la-log-time{ grid-column:1 / -1; }
   }
 </style>
 
@@ -326,9 +411,15 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
               <button class="la-chip" type="button" id="laToday">Сегодня</button>
             </div>
           </div>
-          <div class="la-field">
-            <label for="laSquares">Сделано квадратов</label>
-            <input class="la-input big" type="number" id="laSquares" min="0" step="0.01" inputmode="decimal" placeholder="0">
+          <div class="la-num-row">
+            <div class="la-field">
+              <label for="laSquares">Сделано квадратов</label>
+              <input class="la-input big" type="number" id="laSquares" min="0" step="0.01" inputmode="decimal" placeholder="0">
+            </div>
+            <div class="la-field la-rate">
+              <label for="laRate">₽ за квадрат</label>
+              <input class="la-input big" type="number" id="laRate" min="0" step="0.01" inputmode="decimal">
+            </div>
           </div>
           <div class="la-preview" id="laPreview"></div>
           <div class="la-btns">
@@ -370,12 +461,17 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
         <div id="laRecords"></div>
       </section>
     </div>
+
+    <section class="la-card la-log-card">
+      <h2>История изменений <small>можно вернуть как было</small></h2>
+      <div id="laLog"></div>
+    </section>
   </div>
 </main>
 
 <script>
 (function () {
-  const RATE = <?= LA_RATE ?>;
+  let DEFAULT_RATE = <?= LA_RATE ?>;
   const API = '/lisa-alisa/index.php?api=1';
 
   const MONTHS = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
@@ -404,39 +500,54 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     return many;
   }
 
-  let entries = {};
+  let entries = {};   // { 'YYYY-MM-DD': { s: квадраты, r: ставка } }
+  let log = [];
+  let showAllLog = false;
   let todayIso = iso(new Date());
   const now = new Date();
   let viewY = now.getFullYear();
   let viewM = now.getMonth();
   let selected = todayIso;
 
-  const get = (date) => Number(entries[date] || 0);
+  const get = (date) => Number(entries[date] ? entries[date].s : 0);
+  const rateOf = (date) => Number(entries[date] ? entries[date].r : 0);
+  const earn = (date) => get(date) * rateOf(date);
+
+  // Ставка для нового дня — как в последней записи
+  function lastRate() {
+    const dates = Object.keys(entries).sort();
+    return dates.length ? rateOf(dates[dates.length - 1]) : DEFAULT_RATE;
+  }
 
   function sumRange(fromIso, toIso) {
-    let s = 0, days = 0;
-    for (const [d, v] of Object.entries(entries)) {
-      if (d >= fromIso && d <= toIso) { s += Number(v); days++; }
+    let s = 0, money = 0, days = 0;
+    for (const d of Object.keys(entries)) {
+      if (d >= fromIso && d <= toIso) { s += get(d); money += earn(d); days++; }
     }
-    return { squares: s, days };
+    return { squares: s, money, days };
   }
 
   // ---------- API ----------
   async function load() {
     const r = await fetch(API, { cache: 'no-store' });
-    const j = await r.json();
-    entries = j.entries || {};
+    apply(await r.json());
   }
 
-  async function save(date, squares) {
+  function apply(j) {
+    entries = j.entries || {};
+    log = j.log || [];
+    if (j.defaultRate) DEFAULT_RATE = j.defaultRate;
+  }
+
+  async function save(date, squares, rate) {
     const r = await fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, squares }),
+      body: JSON.stringify({ date, squares, rate }),
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || 'Не удалось сохранить');
-    entries = j.entries || {};
+    apply(j);
   }
 
   // ---------- форма ----------
@@ -445,6 +556,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     $('laDate').value = date;
     const v = get(date);
     $('laSquares').value = v ? v : '';
+    $('laRate').value = v ? rateOf(date) : lastRate();
     updatePreview();
     const d = parseIso(date);
     if (d.getFullYear() !== viewY || d.getMonth() !== viewM) {
@@ -460,7 +572,8 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   function updatePreview() {
     const v = parseFloat(String($('laSquares').value).replace(',', '.'));
-    $('laPreview').innerHTML = Number.isFinite(v) && v > 0 ? `${num(v)} × ${RATE} ₽ = <b>${rub(v * RATE)}</b>` : '';
+    const r = parseFloat(String($('laRate').value).replace(',', '.'));
+    $('laPreview').innerHTML = Number.isFinite(v) && v > 0 && Number.isFinite(r) && r > 0 ? `${num(v)} × ${num(r)} ₽ = <b>${rub(v * r)}</b>` : '';
   }
 
   function msg(text, kind) {
@@ -471,13 +584,13 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     if (kind === 'ok') msg.t = setTimeout(() => { el.textContent = ''; }, 2500);
   }
 
-  async function submit(squares) {
+  async function submit(squares, rate) {
     const date = $('laDate').value;
     if (!date) { msg('Выберите дату', 'err'); return; }
     $('laSave').disabled = $('laClear').disabled = true;
     try {
-      await save(date, squares);
-      msg(squares > 0 ? `Сохранено: ${human(date)} — ${num(squares)} кв. (${rub(squares * RATE)})` : `Запись за ${human(date)} удалена`, 'ok');
+      await save(date, squares, rate);
+      msg(squares > 0 ? `Сохранено: ${human(date)} — ${num(squares)} кв. (${rub(earn(date))})` : `Запись за ${human(date)} удалена`, 'ok');
       renderAll();
     } catch (e) {
       msg(e.message, 'err');
@@ -491,7 +604,9 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     const raw = String($('laSquares').value).replace(',', '.').trim();
     const v = raw === '' ? 0 : Number(raw);
     if (!Number.isFinite(v) || v < 0) { msg('Введите неотрицательное число', 'err'); return; }
-    submit(Math.round(v * 100) / 100);
+    const r = Number(String($('laRate').value).replace(',', '.').trim());
+    if (!Number.isFinite(r) || r <= 0) { msg('Укажите ставку за квадрат', 'err'); return; }
+    submit(Math.round(v * 100) / 100, Math.round(r * 100) / 100);
   });
   $('laClear').addEventListener('click', () => {
     if (!get($('laDate').value)) { $('laSquares').value = ''; updatePreview(); return; }
@@ -500,6 +615,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   $('laToday').addEventListener('click', () => selectDate(todayIso));
   $('laDate').addEventListener('change', () => { if ($('laDate').value) selectDate($('laDate').value); });
   $('laSquares').addEventListener('input', updatePreview);
+  $('laRate').addEventListener('input', updatePreview);
 
   $('laPrev').addEventListener('click', () => { viewM--; if (viewM < 0) { viewM = 11; viewY--; } renderMonth(); renderMonths(); });
   $('laNext').addEventListener('click', () => { viewM++; if (viewM > 11) { viewM = 0; viewY++; } renderMonth(); renderMonths(); });
@@ -513,6 +629,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     const monthStart = `${monthKey(t.getFullYear(), t.getMonth())}-01`;
 
     const day = get(todayIso);
+    const dayMoney = earn(todayIso);
     const week = sumRange(iso(mon), iso(sun));
     const month = sumRange(monthStart, `${monthKey(t.getFullYear(), t.getMonth())}-31`);
 
@@ -521,22 +638,22 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     $('laTiles').innerHTML = `
       <div class="la-tile main">
         <div class="la-tile-k">Сегодня</div>
-        <div class="la-tile-v">${rub(day * RATE)}</div>
+        <div class="la-tile-v">${rub(dayMoney)}</div>
         <div class="la-tile-s">${day ? `<b>${num(day)}</b> кв.` : 'ещё ничего не записано'}</div>
       </div>
       <div class="la-tile">
         <div class="la-tile-k">Неделя</div>
-        <div class="la-tile-v">${rub(week.squares * RATE)}</div>
+        <div class="la-tile-v">${rub(week.money)}</div>
         <div class="la-tile-s"><b>${num(week.squares)}</b> кв.</div>
       </div>
       <div class="la-tile">
         <div class="la-tile-k">Месяц</div>
-        <div class="la-tile-v">${rub(month.squares * RATE)}</div>
+        <div class="la-tile-v">${rub(month.money)}</div>
         <div class="la-tile-s"><b>${num(month.squares)}</b> кв.</div>
       </div>
       <div class="la-tile">
         <div class="la-tile-k">В среднем за день</div>
-        <div class="la-tile-v">${rub(month.days ? month.squares * RATE / month.days : 0)}</div>
+        <div class="la-tile-v">${rub(month.days ? month.money / month.days : 0)}</div>
         <div class="la-tile-s">в этом месяце</div>
       </div>
     `;
@@ -555,16 +672,17 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     $('laMonthName').textContent = `${MONTHS[m]} ${y}`;
     $('laNext').disabled = key >= todayIso.slice(0, 7);
 
-    let max = 0, total = 0, worked = 0;
+    let max = 0, total = 0, totalMoney = 0, worked = 0;
     for (let d = 1; d <= nDays; d++) {
-      const v = get(`${key}-${pad(d)}`);
+      const date = `${key}-${pad(d)}`;
+      const v = get(date);
       if (v > max) max = v;
-      if (v > 0) { total += v; worked++; }
+      if (v > 0) { total += v; totalMoney += earn(date); worked++; }
     }
 
     $('laSummary').innerHTML = `
       <span>Квадратов: <b>${num(total)}</b></span>
-      <span>Заработано: <b class="money">${rub(total * RATE)}</b></span>
+      <span>Заработано: <b class="money">${rub(totalMoney)}</b></span>
       <span>Рабочих дней: <b>${worked}</b></span>
       <span>Среднее: <b>${worked ? num(Math.round(total / worked * 100) / 100) : 0}</b> кв./день</span>
     `;
@@ -579,7 +697,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       const future = date > todayIso;
       const h = max ? Math.max(v / max * 100, v ? 3 : 0) : 0;
       const cls = ['la-bar', v ? '' : 'empty', future ? 'future' : '', date === todayIso ? 'today' : '', date === selected ? 'sel' : ''].join(' ');
-      const title = `${human(date)}: ${num(v)} кв. — ${rub(v * RATE)}`;
+      const title = `${human(date)}: ${num(v)} кв. — ${rub(earn(date))}`;
       bars += `<div class="${cls}" data-date="${date}" title="${title}"><i style="height:${v ? h : 1.5}%"></i></div>`;
       const wd = new Date(y, m, d).getDay();
       ticks += `<span class="${wd === 0 || wd === 6 ? 'we' : ''}">${d}</span>`;
@@ -597,15 +715,15 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     for (let d = 1; d <= lastDay; d++) {
       const date = `${key}-${pad(d)}`;
       const v = get(date);
-      cum += v;
+      cum += earn(date);
       const wd = new Date(y, m, d).getDay();
       const cls = [v ? '' : 'zero', date === todayIso ? 'today' : '', date === selected ? 'sel' : ''].join(' ');
       rows.push(`
         <tr class="${cls}" data-date="${date}">
           <td>${d} ${MONTHS_GEN[m]}<span class="dow">${DOW[wd]}</span></td>
           <td>${v ? num(v) : '—'}</td>
-          <td class="money">${v ? rub(v * RATE) : '—'}</td>
-          <td class="cum">${rub(cum * RATE)}</td>
+          <td class="money">${v ? rub(earn(date)) : '—'}</td>
+          <td class="cum">${rub(cum)}</td>
         </tr>`);
     }
     // Свежие дни сверху — так удобнее смотреть каждый день
@@ -615,7 +733,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       <table class="la-table">
         <thead><tr><th>Дата</th><th>Квадраты</th><th>За день</th><th title="Сумма с 1-го числа месяца">Накоплено</th></tr></thead>
         <tbody>${rowList}</tbody>
-        <tfoot><tr><td>Итого</td><td>${num(total)}</td><td class="money">${rub(total * RATE)}</td><td></td></tr></tfoot>
+        <tfoot><tr><td>Итого</td><td>${num(total)}</td><td class="money">${rub(totalMoney)}</td><td></td></tr></tfoot>
       </table>`;
   }
 
@@ -629,10 +747,11 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   // ---------- месяцы ----------
   function renderMonths() {
     const byMonth = {};
-    for (const [d, v] of Object.entries(entries)) {
+    for (const d of Object.keys(entries)) {
       const k = d.slice(0, 7);
-      byMonth[k] = byMonth[k] || { squares: 0, days: 0 };
-      byMonth[k].squares += Number(v);
+      byMonth[k] = byMonth[k] || { squares: 0, money: 0, days: 0 };
+      byMonth[k].squares += get(d);
+      byMonth[k].money += earn(d);
       byMonth[k].days++;
     }
     const keys = Object.keys(byMonth).sort().reverse();
@@ -640,16 +759,16 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       $('laMonths').innerHTML = '<div class="la-empty">Пока нет записей — добавьте первый день.</div>';
       return;
     }
-    const max = Math.max(...keys.map((k) => byMonth[k].squares));
+    const max = Math.max(...keys.map((k) => byMonth[k].money));
     const viewKey = monthKey(viewY, viewM);
     $('laMonths').innerHTML = keys.map((k) => {
       const [y, m] = k.split('-').map(Number);
       const s = byMonth[k];
-      const w = max ? s.squares / max * 100 : 0;
+      const w = max ? s.money / max * 100 : 0;
       return `
         <div class="la-mrow ${k === viewKey ? 'sel' : ''}" data-month="${k}">
           <div class="la-mrow-name">${MONTHS[m - 1]} ${y}<small>${s.days} ${plural(s.days, 'день', 'дня', 'дней')}, ${num(s.squares)} кв.</small></div>
-          <div class="la-mrow-bar"><i style="width:${w}%"></i><span><em>${rub(s.squares * RATE)}</em></span></div>
+          <div class="la-mrow-bar"><i style="width:${w}%"></i><span><em>${rub(s.money)}</em></span></div>
         </div>`;
     }).join('');
   }
@@ -663,22 +782,75 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   // ---------- рекорды ----------
   function renderRecords() {
-    const list = Object.entries(entries).map(([d, v]) => [d, Number(v)]);
+    const list = Object.keys(entries).map((d) => [d, get(d), earn(d)]);
     if (!list.length) { $('laRecords').innerHTML = '<div class="la-empty">Появятся после первых записей.</div>'; return; }
     const best = list.reduce((a, b) => (b[1] > a[1] ? b : a));
     const total = list.reduce((s, [, v]) => s + v, 0);
+    const totalMoney = list.reduce((s, [, , m]) => s + m, 0);
     const top = list.slice().sort((a, b) => b[1] - a[1]).slice(0, 5);
     $('laRecords').innerHTML = `
       <div class="la-tiles" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
         <div class="la-tile"><div class="la-tile-k">Лучший день</div><div class="la-tile-v">${num(best[1])} кв.</div><div class="la-tile-s">${human(best[0])} ${best[0].slice(0, 4)}</div></div>
-        <div class="la-tile"><div class="la-tile-k">Всего</div><div class="la-tile-v">${rub(total * RATE)}</div><div class="la-tile-s">${num(total)} кв.<br>${list.length} ${plural(list.length, 'день', 'дня', 'дней')}</div></div>
+        <div class="la-tile"><div class="la-tile-k">Всего</div><div class="la-tile-v">${rub(totalMoney)}</div><div class="la-tile-s">${num(total)} кв.<br>${list.length} ${plural(list.length, 'день', 'дня', 'дней')}</div></div>
       </div>
       <table class="la-table">
         <thead><tr><th>Топ-5 дней</th><th>Кв.</th><th>₽</th></tr></thead>
-        <tbody>${top.map(([d, v]) => `<tr data-date="${d}"><td>${human(d)} ${d.slice(0, 4)}</td><td>${num(v)}</td><td class="money">${rub(v * RATE)}</td></tr>`).join('')}</tbody>
+        <tbody>${top.map(([d, v, m]) => `<tr data-date="${d}"><td>${human(d)} ${d.slice(0, 4)}</td><td>${num(v)}</td><td class="money">${rub(m)}</td></tr>`).join('')}</tbody>
       </table>`;
   }
   $('laRecords').addEventListener('click', onPick);
+
+  // ---------- история ----------
+  const fmtTime = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const sq = (e) => `${num(e.s)} кв.`;
+  // Ставку показываем, только если она поменялась (или запись новая)
+  const withRate = (e, other) => (other && Number(other.r) === Number(e.r) ? '' : ` по ${num(e.r)} ₽`);
+
+  function describe(item) {
+    const day = `<span class="day" data-date="${item.date}">${human(item.date)} ${item.date.slice(0, 4)}</span>`;
+    const { from, to } = item;
+    if (!from) return `${day}: <span class="add">записано <b>${sq(to)}</b>${withRate(to)}</span>`;
+    if (!to) return `${day}: <span class="del">удалено</span> <span class="was">${sq(from)}</span>`;
+    return `${day}: <span class="was">${sq(from)}${withRate(from, to)}</span> → <b>${sq(to)}</b>${withRate(to, from)}`;
+  }
+
+  function renderLog() {
+    if (!log.length) { $('laLog').innerHTML = '<div class="la-empty">Изменений пока нет.</div>'; return; }
+    const items = log.map((it, i) => ({ ...it, i })).reverse();
+    const shown = showAllLog ? items : items.slice(0, 8);
+    $('laLog').innerHTML = `
+      <div class="la-log">
+        ${shown.map((it) => `
+          <div class="la-log-row">
+            <div class="la-log-time">${fmtTime.format(new Date(it.t * 1000))}</div>
+            <div class="la-log-what">${describe(it)}</div>
+            <button class="la-undo" type="button" data-undo="${it.i}" title="Вернуть значение, которое было до этого изменения">Вернуть</button>
+          </div>`).join('')}
+      </div>
+      ${items.length > 8 ? `<button class="la-chip la-log-more" type="button" id="laLogMore">${showAllLog ? 'Свернуть' : `Показать все (${items.length})`}</button>` : ''}`;
+  }
+
+  $('laLog').addEventListener('click', async (e) => {
+    if (e.target.id === 'laLogMore') { showAllLog = !showAllLog; renderLog(); return; }
+    const day = e.target.closest('.day[data-date]');
+    if (day) { selectDate(day.dataset.date, true); return; }
+    const btn = e.target.closest('[data-undo]');
+    if (!btn) return;
+    const it = log[Number(btn.dataset.undo)];
+    if (!it) return;
+    const back = it.from ? `${sq(it.from)} по ${num(it.from.r)} ₽` : 'пусто (запись удалится)';
+    if (!confirm(`Вернуть ${human(it.date)} к значению: ${back}?`)) return;
+    btn.disabled = true;
+    try {
+      await save(it.date, it.from ? it.from.s : 0, it.from ? it.from.r : undefined);
+      if (it.date === selected) selectDate(selected);
+      renderAll();
+      msg(`${human(it.date)}: возвращено`, 'ok');
+    } catch (err) {
+      btn.disabled = false;
+      alert(err.message);
+    }
+  });
 
   function renderAll() {
     todayIso = iso(new Date());
@@ -686,6 +858,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     renderMonth();
     renderMonths();
     renderRecords();
+    renderLog();
     updatePreview();
   }
 
