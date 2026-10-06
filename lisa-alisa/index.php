@@ -279,27 +279,35 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   /* ---- за период ---- */
   .la-period{ margin-bottom:14px; }
-  .la-presets{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
-  .la-preset{
-    border:1px solid var(--line); background:var(--bg); color:var(--muted);
-    border-radius:999px; padding:7px 12px; font:inherit; font-size:13px; cursor:pointer;
-    transition:color .12s, border-color .12s, background .12s;
+  .la-seg{
+    display:inline-grid; grid-template-columns:repeat(3, auto); gap:3px;
+    background:var(--bg); border:1px solid var(--line); border-radius:11px; padding:3px;
+    margin-bottom:12px;
   }
-  .la-preset:hover{ color:var(--text); border-color:var(--fox); }
-  .la-preset.on{ color:#1a0f08; background:linear-gradient(140deg, var(--fox), #e8601f); border-color:transparent; font-weight:700; }
-  .la-range{ display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:10px; align-items:end; max-width:460px; margin-bottom:14px; }
+  .la-seg button{
+    border:none; background:transparent; color:var(--muted);
+    border-radius:8px; padding:8px 14px; font:inherit; font-size:13px; font-weight:600; cursor:pointer;
+  }
+  .la-seg button:hover{ color:var(--text); }
+  .la-seg button.on{ color:#1a0f08; background:linear-gradient(140deg, var(--fox), #e8601f); }
+  .la-pmonth{ display:flex; align-items:center; gap:6px; margin-bottom:12px; }
+  .la-range{ display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:10px; align-items:end; max-width:460px; margin-bottom:12px; }
+  .la-range[hidden], .la-pmonth[hidden]{ display:none; }
   .la-range-dash{ color:var(--muted); padding-bottom:11px; }
 
-  .la-period-body{ display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1.4fr); gap:10px; }
   .la-period-main{
     border-radius:14px; padding:16px;
     background:linear-gradient(140deg, rgba(255,138,61,.16), rgba(255,138,61,.04));
     border:1px solid rgba(255,138,61,.35);
-    display:flex; flex-direction:column; gap:6px; justify-content:center; min-width:0;
+    display:flex; flex-direction:column; gap:4px; min-width:0;
   }
   .la-period-main .la-tile-v{ font-size:40px; }
-  .la-period-stats{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; }
-  .la-period-stats .la-tile-v{ font-size:20px; color:var(--text); }
+  .la-pstats{
+    display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px;
+    margin-top:10px; padding-top:12px; border-top:1px solid rgba(255,138,61,.22);
+  }
+  .la-pstats b{ display:block; font-size:18px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .la-pstats span{ font-size:12px; color:var(--muted); }
 
   /* ---- месяц ---- */
   .la-month-nav{ display:flex; align-items:center; gap:6px; }
@@ -386,7 +394,6 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   @media (max-width: 860px){
     .la-top, .la-grid2{ grid-template-columns:1fr; }
-    .la-period-body{ grid-template-columns:1fr; }
   }
   @media (max-width: 560px){
     .la{ padding-top:18px; }
@@ -407,9 +414,11 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     .la-table tr.today td:first-child::after{ content:none; }
     .la-month-name{ min-width:110px; }
     .la-num-row{ grid-template-columns:minmax(0,1fr) 92px; }
-    .la-period-body{ grid-template-columns:1fr; }
     .la-period-main .la-tile-v{ font-size:32px; }
     .la-range{ max-width:none; }
+    .la-seg{ display:grid; width:100%; }
+    .la-seg button{ padding:8px 6px; }
+    .la-pstats b{ font-size:16px; }
     .la-log-row{ grid-template-columns:minmax(0,1fr) auto; gap:4px 10px; }
     .la-log-time{ grid-column:1 / -1; }
   }
@@ -463,16 +472,17 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
     <section class="la-card la-period">
       <h2>За период</h2>
-      <div class="la-presets" id="laPresets">
-        <button class="la-preset" type="button" data-preset="week">Эта неделя</button>
-        <button class="la-preset" type="button" data-preset="prevweek">Прошлая неделя</button>
-        <button class="la-preset" type="button" data-preset="half1">1–15 число</button>
-        <button class="la-preset" type="button" data-preset="half2">16–конец месяца</button>
-        <button class="la-preset" type="button" data-preset="month">Этот месяц</button>
-        <button class="la-preset" type="button" data-preset="prevmonth">Прошлый месяц</button>
-        <button class="la-preset" type="button" data-preset="all">Всё время</button>
+      <div class="la-seg" id="laSeg">
+        <button type="button" data-mode="month">Месяц</button>
+        <button type="button" data-mode="custom">Свои даты</button>
+        <button type="button" data-mode="all">Всё время</button>
       </div>
-      <div class="la-range">
+      <div class="la-pmonth" id="laPMonth">
+        <button class="la-nav-btn" type="button" id="laPPrev" aria-label="Предыдущий месяц">‹</button>
+        <span class="la-month-name" id="laPMonthName"></span>
+        <button class="la-nav-btn" type="button" id="laPNext" aria-label="Следующий месяц">›</button>
+      </div>
+      <div class="la-range" id="laRange" hidden>
         <div class="la-field">
           <label for="laFrom">С</label>
           <input class="la-input" type="date" id="laFrom">
@@ -483,7 +493,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
           <input class="la-input" type="date" id="laTo">
         </div>
       </div>
-      <div class="la-period-body" id="laPeriod"></div>
+      <div id="laPeriod"></div>
     </section>
 
     <section class="la-card">
@@ -710,30 +720,8 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   }
 
   // ---------- за период ----------
-  let preset = 'month';
-
-  function presetRange(name) {
-    const t = parseIso(todayIso);
-    const y = t.getFullYear(), m = t.getMonth();
-    const mon = new Date(t); mon.setDate(t.getDate() - (t.getDay() + 6) % 7);
-    const shift = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
-    switch (name) {
-      case 'week': return [iso(mon), iso(shift(mon, 6))];
-      case 'prevweek': return [iso(shift(mon, -7)), iso(shift(mon, -1))];
-      case 'half1': return [`${monthKey(y, m)}-01`, `${monthKey(y, m)}-15`];
-      case 'half2': return [`${monthKey(y, m)}-16`, `${monthKey(y, m)}-${pad(daysIn(y, m))}`];
-      case 'month': return [`${monthKey(y, m)}-01`, `${monthKey(y, m)}-${pad(daysIn(y, m))}`];
-      case 'prevmonth': {
-        const py = m ? y : y - 1, pm = m ? m - 1 : 11;
-        return [`${monthKey(py, pm)}-01`, `${monthKey(py, pm)}-${pad(daysIn(py, pm))}`];
-      }
-      case 'all': {
-        const dates = Object.keys(entries).sort();
-        return dates.length ? [dates[0], dates[dates.length - 1]] : [todayIso, todayIso];
-      }
-    }
-    return null;
-  }
+  let pMode = 'month';
+  let pY = now.getFullYear(), pM = now.getMonth();
 
   function rangeLabel(from, to) {
     const a = parseIso(from), b = parseIso(to);
@@ -742,45 +730,60 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     return from === to ? `${human(from)} ${b.getFullYear()}` : `${left} — ${b.getDate()} ${MONTHS_GEN[b.getMonth()]} ${b.getFullYear()}`;
   }
 
-  function renderPeriod() {
-    if (preset) {
-      const r = presetRange(preset);
-      $('laFrom').value = r[0];
-      $('laTo').value = r[1];
+  function periodRange() {
+    if (pMode === 'month') {
+      return { from: `${monthKey(pY, pM)}-01`, to: `${monthKey(pY, pM)}-${pad(daysIn(pY, pM))}`, label: '' };
     }
-    document.querySelectorAll('#laPresets [data-preset]').forEach((b) => b.classList.toggle('on', b.dataset.preset === preset));
-
+    if (pMode === 'all') {
+      const dates = Object.keys(entries).sort();
+      if (!dates.length) return null;
+      return { from: dates[0], to: dates[dates.length - 1], label: 'всё время' };
+    }
     let from = $('laFrom').value, to = $('laTo').value;
-    if (!from || !to) { $('laPeriod').innerHTML = '<div class="la-empty">Выберите даты.</div>'; return; }
+    if (!from || !to) return null;
     if (from > to) [from, to] = [to, from];
+    return { from, to, label: rangeLabel(from, to) };
+  }
 
-    const sum = sumRange(from, to);
-    let best = null;
-    for (const d of Object.keys(entries)) {
-      if (d >= from && d <= to && (!best || get(d) > get(best))) best = d;
+  function renderPeriod() {
+    document.querySelectorAll('#laSeg [data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === pMode));
+    $('laPMonth').hidden = pMode !== 'month';
+    $('laRange').hidden = pMode !== 'custom';
+    $('laPMonthName').textContent = `${MONTHS[pM]} ${pY}`;
+    $('laPNext').disabled = monthKey(pY, pM) >= todayIso.slice(0, 7);
+
+    const r = periodRange();
+    if (!r) {
+      $('laPeriod').innerHTML = `<div class="la-empty">${pMode === 'all' ? 'Пока нет записей.' : 'Выберите даты.'}</div>`;
+      return;
     }
-
+    const sum = sumRange(r.from, r.to);
     $('laPeriod').innerHTML = `
       <div class="la-period-main">
-        <div class="la-tile-k">${rangeLabel(from, to)}</div>
+        ${r.label ? `<div class="la-tile-k">${r.label}</div>` : ''}
         <div class="la-tile-v">${rub(sum.money)}</div>
-        <div class="la-tile-s"><b>${num(sum.squares)}</b> кв.</div>
-      </div>
-      <div class="la-period-stats">
-        <div class="la-tile"><div class="la-tile-k">Рабочих дней</div><div class="la-tile-v">${sum.days}</div></div>
-        <div class="la-tile"><div class="la-tile-k">В среднем за день</div><div class="la-tile-v">${rub(sum.days ? sum.money / sum.days : 0)}</div></div>
-        <div class="la-tile"><div class="la-tile-k">Квадратов в день</div><div class="la-tile-v">${sum.days ? num(Math.round(sum.squares / sum.days * 100) / 100) : 0}</div></div>
-        <div class="la-tile"><div class="la-tile-k">Лучший день</div><div class="la-tile-v">${best ? num(get(best)) + ' кв.' : '—'}</div>${best ? `<div class="la-tile-s">${human(best)}</div>` : ''}</div>
+        <div class="la-pstats">
+          <div><b>${num(sum.squares)}</b><span>квадратов</span></div>
+          <div><b>${sum.days}</b><span>${plural(sum.days, 'рабочий день', 'рабочих дня', 'рабочих дней')}</span></div>
+          <div><b>${rub(sum.days ? sum.money / sum.days : 0)}</b><span>в среднем в день</span></div>
+        </div>
       </div>`;
   }
 
-  $('laPresets').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-preset]');
+  $('laSeg').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mode]');
     if (!b) return;
-    preset = b.dataset.preset;
+    pMode = b.dataset.mode;
+    // Свои даты по умолчанию — текущий месяц до сегодня
+    if (pMode === 'custom' && (!$('laFrom').value || !$('laTo').value)) {
+      $('laFrom').value = `${todayIso.slice(0, 7)}-01`;
+      $('laTo').value = todayIso;
+    }
     renderPeriod();
   });
-  ['laFrom', 'laTo'].forEach((id) => $(id).addEventListener('change', () => { preset = null; renderPeriod(); }));
+  $('laPPrev').addEventListener('click', () => { pM--; if (pM < 0) { pM = 11; pY--; } renderPeriod(); });
+  $('laPNext').addEventListener('click', () => { pM++; if (pM > 11) { pM = 0; pY++; } renderPeriod(); });
+  ['laFrom', 'laTo'].forEach((id) => $(id).addEventListener('change', renderPeriod));
 
   // ---------- месяц ----------
   function renderMonth() {
