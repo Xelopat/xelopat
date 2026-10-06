@@ -241,6 +241,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .la-bar.future i{ background:transparent; }
   .la-bar.today i{ background:linear-gradient(180deg, #ffe08a, var(--gold)); }
   .la-bar.today.empty i{ background:var(--gold); }
+  .la-bar.sel::after{ content:""; position:absolute; left:50%; bottom:-6px; width:4px; height:4px; border-radius:50%; background:var(--fox-2); transform:translateX(-50%); }
   .la-axis{ display:grid; grid-template-columns:repeat(var(--days), minmax(0,1fr)); gap:3px; margin-bottom:16px; }
   .la-axis span{ font-family:var(--mono); font-size:9px; color:var(--muted); text-align:center; }
   .la-axis span.we{ color:#7f6a5c; }
@@ -459,7 +460,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     const parts = [];
     if (Number.isFinite(v) && v > 0) parts.push(`${num(v)} × ${RATE} ₽ = <b>${rub(v * RATE)}</b>`);
     parts.push(stored ? `сейчас записано ${num(stored)}` : 'за этот день записей нет');
-    $('laPreview').innerHTML = parts.join(' · ');
+    $('laPreview').innerHTML = parts.join('<br>');
   }
 
   function msg(text, kind) {
@@ -527,12 +528,12 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       <div class="la-tile">
         <div class="la-tile-k">Неделя</div>
         <div class="la-tile-v">${rub(week.squares * RATE)}</div>
-        <div class="la-tile-s"><b>${num(week.squares)}</b> кв. · ${weekLabel}</div>
+        <div class="la-tile-s"><b>${num(week.squares)}</b> кв.<br>${weekLabel}</div>
       </div>
       <div class="la-tile">
         <div class="la-tile-k">Месяц</div>
         <div class="la-tile-v">${rub(month.squares * RATE)}</div>
-        <div class="la-tile-s"><b>${num(month.squares)}</b> кв. · ${month.days} ${plural(month.days, 'день', 'дня', 'дней')}</div>
+        <div class="la-tile-s"><b>${num(month.squares)}</b> кв.<br>${month.days} ${plural(month.days, 'день', 'дня', 'дней')}</div>
       </div>
       <div class="la-tile">
         <div class="la-tile-k">В среднем за день</div>
@@ -579,7 +580,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       const future = date > todayIso;
       const h = max ? Math.max(v / max * 100, v ? 3 : 0) : 0;
       const cls = ['la-bar', v ? '' : 'empty', future ? 'future' : '', date === todayIso ? 'today' : '', date === selected ? 'sel' : ''].join(' ');
-      const title = `${human(date)}: ${num(v)} кв. · ${rub(v * RATE)}`;
+      const title = `${human(date)}: ${num(v)} кв. — ${rub(v * RATE)}`;
       bars += `<div class="${cls}" data-date="${date}" title="${title}"><i style="height:${v ? h : 1.5}%"></i></div>`;
       const wd = new Date(y, m, d).getDay();
       ticks += `<span class="${wd === 0 || wd === 6 ? 'we' : ''}">${d}</span>`;
@@ -648,7 +649,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       const w = max ? s.squares / max * 100 : 0;
       return `
         <div class="la-mrow ${k === viewKey ? 'sel' : ''}" data-month="${k}">
-          <div class="la-mrow-name">${MONTHS[m - 1]} ${y}<small>${s.days} ${plural(s.days, 'день', 'дня', 'дней')} · ${num(s.squares)} кв.</small></div>
+          <div class="la-mrow-name">${MONTHS[m - 1]} ${y}<small>${s.days} ${plural(s.days, 'день', 'дня', 'дней')}, ${num(s.squares)} кв.</small></div>
           <div class="la-mrow-bar"><i style="width:${w}%"></i><span><em>${rub(s.squares * RATE)}</em></span></div>
         </div>`;
     }).join('');
@@ -671,7 +672,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     $('laRecords').innerHTML = `
       <div class="la-tiles" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
         <div class="la-tile"><div class="la-tile-k">Лучший день</div><div class="la-tile-v">${num(best[1])} кв.</div><div class="la-tile-s">${human(best[0])} ${best[0].slice(0, 4)}</div></div>
-        <div class="la-tile"><div class="la-tile-k">Всего</div><div class="la-tile-v">${rub(total * RATE)}</div><div class="la-tile-s">${num(total)} кв. · ${list.length} ${plural(list.length, 'день', 'дня', 'дней')}</div></div>
+        <div class="la-tile"><div class="la-tile-k">Всего</div><div class="la-tile-v">${rub(total * RATE)}</div><div class="la-tile-s">${num(total)} кв.<br>${list.length} ${plural(list.length, 'день', 'дня', 'дней')}</div></div>
       </div>
       <table class="la-table">
         <thead><tr><th>Топ-5 дней</th><th>Кв.</th><th>₽</th></tr></thead>
