@@ -74,7 +74,7 @@ if (isset($_GET['api'])) {
 
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 ?>
-<title>Лиса-Алиса · квадраты</title>
+<title>Лиса-Алиса</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap');
 
@@ -109,16 +109,12 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .la-head{ display:flex; align-items:center; gap:16px; margin-bottom:22px; }
   .la-logo{
     width:56px; height:56px; flex:none;
-    border-radius:16px;
-    display:grid; place-items:center;
-    font-size:30px;
-    background:linear-gradient(140deg, var(--fox), #e2541c);
+    border-radius:50%;
+    object-fit:cover;
+    border:2px solid var(--fox);
     box-shadow:0 10px 30px rgba(255,110,40,.25);
   }
-  .la-label{ font-family:var(--mono); font-size:11px; color:var(--fox-2); margin-bottom:4px; }
   .la-title{ margin:0; font-size:30px; line-height:1.15; font-weight:800; letter-spacing:-.01em; }
-  .la-sub{ margin:4px 0 0; color:var(--muted); font-size:14px; }
-  .la-sub b{ color:var(--fox-2); font-weight:600; }
 
   .la-card{
     background:var(--card);
@@ -243,8 +239,9 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   }
   .la-bar.empty i{ background:var(--line); }
   .la-bar.future i{ background:transparent; }
-  .la-bar.today i{ box-shadow:0 0 0 2px var(--gold); }
-  .la-bar.sel{ background:var(--fox-soft); }
+  .la-bar.today i{ background:linear-gradient(180deg, #ffe08a, var(--gold)); }
+  .la-bar.today.empty i{ background:var(--gold); }
+  .la-bar.sel::after{ content:""; position:absolute; left:50%; bottom:-6px; width:4px; height:4px; border-radius:50%; background:var(--fox-2); transform:translateX(-50%); }
   .la-axis{ display:grid; grid-template-columns:repeat(var(--days), minmax(0,1fr)); gap:3px; margin-bottom:16px; }
   .la-axis span{ font-family:var(--mono); font-size:9px; color:var(--muted); text-align:center; }
   .la-axis span.we{ color:#7f6a5c; }
@@ -291,7 +288,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     .la{ padding-top:18px; }
     .la-wrap{ width:calc(100vw - 32px); }
     .la-title{ font-size:24px; }
-    .la-logo{ width:46px; height:46px; font-size:24px; border-radius:13px; }
+    .la-logo{ width:46px; height:46px; }
     .la-card{ padding:14px; }
     .la-tiles{ grid-template-columns:1fr 1fr; }
     .la-tile.main .la-tile-v{ font-size:30px; }
@@ -311,12 +308,8 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 <main class="la">
   <div class="la-wrap">
     <header class="la-head">
-      <div class="la-logo">🦊</div>
-      <div>
-        <div class="la-label">// фабрика · упаковка мебели</div>
-        <h1 class="la-title">Лиса-Алиса</h1>
-        <p class="la-sub">Учёт квадратов и заработка · <b>18 ₽</b> за квадрат</p>
-      </div>
+      <img class="la-logo" src="/lisa-alisa/avatar.webp" alt="Лиса-Алиса" width="56" height="56">
+      <h1 class="la-title">Лиса-Алиса</h1>
     </header>
 
     <div class="la-top">
