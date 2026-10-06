@@ -384,9 +384,10 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   const $ = (id) => document.getElementById(id);
   const fmtNum = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
-  const fmtRub = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
+  const fmtRub = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
   const num = (n) => fmtNum.format(n);
-  const rub = (n) => fmtRub.format(Math.round(n * 100) / 100) + ' ₽';
+  // Копейки отбрасываем (1e-9 гасит погрешность float, чтобы 2565 не стало 2564)
+  const rub = (n) => fmtRub.format(Math.floor(n + 1e-9)) + ' ₽';
 
   const pad = (n) => String(n).padStart(2, '0');
   const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
