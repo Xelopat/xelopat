@@ -109,12 +109,12 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .la-head{ display:flex; align-items:center; gap:16px; margin-bottom:22px; }
   .la-logo{
     width:56px; height:56px; flex:none;
-    border-radius:50%;
+    border-radius:16px;
     object-fit:cover;
-    border:2px solid var(--fox);
     box-shadow:0 10px 30px rgba(255,110,40,.25);
   }
   .la-title{ margin:0; font-size:30px; line-height:1.15; font-weight:800; letter-spacing:-.01em; }
+  .la-sub{ margin:4px 0 0; color:var(--fox-2); font-size:14px; font-weight:600; }
 
   .la-card{
     background:var(--card);
@@ -288,7 +288,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     .la{ padding-top:18px; }
     .la-wrap{ width:calc(100vw - 32px); }
     .la-title{ font-size:24px; }
-    .la-logo{ width:46px; height:46px; }
+    .la-logo{ width:46px; height:46px; border-radius:13px; }
     .la-card{ padding:14px; }
     .la-tiles{ grid-template-columns:1fr 1fr; }
     .la-tile.main .la-tile-v{ font-size:30px; }
@@ -309,7 +309,10 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   <div class="la-wrap">
     <header class="la-head">
       <img class="la-logo" src="/lisa-alisa/avatar.webp" alt="Лиса-Алиса" width="56" height="56">
-      <h1 class="la-title">Лиса-Алиса</h1>
+      <div>
+        <h1 class="la-title">Лиса-Алиса</h1>
+        <p class="la-sub">Лучший работник месяца</p>
+      </div>
     </header>
 
     <div class="la-top">
@@ -329,8 +332,8 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
           </div>
           <div class="la-preview" id="laPreview"></div>
           <div class="la-btns">
-            <button class="la-btn" type="submit" id="laSave">Сохранить</button>
             <button class="la-btn ghost" type="button" id="laClear" title="Удалить запись за этот день">Очистить</button>
+            <button class="la-btn" type="submit" id="laSave">Сохранить</button>
           </div>
           <div class="la-msg" id="laMsg"></div>
         </form>
@@ -456,11 +459,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   function updatePreview() {
     const v = parseFloat(String($('laSquares').value).replace(',', '.'));
-    const stored = get($('laDate').value);
-    const parts = [];
-    if (Number.isFinite(v) && v > 0) parts.push(`${num(v)} × ${RATE} ₽ = <b>${rub(v * RATE)}</b>`);
-    parts.push(stored ? `сейчас записано ${num(stored)}` : 'за этот день записей нет');
-    $('laPreview').innerHTML = parts.join('<br>');
+    $('laPreview').innerHTML = Number.isFinite(v) && v > 0 ? `${num(v)} × ${RATE} ₽ = <b>${rub(v * RATE)}</b>` : '';
   }
 
   function msg(text, kind) {
@@ -517,7 +516,6 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     const month = sumRange(monthStart, `${monthKey(t.getFullYear(), t.getMonth())}-31`);
 
     $('laNow').textContent = `${t.getDate()} ${MONTHS_GEN[t.getMonth()]}, ${DOW[t.getDay()]}`;
-    const weekLabel = `${mon.getDate()} ${MONTHS_GEN[mon.getMonth()]} – ${sun.getDate()} ${MONTHS_GEN[sun.getMonth()]}`;
 
     $('laTiles').innerHTML = `
       <div class="la-tile main">
@@ -528,12 +526,12 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       <div class="la-tile">
         <div class="la-tile-k">Неделя</div>
         <div class="la-tile-v">${rub(week.squares * RATE)}</div>
-        <div class="la-tile-s"><b>${num(week.squares)}</b> кв.<br>${weekLabel}</div>
+        <div class="la-tile-s"><b>${num(week.squares)}</b> кв.</div>
       </div>
       <div class="la-tile">
         <div class="la-tile-k">Месяц</div>
         <div class="la-tile-v">${rub(month.squares * RATE)}</div>
-        <div class="la-tile-s"><b>${num(month.squares)}</b> кв.<br>${month.days} ${plural(month.days, 'день', 'дня', 'дней')}</div>
+        <div class="la-tile-s"><b>${num(month.squares)}</b> кв.</div>
       </div>
       <div class="la-tile">
         <div class="la-tile-k">В среднем за день</div>
