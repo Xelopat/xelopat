@@ -1,13 +1,12 @@
 <?php
+$site_page_title = 'Курсовая: инъекции — xelopat';
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 ?>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;700&display=swap');
-
   .cw-page{
     min-height:calc(100vh - 60px);
-    background:#151518;
-    color:#efeff1;
+    background:var(--bg);
+    color:var(--text);
     padding:28px 0 40px;
   }
 
@@ -21,9 +20,9 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   }
 
   .cw-label{
-    font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-family:var(--mono);
     font-size:11px;
-    color:#61d1ad;
+    color:var(--green);
     margin-bottom:6px;
   }
 
@@ -35,7 +34,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   .cw-sub{
     margin:0;
-    color:#a4a8bb;
+    color:var(--text-2);
     font-size:14px;
     line-height:1.6;
     max-width:820px;
@@ -43,8 +42,8 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   .cw-group{
     margin-top:18px;
-    background:#1e1e25;
-    border:1px solid #333340;
+    background:var(--panel);
+    border:1px solid var(--line);
     border-radius:12px;
     padding:14px;
   }
@@ -57,8 +56,8 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   }
 
   .cw-group-title--unsafe{ color:#ff9b9b; }
-  .cw-group-title--safe{ color:#61d1ad; }
-  .cw-group-title--files{ color:#f9c940; }
+  .cw-group-title--safe{ color:var(--green); }
+  .cw-group-title--files{ color:var(--accent); }
 
   .cw-grid{
     display:grid;
@@ -68,17 +67,17 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   .cw-item{
     display:block;
-    background:#151518;
-    border:1px solid #333340;
+    background:var(--bg);
+    border:1px solid var(--line);
     border-radius:10px;
     padding:12px;
     text-decoration:none;
-    color:#efeff1;
+    color:var(--text);
     transition:border-color .16s ease, transform .16s ease;
   }
 
   .cw-item:hover{
-    border-color:#f9c940;
+    border-color:var(--accent);
     transform:translateY(-1px);
   }
 
@@ -91,7 +90,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .cw-item-desc{
     margin:0;
     font-size:12px;
-    color:#a4a8bb;
+    color:var(--text-2);
     line-height:1.5;
   }
 

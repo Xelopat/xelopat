@@ -755,7 +755,7 @@ $has_any_filters =
     }
 
     .thumb{
-      width:72px;height:72px;border-radius:12px;border:1px solid var(--line);background:#151518;
+      width:72px;height:72px;border-radius:12px;border:1px solid var(--line);background:var(--bg);
       overflow:hidden;display:flex;align-items:center;justify-content:center
     }
     .thumb img{width:100%;height:100%;object-fit:cover;display:block}
@@ -794,14 +794,14 @@ $has_any_filters =
     .range-track input[type="range"]::-webkit-slider-thumb{
       -webkit-appearance:none;appearance:none;
       width:16px;height:16px;border-radius:50%;
-      background:#efeff1;border:1px solid #66677a;
+      background:var(--text);border:1px solid #66677a;
       box-shadow:0 2px 10px rgba(0,0,0,0.26);
       pointer-events:auto;
       cursor:pointer;
     }
     .range-track input[type="range"]::-moz-range-thumb{
       width:16px;height:16px;border-radius:50%;
-      background:#efeff1;border:1px solid #66677a;
+      background:var(--text);border:1px solid #66677a;
       box-shadow:0 2px 10px rgba(0,0,0,0.26);
       pointer-events:auto;
       cursor:pointer;
@@ -837,7 +837,7 @@ $has_any_filters =
     .two{display:grid;grid-template-columns:280px 1fr;gap:12px;align-items:start;margin-top:10px}
     @media (max-width: 820px){ .two{grid-template-columns:1fr} }
 
-    .bigpic{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#151518}
+    .bigpic{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg)}
     .bigpic img{width:100%;height:280px;object-fit:cover;display:block}
     .bigpic .ph{height:280px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px}
 

@@ -1,5 +1,6 @@
 <?php
 $site_root = dirname(__DIR__);
+$site_page_title = 'База домофонов — xelopat';
 include $site_root . '/header.php';
 
 function dom_h(string $value): string {
@@ -326,8 +327,8 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
 <style>
   .db-shell{
     min-height:calc(100vh - 60px);
-    background:#151518;
-    color:#efeff1;
+    background:var(--bg);
+    color:var(--text);
     position:relative;
     overflow:hidden;
   }
@@ -358,18 +359,18 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
     align-items:center;
     border-radius:4px;
     background:#0f3328;
-    color:#61d1ad;
-    font:11px/1.3 "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color:var(--green);
+    font:11px/1.3 var(--mono);
     padding:4px 10px;
     margin-bottom:12px;
   }
   .db-title{
     margin:0;
-    font:700 38px/1.1 "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font:700 38px/1.1 var(--mono);
   }
   .db-subtitle{
     margin:10px 0 0;
-    color:#a4a8bb;
+    color:var(--text-2);
     font-size:14px;
     line-height:1.55;
     max-width:680px;
@@ -381,25 +382,25 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
     flex:0 0 min(470px, 100%);
   }
   .db-stat{
-    border:1px solid #333340;
-    background:#1e1e25;
+    border:1px solid var(--line);
+    background:var(--panel);
     border-radius:8px;
     padding:10px 12px;
   }
   .db-stat strong{
     display:block;
-    color:#f9c940;
-    font:700 18px/1.1 "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color:var(--accent);
+    font:700 18px/1.1 var(--mono);
   }
   .db-stat span{
     display:block;
     margin-top:5px;
-    color:#868899;
+    color:var(--muted);
     font-size:11px;
   }
   .search-panel{
-    border:1px solid #333340;
-    background:#1e1e25;
+    border:1px solid var(--line);
+    background:var(--panel);
     border-radius:12px;
     padding:14px;
     box-shadow:0 18px 40px rgba(0,0,0,.18);
@@ -411,13 +412,13 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
   }
   .search-input{
     width:100%;
-    border:1px solid #333340;
-    background:#151518;
-    color:#efeff1;
+    border:1px solid var(--line);
+    background:var(--bg);
+    color:var(--text);
     border-radius:8px;
     min-height:46px;
     padding:0 14px;
-    font:500 14px/1.3 Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font:500 14px/1.3 var(--sans);
     outline:none;
   }
   .search-input:focus{
@@ -427,8 +428,8 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
   .search-btn{
     border:1px solid transparent;
     border-radius:8px;
-    background:#f9c940;
-    color:#151518;
+    background:var(--accent);
+    color:var(--bg);
     min-height:46px;
     padding:0 18px;
     font-weight:700;
@@ -436,7 +437,7 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
   }
   .db-note{
     margin-top:10px;
-    color:#868899;
+    color:var(--muted);
     font-size:12px;
   }
   .db-alert{
@@ -454,7 +455,7 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
     justify-content:space-between;
     gap:16px;
     margin:22px 0 10px;
-    color:#868899;
+    color:var(--muted);
     font-size:13px;
   }
   .results-table{
@@ -462,9 +463,9 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
     border-collapse:separate;
     border-spacing:0;
     overflow:hidden;
-    border:1px solid #333340;
+    border:1px solid var(--line);
     border-radius:12px;
-    background:#1e1e25;
+    background:var(--panel);
   }
   .results-table th,
   .results-table td{
@@ -475,9 +476,9 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
     font-size:13px;
   }
   .results-table th{
-    color:#61d1ad;
-    background:#191920;
-    font:700 11px/1.2 "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color:var(--green);
+    background:var(--panel-2);
+    font:700 11px/1.2 var(--mono);
     text-transform:uppercase;
   }
   .results-table tr:last-child td{
@@ -488,16 +489,16 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
     align-items:center;
     border:1px solid rgba(249,201,64,.28);
     background:rgba(249,201,64,.08);
-    color:#f9c940;
+    color:var(--accent);
     border-radius:6px;
     padding:3px 8px;
-    font:700 13px/1.3 "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font:700 13px/1.3 var(--mono);
   }
   .muted{
-    color:#868899;
+    color:var(--muted);
   }
   .source{
-    color:#868899;
+    color:var(--muted);
     font-size:11px;
     word-break:break-word;
   }
@@ -508,24 +509,24 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
     margin-top:14px;
   }
   .pager a{
-    color:#efeff1;
+    color:var(--text);
     text-decoration:none;
-    border:1px solid #333340;
-    background:#1e1e25;
+    border:1px solid var(--line);
+    background:var(--panel);
     border-radius:8px;
     padding:8px 12px;
     font-size:13px;
   }
   .pager a:hover{
-    color:#f9c940;
+    color:var(--accent);
   }
   .empty-state{
-    border:1px solid #333340;
-    background:#1e1e25;
+    border:1px solid var(--line);
+    background:var(--panel);
     border-radius:12px;
     padding:20px;
     margin-top:18px;
-    color:#a4a8bb;
+    color:var(--text-2);
   }
   @media (max-width: 900px){
     .db-head{
@@ -559,9 +560,9 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
     .results-table td::before{
       content:attr(data-label);
       display:block;
-      color:#61d1ad;
+      color:var(--green);
       font-size:10px;
-      font-family:"Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-family:var(--mono);
       text-transform:uppercase;
       margin-bottom:3px;
     }

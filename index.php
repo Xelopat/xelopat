@@ -1,4 +1,5 @@
 <?php
+$site_page_title = 'xelopat';
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
 $config_path = __DIR__ . '/data/site_config.json';
@@ -124,14 +125,12 @@ if ($terminal_json === false) {
 $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
 ?>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;700&display=swap');
-
   .site-shell{
     min-height:calc(100vh - 60px);
     position:relative;
     overflow:hidden;
-    background:#151518;
-    color:#efeff1;
+    background:var(--bg);
+    color:var(--text);
   }
 
   .site-shell::before{
@@ -165,14 +164,14 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     background:#0f3328;
     border-radius:4px;
     padding:3px 10px;
-    font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-family:var(--mono);
     font-size:11px;
-    color:#61d1ad;
+    color:var(--green);
     margin-bottom:16px;
   }
 
   .hero-name{
-    font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-family:var(--mono);
     font-weight:700;
     font-size:52px;
     line-height:1.1;
@@ -180,7 +179,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   }
   .hero-subtitle{
     margin:0;
-    color:#a4a8bb;
+    color:var(--text-2);
     font-size:14px;
     line-height:1.55;
     max-width:540px;
@@ -193,7 +192,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     display:inline-block;
     width:4px;
     height:52px;
-    background:#f9c940;
+    background:var(--accent);
     margin-left:3px;
     vertical-align:middle;
     animation:blink 1s step-end infinite;
@@ -204,20 +203,20 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   .hero-divider{
     width:min(320px, 100%);
     height:1px;
-    background:#333340;
+    background:var(--line);
     margin-bottom:10px;
   }
 
   .terminal{
-    background:#1e1e25;
-    border:1px solid #333340;
+    background:var(--panel);
+    border:1px solid var(--line);
     border-radius:12px;
     overflow:hidden;
     box-shadow:0 18px 40px rgba(0,0,0,.18);
     transition:border-color .18s ease, box-shadow .18s ease;
   }
   .term-bar{
-    background:#151518;
+    background:var(--bg);
     padding:10px 14px;
     display:flex;
     align-items:center;
@@ -247,9 +246,9 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   .term-dot-btn:active{
     transform:translateY(0);
   }
-  .term-dot-btn--collapse{ background:#f9c940; }
-  .term-dot-btn--clear{ background:#ff8f8f; }
-  .term-dot-btn--retype{ background:#61d1ad; }
+  .term-dot-btn--collapse{ background:var(--accent); }
+  .term-dot-btn--clear{ background:var(--danger); }
+  .term-dot-btn--retype{ background:var(--green); }
 
   .term-body{
     padding:14px 16px;
@@ -260,7 +259,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     display:flex;
     flex-direction:column;
     overflow:hidden;
-    font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-family:var(--mono);
     font-size:12px;
     transition:
       max-height .28s ease,
@@ -286,7 +285,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     overflow:auto;
     padding-right:2px;
     scrollbar-width:thin;
-    scrollbar-color:#61d1ad #1a1a22;
+    scrollbar-color:var(--green) #1a1a22;
   }
   .term-output::-webkit-scrollbar{
     width:10px;
@@ -297,7 +296,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     border-radius:999px;
   }
   .term-output::-webkit-scrollbar-thumb{
-    background:linear-gradient(180deg, #61d1ad, #4bb996);
+    background:linear-gradient(180deg, var(--green), #4bb996);
     border-radius:999px;
     border:2px solid #1a1a22;
   }
@@ -305,12 +304,12 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     background:linear-gradient(180deg, #71e2be, #56c7a2);
   }
   .term-line{ display:flex; gap:6px; flex-wrap:wrap; line-height:1.5; word-break:break-word; color:#14d977; }
-  .term-line a{ color:#61d1ad; text-decoration:underline; }
+  .term-line a{ color:var(--green); text-decoration:underline; }
   .term-line a:hover{ opacity:.88; }
   .term-host{ color:#11df7f; }
   .term-path{ color:#44f0bb; }
   .term-symbol{ color:#11df7f; }
-  .term-error{ color:#ff8f8f; }
+  .term-error{ color:var(--danger); }
   .term-line--prompt{
     align-items:center;
     gap:0;
@@ -330,9 +329,9 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
 
   .section{ padding:0 0 40px; position:relative; z-index:1; }
   .sec-label{
-    font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-family:var(--mono);
     font-size:11px;
-    color:#61d1ad;
+    color:var(--green);
     margin-bottom:6px;
   }
   .sec-title{ font-size:24px; font-weight:700; margin-bottom:20px; }
@@ -344,8 +343,8 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   }
 
   .card{
-    background:#1e1e25;
-    border:1px solid #333340;
+    background:var(--panel);
+    border:1px solid var(--line);
     border-radius:12px;
     overflow:hidden;
     transition:border-color .18s ease;
@@ -355,8 +354,8 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   }
   .card-media{
     width:100%;
-    background:#151518;
-    border-bottom:1px solid #333340;
+    background:var(--bg);
+    border-bottom:1px solid var(--line);
     display:flex;
     align-items:center;
     justify-content:center;
@@ -380,7 +379,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   }
   .card-inner{ padding:14px 16px; }
   .card-title{ font-size:15px; font-weight:700; margin-bottom:6px; line-height:1.4; }
-  .card-desc{ font-size:12px; color:#868899; line-height:1.6; margin:0; }
+  .card-desc{ font-size:12px; color:var(--muted); line-height:1.6; margin:0; }
   .card-link-btn{
     display:inline-flex;
     align-items:center;
@@ -389,14 +388,14 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     border:1px solid #3a3f51;
     border-radius:8px;
     background:#191d29;
-    color:#efeff1;
+    color:var(--text);
     text-decoration:none;
     font-size:12px;
     line-height:1;
     padding:8px 10px;
   }
   .footer-bar{
-    border-top:1px solid #333340;
+    border-top:1px solid var(--line);
     padding:14px 0 28px;
     display:flex;
     justify-content:space-between;
@@ -405,12 +404,12 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   }
   .footer-txt,
   .footer-up{
-    font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-family:var(--mono);
     font-size:11px;
-    color:#868899;
+    color:var(--muted);
   }
   .footer-up{
-    color:#f9c940;
+    color:var(--accent);
     text-decoration:none;
   }
 

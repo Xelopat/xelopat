@@ -105,18 +105,17 @@ if (!$items && $fallback_key !== '') {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?= cards_e($page_title) ?></title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;700&display=swap');
     *{box-sizing:border-box}
-    body{margin:0;background:#151518;color:#efeff1;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans)}
     .page{width:min(1280px, calc(100vw - 24px));margin:26px auto 40px}
-    .sec-label{font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;color:#61d1ad;margin-bottom:6px}
+    .sec-label{font-family:var(--mono);font-size:11px;color:var(--green);margin-bottom:6px}
     .sec-title{font-size:28px;font-weight:700;margin:0 0 18px}
     .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-    .card{background:#1e1e25;border:1px solid #333340;border-radius:12px;overflow:hidden;display:grid}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:grid}
     .card-media{
       width:100%;
-      background:#151518;
-      border-bottom:1px solid #333340;
+      background:var(--bg);
+      border-bottom:1px solid var(--line);
       display:flex;
       align-items:center;
       justify-content:center;
@@ -134,7 +133,7 @@ if (!$items && $fallback_key !== '') {
     }
     .card-inner{padding:14px 16px;display:grid;gap:10px}
     .card-title{font-size:16px;font-weight:700;margin:0}
-    .card-desc{margin:0;font-size:13px;line-height:1.55;color:#868899}
+    .card-desc{margin:0;font-size:13px;line-height:1.55;color:var(--muted)}
     .card-link{
       display:inline-flex;
       width:max-content;
@@ -143,7 +142,7 @@ if (!$items && $fallback_key !== '') {
       border:1px solid #3a3f51;
       border-radius:8px;
       background:#191d29;
-      color:#efeff1;
+      color:var(--text);
       text-decoration:none;
       font-size:12px;
       line-height:1;

@@ -129,12 +129,10 @@ if (isset($_GET['api'])) {
     la_json(200, la_payload($entries, $log));
 }
 
+$site_page_title = 'Лиса-Алиса';
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 ?>
-<title>Лиса-Алиса</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap');
-
   .la{
     --bg:#151518;
     --card:#1e1e25;
@@ -149,7 +147,6 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     --mint:#61d1ad;
     --gold:#f9c940;
     --bad:#ff8f8f;
-    --mono:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 
     min-height:calc(100vh - 60px);
     background:
@@ -280,6 +277,30 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .la-tile-s{ font-size:13px; color:var(--muted); }
   .la-tile-s b{ color:var(--text); font-weight:600; }
 
+  /* ---- за период ---- */
+  .la-period{ margin-bottom:14px; }
+  .la-presets{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .la-preset{
+    border:1px solid var(--line); background:var(--bg); color:var(--muted);
+    border-radius:999px; padding:7px 12px; font:inherit; font-size:13px; cursor:pointer;
+    transition:color .12s, border-color .12s, background .12s;
+  }
+  .la-preset:hover{ color:var(--text); border-color:var(--fox); }
+  .la-preset.on{ color:#1a0f08; background:linear-gradient(140deg, var(--fox), #e8601f); border-color:transparent; font-weight:700; }
+  .la-range{ display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:10px; align-items:end; max-width:460px; margin-bottom:14px; }
+  .la-range-dash{ color:var(--muted); padding-bottom:11px; }
+
+  .la-period-body{ display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1.4fr); gap:10px; }
+  .la-period-main{
+    border-radius:14px; padding:16px;
+    background:linear-gradient(140deg, rgba(255,138,61,.16), rgba(255,138,61,.04));
+    border:1px solid rgba(255,138,61,.35);
+    display:flex; flex-direction:column; gap:6px; justify-content:center; min-width:0;
+  }
+  .la-period-main .la-tile-v{ font-size:40px; }
+  .la-period-stats{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; }
+  .la-period-stats .la-tile-v{ font-size:20px; color:var(--text); }
+
   /* ---- месяц ---- */
   .la-month-nav{ display:flex; align-items:center; gap:6px; }
   .la-nav-btn{
@@ -365,6 +386,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   @media (max-width: 860px){
     .la-top, .la-grid2{ grid-template-columns:1fr; }
+    .la-period-body{ grid-template-columns:1fr; }
   }
   @media (max-width: 560px){
     .la{ padding-top:18px; }
@@ -385,6 +407,9 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     .la-table tr.today td:first-child::after{ content:none; }
     .la-month-name{ min-width:110px; }
     .la-num-row{ grid-template-columns:minmax(0,1fr) 92px; }
+    .la-period-body{ grid-template-columns:1fr; }
+    .la-period-main .la-tile-v{ font-size:32px; }
+    .la-range{ max-width:none; }
     .la-log-row{ grid-template-columns:minmax(0,1fr) auto; gap:4px 10px; }
     .la-log-time{ grid-column:1 / -1; }
   }
@@ -435,6 +460,31 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
         <div class="la-tiles" id="laTiles"><div class="la-loading">Загрузка…</div></div>
       </section>
     </div>
+
+    <section class="la-card la-period">
+      <h2>За период</h2>
+      <div class="la-presets" id="laPresets">
+        <button class="la-preset" type="button" data-preset="week">Эта неделя</button>
+        <button class="la-preset" type="button" data-preset="prevweek">Прошлая неделя</button>
+        <button class="la-preset" type="button" data-preset="half1">1–15 число</button>
+        <button class="la-preset" type="button" data-preset="half2">16–конец месяца</button>
+        <button class="la-preset" type="button" data-preset="month">Этот месяц</button>
+        <button class="la-preset" type="button" data-preset="prevmonth">Прошлый месяц</button>
+        <button class="la-preset" type="button" data-preset="all">Всё время</button>
+      </div>
+      <div class="la-range">
+        <div class="la-field">
+          <label for="laFrom">С</label>
+          <input class="la-input" type="date" id="laFrom">
+        </div>
+        <span class="la-range-dash">—</span>
+        <div class="la-field">
+          <label for="laTo">По</label>
+          <input class="la-input" type="date" id="laTo">
+        </div>
+      </div>
+      <div class="la-period-body" id="laPeriod"></div>
+    </section>
 
     <section class="la-card">
       <h2>
@@ -659,6 +709,79 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     `;
   }
 
+  // ---------- за период ----------
+  let preset = 'month';
+
+  function presetRange(name) {
+    const t = parseIso(todayIso);
+    const y = t.getFullYear(), m = t.getMonth();
+    const mon = new Date(t); mon.setDate(t.getDate() - (t.getDay() + 6) % 7);
+    const shift = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+    switch (name) {
+      case 'week': return [iso(mon), iso(shift(mon, 6))];
+      case 'prevweek': return [iso(shift(mon, -7)), iso(shift(mon, -1))];
+      case 'half1': return [`${monthKey(y, m)}-01`, `${monthKey(y, m)}-15`];
+      case 'half2': return [`${monthKey(y, m)}-16`, `${monthKey(y, m)}-${pad(daysIn(y, m))}`];
+      case 'month': return [`${monthKey(y, m)}-01`, `${monthKey(y, m)}-${pad(daysIn(y, m))}`];
+      case 'prevmonth': {
+        const py = m ? y : y - 1, pm = m ? m - 1 : 11;
+        return [`${monthKey(py, pm)}-01`, `${monthKey(py, pm)}-${pad(daysIn(py, pm))}`];
+      }
+      case 'all': {
+        const dates = Object.keys(entries).sort();
+        return dates.length ? [dates[0], dates[dates.length - 1]] : [todayIso, todayIso];
+      }
+    }
+    return null;
+  }
+
+  function rangeLabel(from, to) {
+    const a = parseIso(from), b = parseIso(to);
+    const sameYear = a.getFullYear() === b.getFullYear();
+    const left = `${a.getDate()} ${MONTHS_GEN[a.getMonth()]}${sameYear ? '' : ' ' + a.getFullYear()}`;
+    return from === to ? `${human(from)} ${b.getFullYear()}` : `${left} — ${b.getDate()} ${MONTHS_GEN[b.getMonth()]} ${b.getFullYear()}`;
+  }
+
+  function renderPeriod() {
+    if (preset) {
+      const r = presetRange(preset);
+      $('laFrom').value = r[0];
+      $('laTo').value = r[1];
+    }
+    document.querySelectorAll('#laPresets [data-preset]').forEach((b) => b.classList.toggle('on', b.dataset.preset === preset));
+
+    let from = $('laFrom').value, to = $('laTo').value;
+    if (!from || !to) { $('laPeriod').innerHTML = '<div class="la-empty">Выберите даты.</div>'; return; }
+    if (from > to) [from, to] = [to, from];
+
+    const sum = sumRange(from, to);
+    let best = null;
+    for (const d of Object.keys(entries)) {
+      if (d >= from && d <= to && (!best || get(d) > get(best))) best = d;
+    }
+
+    $('laPeriod').innerHTML = `
+      <div class="la-period-main">
+        <div class="la-tile-k">${rangeLabel(from, to)}</div>
+        <div class="la-tile-v">${rub(sum.money)}</div>
+        <div class="la-tile-s"><b>${num(sum.squares)}</b> кв.</div>
+      </div>
+      <div class="la-period-stats">
+        <div class="la-tile"><div class="la-tile-k">Рабочих дней</div><div class="la-tile-v">${sum.days}</div></div>
+        <div class="la-tile"><div class="la-tile-k">В среднем за день</div><div class="la-tile-v">${rub(sum.days ? sum.money / sum.days : 0)}</div></div>
+        <div class="la-tile"><div class="la-tile-k">Квадратов в день</div><div class="la-tile-v">${sum.days ? num(Math.round(sum.squares / sum.days * 100) / 100) : 0}</div></div>
+        <div class="la-tile"><div class="la-tile-k">Лучший день</div><div class="la-tile-v">${best ? num(get(best)) + ' кв.' : '—'}</div>${best ? `<div class="la-tile-s">${human(best)}</div>` : ''}</div>
+      </div>`;
+  }
+
+  $('laPresets').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-preset]');
+    if (!b) return;
+    preset = b.dataset.preset;
+    renderPeriod();
+  });
+  ['laFrom', 'laTo'].forEach((id) => $(id).addEventListener('change', () => { preset = null; renderPeriod(); }));
+
   // ---------- месяц ----------
   function renderMonth() {
     const y = viewY, m = viewM;
@@ -858,6 +981,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     renderMonth();
     renderMonths();
     renderRecords();
+    renderPeriod();
     renderLog();
     updatePreview();
   }

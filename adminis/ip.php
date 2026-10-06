@@ -1,173 +1,45 @@
 <?php
+$site_page_title = 'Калькулятор подсетей — xelopat';
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 ?>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;700&display=swap');
-
-  .ip-page{
-    min-height:calc(100vh - 60px);
-    background:#151518;
-    color:#efeff1;
-    padding:28px 0 38px;
-  }
-
-  .ip-wrap{
-    width:min(980px, calc(100vw - 24px));
-    margin:0 auto;
-  }
-
-  .ip-label{
-    font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    font-size:11px;
-    color:#61d1ad;
-    margin-bottom:6px;
-  }
-
-  .ip-title{
-    margin:0 0 10px;
-    font-size:30px;
-    line-height:1.2;
-  }
-
-  .ip-sub{
-    margin:0 0 20px;
-    color:#a4a8bb;
-    font-size:14px;
-    line-height:1.6;
-    max-width:760px;
-  }
-
-  .ip-panel{
-    background:#1e1e25;
-    border:1px solid #333340;
-    border-radius:12px;
-    padding:16px;
-  }
-
-  .ip-grid{
+  .ip-form{
     display:grid;
-    grid-template-columns:1fr;
     gap:14px;
-  }
-
-  .ip-field label{
-    display:block;
-    margin-bottom:7px;
-    font-size:13px;
-    color:#c5c8d6;
-    font-weight:600;
-  }
-
-  .ip-field input{
-    width:100%;
-    background:#151518;
-    border:1px solid #333340;
-    border-radius:8px;
-    padding:10px 12px;
-    color:#efeff1;
-    font:inherit;
-    font-size:14px;
-    outline:none;
-  }
-
-  .ip-field input:focus{
-    border-color:#61d1ad;
-    box-shadow:0 0 0 3px rgba(97,209,173,.15);
-  }
-
-  .ip-actions{
-    display:flex;
-    justify-content:flex-start;
-  }
-
-  .ip-btn{
-    border:1px solid #333340;
-    background:#151518;
-    color:#efeff1;
-    border-radius:8px;
-    padding:10px 14px;
-    font:inherit;
-    font-size:14px;
-    font-weight:600;
-    cursor:pointer;
-    transition:border-color .16s ease, color .16s ease;
-  }
-
-  .ip-btn:hover{
-    border-color:#f9c940;
-    color:#f9c940;
   }
 
   .ip-out{
     margin-top:14px;
-    background:#151518;
-    border:1px solid #333340;
+    background:var(--bg);
+    border:1px solid var(--line);
     border-radius:10px;
     padding:14px;
     overflow:auto;
   }
 
-  .ip-table{
-    width:100%;
-    border-collapse:collapse;
-    min-width:760px;
-  }
-
-  .ip-table th,
-  .ip-table td{
-    border-bottom:1px solid #2b2b36;
-    padding:9px 8px;
-    text-align:left;
-    font-size:13px;
-    vertical-align:top;
-  }
-
-  .ip-table th{
-    color:#61d1ad;
-    font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    font-size:11px;
-    text-transform:uppercase;
-    letter-spacing:.04em;
-  }
-
-  .ip-table tr:last-child td{
-    border-bottom:none;
-  }
-
-  .ip-error{
-    margin:0;
-    color:#ff8f8f;
-    font-size:13px;
-  }
-
-  @media (max-width: 900px){
-    .ip-wrap{ width:calc(100vw - 20px); }
-    .ip-title{ font-size:26px; }
-    .ip-sub{ font-size:13px; }
-    .ip-panel{ padding:14px; }
-  }
+  .ip-out .data-table{ min-width:760px; }
 </style>
 
-<main class="ip-page">
-  <div class="ip-wrap">
-    <div class="ip-label">// администрирование</div>
-    <h1 class="ip-title">Калькулятор подсетей (VLSM)</h1>
-    <p class="ip-sub">Введите сеть в формате CIDR и список групп ПК через пробел. Расчёт строится от самой крупной подсети к меньшей.</p>
+<main class="page">
+  <div class="page-wrap page-wrap--narrow">
+    <div class="page-label">// администрирование</div>
+    <h1 class="page-title">Калькулятор подсетей (VLSM)</h1>
+    <p class="page-sub">Введите сеть в формате CIDR и список групп ПК через пробел. Расчёт строится от самой крупной подсети к меньшей.</p>
 
-    <section class="ip-panel">
-      <form id="subnetForm" class="ip-grid">
-        <div class="ip-field">
+    <section class="panel">
+      <form id="subnetForm" class="ip-form">
+        <div class="field">
           <label for="networkAddress">Адрес сети</label>
           <input type="text" id="networkAddress" placeholder="192.168.0.0/24" value="192.168.0.0/24" required>
         </div>
 
-        <div class="ip-field">
+        <div class="field">
           <label for="userGroups">Количество ПК в каждой подсети (через пробел)</label>
           <input type="text" id="userGroups" placeholder="50 30 20" required>
         </div>
 
-        <div class="ip-actions">
-          <button class="ip-btn" type="submit">Рассчитать</button>
+        <div>
+          <button class="btn" type="submit">Рассчитать</button>
         </div>
       </form>
 
@@ -252,8 +124,8 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   function renderResults({ results, totalRequired, networkSize }) {
     return `
-      <p class="ip-sub" style="margin:0 0 10px">Использовано ${totalRequired} из ${networkSize} адресов, свободно ${networkSize - totalRequired}.</p>
-      <table class="ip-table">
+      <p class="page-sub" style="margin:0 0 10px">Использовано ${totalRequired} из ${networkSize} адресов, свободно ${networkSize - totalRequired}.</p>
+      <table class="data-table">
         <thead>
           <tr>
             <th>ПК</th>
@@ -290,12 +162,12 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     const userGroups = tokens.map(Number);
 
     if (userGroups.some((n) => !Number.isInteger(n) || n <= 0)) {
-      outputNode.innerHTML = '<p class="ip-error">Количество ПК должно быть целым положительным числом.</p>';
+      outputNode.innerHTML = '<p class="form-error">Количество ПК должно быть целым положительным числом.</p>';
       return;
     }
 
     if (!userGroups.length) {
-      outputNode.innerHTML = '<p class="ip-error">Добавьте хотя бы одно число для подсети.</p>';
+      outputNode.innerHTML = '<p class="form-error">Добавьте хотя бы одно число для подсети.</p>';
       return;
     }
 
@@ -303,7 +175,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       const results = calculateSubnets(networkAddress, userGroups);
       outputNode.innerHTML = renderResults(results);
     } catch (error) {
-      outputNode.innerHTML = `<p class="ip-error">Ошибка: ${String(error.message || error)}</p>`;
+      outputNode.innerHTML = `<p class="form-error">Ошибка: ${String(error.message || error)}</p>`;
     }
   });
 </script>

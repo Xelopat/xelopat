@@ -920,7 +920,6 @@ $collections = [
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Админка</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;700&display=swap');
     *{box-sizing:border-box}
     :root{
       --bg:#0f1015;
@@ -942,7 +941,7 @@ $collections = [
         radial-gradient(900px 360px at 100% -20%, #1a2130 0%, transparent 62%),
         var(--bg);
       color:var(--text);
-      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif
+      font-family:var(--sans)
     }
     .page{width:min(1200px, calc(100vw - 24px));margin:24px auto 36px;display:grid;gap:12px}
     .card{
@@ -959,7 +958,7 @@ $collections = [
       display:grid;
       gap:10px;
     }
-    .title{font-family:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:20px;margin:0 0 6px}
+    .title{font-family:var(--mono);font-size:20px;margin:0 0 6px}
     .subtitle{font-size:18px;margin:0}
     .muted{color:var(--muted);font-size:13px;line-height:1.55}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
@@ -1000,7 +999,7 @@ $collections = [
       background:#0f1219;
       color:var(--text);
       padding:12px;
-      font:12px/1.6 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      font:12px/1.6 var(--mono);
       resize:vertical;
       outline:none
     }
@@ -1019,7 +1018,7 @@ $collections = [
       color:var(--muted);
       border-radius:10px;
       padding:8px 12px;
-      font:600 13px/1.3 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      font:600 13px/1.3 var(--sans);
       cursor:pointer;
     }
     .admin-tab-btn.is-active{
@@ -1042,7 +1041,7 @@ $collections = [
     .project-item::before{
       content:"Карточка " counter(item);
       color:var(--muted);
-      font:600 11px/1.3 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      font:600 11px/1.3 var(--mono);
       letter-spacing:.02em;
     }
     .project-row{display:grid;grid-template-columns:1fr 180px;gap:8px}
@@ -1055,7 +1054,7 @@ $collections = [
       display:grid;
       gap:8px;
     }
-    .media-head{font:700 11px/1.3 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted)}
+    .media-head{font:700 11px/1.3 var(--mono);color:var(--muted)}
     .media-details{
       border:1px dashed #2b3140;
       border-radius:8px;
@@ -1079,7 +1078,7 @@ $collections = [
       background:#0f1219;
       color:var(--text);
       padding:9px 10px;
-      font:13px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      font:13px/1.5 var(--sans);
       outline:none
     }
     .project-item input[type="file"]{padding:8px}
@@ -1107,7 +1106,7 @@ $collections = [
       display:flex;
       align-items:center;
       justify-content:center;
-      font:700 11px/1 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      font:700 11px/1 var(--mono);
       letter-spacing:.04em;
     }
     .row-actions{
@@ -1150,7 +1149,7 @@ $collections = [
       display:flex;
       align-items:center;
       justify-content:center;
-      font:700 10px/1 'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      font:700 10px/1 var(--mono);
       color:var(--muted);
       background:#0a0d14;
     }
