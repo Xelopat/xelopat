@@ -99,6 +99,8 @@ function coll_normalize_item(array $it): array {
         'details' => (string)($it['details'] ?? ''),
         'tags' => coll_clean_tags($it['tags'] ?? []),
         'link' => (string)($it['link'] ?? ''),
+        // Как показывать обложку на карточке: auto — заполнить рамку, width — по ширине, height — по высоте
+        'fit' => in_array($it['fit'] ?? '', ['width', 'height'], true) ? $it['fit'] : 'auto',
         'media' => $media,
         'created' => (string)($it['created'] ?? date('c')),
         'updated' => (string)($it['updated'] ?? date('c')),
@@ -296,7 +298,8 @@ function coll_handle_uploads(string $key, ?array $files, array &$errors): array 
         @chmod($dir . '/' . $file, 0644);
 
         $preview = ($isImage && $ext !== 'gif') ? coll_make_preview($dir . '/' . $file, $ext === 'jpeg' ? 'jpg' : $ext, $dir . '/' . $base) : '';
-        $media[] = [
+        // Ключ = порядковый номер файла в запросе: форма ссылается на него в списке порядка
+        $media[$i] = [
             'type' => $isImage ? 'image' : 'video',
             'src' => $url . '/' . $file,
             'preview' => $preview !== '' ? $url . '/' . $preview : '',

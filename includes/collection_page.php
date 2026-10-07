@@ -88,7 +88,14 @@ if (isset($_GET['api'])) {
             foreach ($old as $m) $bySrc[$m['src']] = $m;
 
             $media = [];
+            $usedNew = [];
             foreach ($keep as $k) {
+                // {new: N} — N-й загруженный в этом запросе файл, на своём месте в порядке
+                if (isset($k['new'])) {
+                    $n = (int)$k['new'];
+                    if (isset($uploaded[$n]) && !isset($usedNew[$n])) { $media[] = $uploaded[$n]; $usedNew[$n] = true; }
+                    continue;
+                }
                 $src = trim((string)($k['src'] ?? ''));
                 if ($src === '') continue;
                 if (isset($bySrc[$src])) { $media[] = $bySrc[$src]; unset($bySrc[$src]); continue; }
@@ -97,7 +104,7 @@ if (isset($_GET['api'])) {
                     $media[] = ['type' => coll_media_kind($src), 'src' => $src, 'preview' => ''];
                 }
             }
-            $media = array_merge($media, $uploaded);
+            foreach ($uploaded as $n => $m) if (!isset($usedNew[$n])) $media[] = $m;
 
             $item = coll_normalize_item([
                 'id' => $idx === null ? coll_new_id() : $items[$idx]['id'],
@@ -107,6 +114,7 @@ if (isset($_GET['api'])) {
                 'details' => trim((string)($_POST['details'] ?? '')),
                 'tags' => (string)($_POST['tags'] ?? ''),
                 'link' => $link,
+                'fit' => (string)($_POST['fit'] ?? 'auto'),
                 'media' => $media,
                 'created' => $idx === null ? date('c') : $items[$idx]['created'],
                 'updated' => date('c'),
@@ -167,6 +175,10 @@ $coll_gallery = $coll['layout'] === 'gallery';
   .co-card:hover{ border-color:#4a4a5c; transform:translateY(-2px); }
   .co-cover{ position:relative; aspect-ratio:16 / 10; background:var(--panel-2); overflow:hidden; }
   .co-cover img, .co-cover video{ width:100%; height:100%; object-fit:cover; display:block; }
+  /* По ширине: картинка целиком, высота своя. По высоте: рамка как обычно, картинка вписана без обрезки */
+  .co-cover.fit-width{ aspect-ratio:auto; }
+  .co-cover.fit-width img, .co-cover.fit-width video{ height:auto; }
+  .co-cover.fit-height img, .co-cover.fit-height video{ object-fit:contain; }
   .co-cover-empty{ width:100%; height:100%; display:grid; place-items:center; color:#4a4a5c; font-family:var(--mono); font-size:28px; }
   .co-badge{
     position:absolute; right:8px; bottom:8px;
@@ -263,7 +275,11 @@ $coll_gallery = $coll['layout'] === 'gallery';
   .co-drop{
     border:1px dashed #4a4a5c; border-radius:10px; padding:16px; text-align:center; color:var(--text-2); font-size:14px; cursor:pointer;
   }
-  .co-drop.over{ border-color:var(--green); background:rgba(97,209,173,.06); }
+  .co-mi{ cursor:grab; }
+  .co-mi.dragging{ opacity:.4; }
+  .co-mi.drop-here{ outline:2px solid var(--accent); outline-offset:2px; }
+  #coFormModal.dropping .co-box{ outline:2px dashed var(--green); outline-offset:-8px; }
+  #coFormModal.dropping .co-drop{ border-color:var(--green); background:rgba(97,209,173,.08); color:var(--text); }
   .co-urlrow{ display:flex; gap:8px; }
   .co-urlrow input{ flex:1; }
   .co-progress{ height:4px; border-radius:2px; background:var(--panel-2); overflow:hidden; display:none; }
@@ -328,7 +344,7 @@ $coll_gallery = $coll['layout'] === 'gallery';
           </a>
         <?php else: ?>
           <a class="co-card" href="<?= coll_h(coll_item_url($coll_key, $it)) ?>" data-id="<?= coll_h($it['id']) ?>" data-search="<?= coll_h($search) ?>">
-            <div class="co-cover">
+            <div class="co-cover fit-<?= coll_h($it['fit']) ?>">
               <?php if ($cover && $cover['type'] === 'image'): ?>
                 <img src="<?= coll_h($cover['preview'] ?: $cover['src']) ?>" alt="<?= coll_h($it['title']) ?>" loading="lazy">
               <?php elseif ($cover): ?>
@@ -400,12 +416,20 @@ $coll_gallery = $coll['layout'] === 'gallery';
         <div class="field"><label for="coTags">Теги через запятую</label><input id="coTags" name="tags"></div>
         <div class="field"><label for="coLinkIn">Ссылка</label><input id="coLinkIn" name="link" placeholder="https://"></div>
       </div>
+      <div class="field">
+        <label for="coFit">Обложка на карточке</label>
+        <select id="coFit" name="fit">
+          <option value="auto">Автоматически: заполнить рамку</option>
+          <option value="width">По ширине: фото целиком, высота своя</option>
+          <option value="height">По высоте: рамка обычная, фото целиком</option>
+        </select>
+      </div>
 
       <div class="field">
         <label>Фото и видео</label>
         <div class="co-media" id="coMedia"></div>
-        <div class="co-hint" style="margin:6px 0 8px">Первый файл становится обложкой. Стрелками меняется порядок.</div>
-        <div class="co-drop" id="coDrop">Перетащи файлы сюда или нажми, чтобы выбрать<br><span class="co-hint">JPG, PNG, WEBP, GIF, MP4, WEBM, MOV. За раз до <?= round(coll_upload_limit() / 1048576) ?> МБ</span></div>
+        <div class="co-hint" style="margin:6px 0 8px">Первый файл становится обложкой. Порядок меняется перетаскиванием или стрелками.</div>
+        <div class="co-drop" id="coDrop">Перетащи файлы в окно, вставь Ctrl+V или нажми, чтобы выбрать<br><span class="co-hint">JPG, PNG, WEBP, GIF, MP4, WEBM, MOV. За раз до <?= round(coll_upload_limit() / 1048576) ?> МБ</span></div>
         <input type="file" id="coFiles" multiple accept="image/*,video/mp4,video/webm,video/quicktime" hidden>
         <div class="co-urlrow" style="margin-top:8px">
           <input id="coUrl" placeholder="или ссылка на картинку/видео" class="co-search" style="width:auto">
@@ -569,56 +593,114 @@ $coll_gallery = $coll['layout'] === 'gallery';
 
   /* ---------- редактирование ---------- */
   const form = $('coForm');
-  let editing = null;      // id или null для новой записи
-  let kept = [];           // существующие медиа и ссылки: {src, type, preview}
-  let fresh = [];          // новые файлы: {file, url}
+  const formModal = $('coFormModal');
+  let editing = null;   // id или null для новой записи
+  // Единый список в нужном порядке: сохранённые файлы/ссылки и новые, ещё не загруженные
+  // {kind:'kept', m:{src,type,preview}} | {kind:'new', file, url, type, ready}
+  let media = [];
+  let dragIndex = null;
+
+  const MAX_SIDE = 2560;
+  const VIDEO_RE = /\.(mp4|webm|mov|m4v)$/i;
+  const IMAGE_RE = /\.(jpe?g|png|webp|gif)$/i;
+
+  function kindOf(file) {
+    if (file.type.startsWith('video/') || VIDEO_RE.test(file.name)) return 'video';
+    if (file.type.startsWith('image/') || IMAGE_RE.test(file.name)) return 'image';
+    return null;
+  }
+
+  // Большие фото уменьшаем в браузере: загрузка и сохранение идут в разы быстрее,
+  // а заодно учитывается поворот с телефона
+  async function shrink(file) {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type) || !window.createImageBitmap) return file;
+    let bmp;
+    try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (_) { return file; }
+    const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+    if (scale === 1 && file.size < 1.5e6) { bmp.close(); return file; }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close();
+    // PNG может быть с прозрачностью — для него webp, остальное в jpeg
+    const want = file.type === 'image/jpeg' ? 'image/jpeg' : 'image/webp';
+    const blob = await new Promise((r) => canvas.toBlob(r, want, 0.88));
+    if (!blob || blob.size >= file.size) return file;
+    const ext = blob.type === 'image/jpeg' ? 'jpg' : blob.type === 'image/webp' ? 'webp' : 'png';
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.' + ext, { type: blob.type });
+  }
+
+  function addFiles(list) {
+    let skipped = 0;
+    for (const file of list) {
+      const type = kindOf(file);
+      if (!type) { skipped++; continue; }
+      const item = { kind: 'new', file, url: URL.createObjectURL(file), type };
+      item.ready = shrink(file).then((f) => { item.file = f; }, () => {});
+      media.push(item);
+    }
+    $('coErr').textContent = skipped ? 'Пропущено файлов неподходящего формата: ' + skipped : '';
+    renderMedia();
+  }
+
+  function addUrl(u) {
+    media.push({ kind: 'kept', m: { src: u, type: VIDEO_RE.test(u.split('?')[0]) ? 'video' : 'image', preview: '' } });
+    renderMedia();
+  }
+
+  function moveTo(from, to) {
+    if (from === to || from < 0 || to < 0 || from >= media.length || to >= media.length) return;
+    const [x] = media.splice(from, 1);
+    media.splice(to, 0, x);
+    renderMedia();
+  }
 
   function renderMedia() {
-    const box = $('coMedia'); box.textContent = '';
-    const all = [...kept.map((m) => ({ m, isNew: false })), ...fresh.map((f) => ({ f, isNew: true }))];
-    all.forEach((x, i) => {
-      const card = el('div', { class: 'co-mi' + (x.isNew ? ' new' : '') });
-      if (x.isNew) {
-        card.append(x.f.file.type.startsWith('video') ? el('div', { class: 'vid' }, x.f.file.name) : el('img', { src: x.f.url, alt: '' }));
-      } else if (x.m.type === 'video') {
-        card.append(el('div', { class: 'vid' }, 'видео'));
-      } else {
-        card.append(el('img', { src: x.m.preview || x.m.src, alt: '' }));
-      }
+    const box = $('coMedia');
+    box.textContent = '';
+    media.forEach((x, i) => {
+      const card = el('div', { class: 'co-mi' + (x.kind === 'new' ? ' new' : ''), draggable: 'true', title: 'Перетащи, чтобы поменять порядок' });
+      const type = x.kind === 'new' ? x.type : x.m.type;
+      if (type === 'video') card.append(el('div', { class: 'vid' }, x.kind === 'new' ? x.file.name : 'видео'));
+      else card.append(el('img', { src: x.kind === 'new' ? x.url : (x.m.preview || x.m.src), alt: '', draggable: 'false' }));
       if (i === 0) card.append(el('span', { class: 'cover' }, 'обложка'));
+
       const ctl = el('div', { class: 'ctl' });
       const left = el('button', { type: 'button', title: 'Левее' }, '←');
       const rm = el('button', { type: 'button', class: 'rm', title: 'Убрать' }, '×');
       const right = el('button', { type: 'button', title: 'Правее' }, '→');
-      left.onclick = () => move(x, -1);
-      right.onclick = () => move(x, 1);
+      left.onclick = () => moveTo(i, i - 1);
+      right.onclick = () => moveTo(i, i + 1);
       rm.onclick = () => {
-        if (x.isNew) { URL.revokeObjectURL(x.f.url); fresh = fresh.filter((f) => f !== x.f); }
-        else kept = kept.filter((m) => m !== x.m);
+        if (x.kind === 'new') URL.revokeObjectURL(x.url);
+        media.splice(i, 1);
         renderMedia();
       };
       ctl.append(left, rm, right);
       card.append(ctl);
+
+      card.addEventListener('dragstart', (e) => {
+        dragIndex = i;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/x-co-media', String(i));
+        card.classList.add('dragging');
+      });
+      card.addEventListener('dragend', () => { dragIndex = null; card.classList.remove('dragging'); });
+      card.addEventListener('dragover', (e) => {
+        if (dragIndex === null) return;
+        e.preventDefault();
+        card.classList.add('drop-here');
+      });
+      card.addEventListener('dragleave', () => card.classList.remove('drop-here'));
+      card.addEventListener('drop', (e) => {
+        if (dragIndex === null) return;
+        e.preventDefault();
+        e.stopPropagation();
+        moveTo(dragIndex, i);
+      });
       box.append(card);
     });
-  }
-
-  // Новые файлы всегда идут после сохранённых, поэтому двигаем внутри своей группы
-  function move(x, dir) {
-    const arr = x.isNew ? fresh : kept;
-    const obj = x.isNew ? x.f : x.m;
-    const i = arr.indexOf(obj), j = i + dir;
-    if (j < 0 || j >= arr.length) return;
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-    renderMedia();
-  }
-
-  function addFiles(list) {
-    for (const file of list) {
-      if (!/^(image|video)\//.test(file.type)) continue;
-      fresh.push({ file, url: URL.createObjectURL(file) });
-    }
-    renderMedia();
   }
 
   function openForm(it) {
@@ -630,12 +712,12 @@ $coll_gallery = $coll['layout'] === 'gallery';
     form.elements.details.value = it ? it.details : '';
     form.elements.tags.value = it ? it.tags.join(', ') : '';
     form.elements.link.value = it ? it.link : '';
-    kept = it ? it.media.map((m) => ({ ...m })) : [];
-    fresh.forEach((f) => URL.revokeObjectURL(f.url));
-    fresh = [];
+    form.elements.fit.value = it && it.fit ? it.fit : 'auto';
+    media.forEach((x) => { if (x.kind === 'new') URL.revokeObjectURL(x.url); });
+    media = it ? it.media.map((m) => ({ kind: 'kept', m: { ...m } })) : [];
     $('coErr').textContent = '';
     renderMedia();
-    openModal($('coFormModal'));
+    openModal(formModal);
     setTimeout(() => form.elements.title.focus(), 50);
   }
 
@@ -657,53 +739,116 @@ $coll_gallery = $coll['layout'] === 'gallery';
     location.href = BASE;
   };
 
-  const drop = $('coDrop'), input = $('coFiles');
-  drop.onclick = () => input.click();
+  // Выбор файлов кнопкой
+  const input = $('coFiles');
+  $('coDrop').onclick = () => input.click();
   input.onchange = () => { addFiles(input.files); input.value = ''; };
-  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
-  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
-  drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); addFiles(e.dataTransfer.files); });
+
+  // Перетаскивание файлов на всё окно формы (из проводника, Телеграма, другой вкладки)
+  let dragDepth = 0;
+  const hasFiles = (e) => [...(e.dataTransfer?.types || [])].some((t) => t === 'Files' || t === 'text/uri-list');
+  formModal.addEventListener('dragenter', (e) => {
+    if (dragIndex !== null || !hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth++;
+    formModal.classList.add('dropping');
+  });
+  formModal.addEventListener('dragover', (e) => {
+    if (dragIndex !== null || !hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+  formModal.addEventListener('dragleave', () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (!dragDepth) formModal.classList.remove('dropping');
+  });
+  formModal.addEventListener('drop', (e) => {
+    if (dragIndex !== null) return;
+    e.preventDefault();
+    dragDepth = 0;
+    formModal.classList.remove('dropping');
+    const files = e.dataTransfer.files;
+    if (files && files.length) { addFiles(files); return; }
+    // Картинку перетащили с другого сайта: приходит ссылка, а не файл
+    const url = (e.dataTransfer.getData('text/uri-list') || '').split('\n').find((l) => /^https?:\/\//i.test(l.trim()));
+    if (url) addUrl(url.trim());
+  });
+  // Чтобы промах мимо окна не открывал файл во вкладке
+  window.addEventListener('dragover', (e) => { if (formModal.classList.contains('open') && hasFiles(e)) e.preventDefault(); });
+  window.addEventListener('drop', (e) => { if (formModal.classList.contains('open') && hasFiles(e)) e.preventDefault(); });
+
+  // Вставка из буфера (Ctrl+V): скриншоты и скопированные файлы
+  document.addEventListener('paste', (e) => {
+    if (!formModal.classList.contains('open') || !e.clipboardData) return;
+    const files = [...e.clipboardData.files];
+    if (!files.length) {
+      for (const it of e.clipboardData.items || []) {
+        if (it.kind === 'file') { const f = it.getAsFile(); if (f) files.push(f); }
+      }
+    }
+    if (!files.length) return;
+    e.preventDefault();
+    addFiles(files.map((f, k) => (f.name && f.name !== 'image.png') ? f
+      : new File([f], `вставка_${Date.now()}_${k}.${(f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`, { type: f.type })));
+  });
 
   $('coUrlAdd').onclick = () => {
     const u = $('coUrl').value.trim();
     if (!/^https?:\/\//i.test(u)) { $('coErr').textContent = 'Ссылка должна начинаться с http:// или https://'; return; }
-    kept.push({ src: u, type: /\.(mp4|webm|mov|m4v)(\?|$)/i.test(u) ? 'video' : 'image', preview: '' });
     $('coUrl').value = '';
     $('coErr').textContent = '';
-    renderMedia();
+    addUrl(u);
   };
 
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const fd = new FormData(form);
-    fd.append('csrf', CSRF);
-    fd.append('id', editing || '');
-    fd.append('keep', JSON.stringify(kept.map((m) => ({ src: m.src }))));
-    fresh.forEach((f) => fd.append('files[]', f.file, f.file.name));
-
     const save = $('coSave'), bar = $('coProgress'), fill = bar.querySelector('i');
     save.disabled = true;
     $('coErr').textContent = '';
+
+    const fresh = media.filter((x) => x.kind === 'new');
+    if (fresh.length) {
+      save.textContent = 'Готовлю фото…';
+      await Promise.all(fresh.map((x) => x.ready));
+    }
+
+    const fd = new FormData(form);
+    fd.append('csrf', CSRF);
+    fd.append('id', editing || '');
+    let n = 0;
+    const order = media.map((x) => {
+      if (x.kind === 'kept') return { src: x.m.src };
+      fd.append('files[]', x.file, x.file.name);
+      return { new: n++ };
+    });
+    fd.append('keep', JSON.stringify(order));
+
+    save.textContent = fresh.length ? 'Загружаю…' : 'Сохраняю…';
     bar.style.display = fresh.length ? 'block' : 'none';
     fill.style.width = '0';
+    const fail = (msg) => {
+      save.disabled = false;
+      save.textContent = 'Сохранить';
+      bar.style.display = 'none';
+      $('coErr').textContent = msg;
+    };
 
     // XHR ради прогресса загрузки больших видео
     const xhr = new XMLHttpRequest();
     xhr.open('POST', BASE + '?api=save');
-    xhr.upload.onprogress = (ev) => { if (ev.lengthComputable) fill.style.width = (ev.loaded / ev.total * 100) + '%'; };
+    xhr.upload.onprogress = (ev) => {
+      if (!ev.lengthComputable) return;
+      fill.style.width = (ev.loaded / ev.total * 100) + '%';
+      if (ev.loaded >= ev.total) save.textContent = 'Сохраняю…';
+    };
     xhr.onload = () => {
       let j = {};
       try { j = JSON.parse(xhr.responseText); } catch (_) {}
-      if (xhr.status !== 200 || !j.ok) {
-        save.disabled = false;
-        bar.style.display = 'none';
-        $('coErr').textContent = j.error || ('Ошибка сервера (' + xhr.status + ')');
-        return;
-      }
+      if (xhr.status !== 200 || !j.ok) { fail(j.error || ('Ошибка сервера (' + xhr.status + ')')); return; }
       if (j.warnings && j.warnings.length) alert('Сохранено, но не все файлы загрузились:\n' + j.warnings.join('\n'));
       location.href = BASE + '?item=' + encodeURIComponent(j.id);
     };
-    xhr.onerror = () => { save.disabled = false; bar.style.display = 'none'; $('coErr').textContent = 'Нет связи с сервером.'; };
+    xhr.onerror = () => fail('Нет связи с сервером.');
     xhr.send(fd);
   });
 })();
