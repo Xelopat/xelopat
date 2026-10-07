@@ -54,6 +54,10 @@ function la_backup(string $file, string $dir): void {
     foreach (array_slice($all, 0, max(0, count($all) - LA_BACKUP_DAYS)) as $old) @unlink($old);
 }
 
+require_once $_SERVER['DOCUMENT_ROOT'] . '/auth/lib.php';
+// Смотреть могут все, записывать и откатывать — роль «Лиса-Алиса» и админ
+$la_can_edit = auth_can('lisa');
+
 if (isset($_GET['api'])) {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $data = is_file($LA_DATA_FILE) ? json_decode((string)file_get_contents($LA_DATA_FILE), true) : [];
@@ -63,6 +67,12 @@ if (isset($_GET['api'])) {
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         la_json(405, ['error' => 'Метод не поддерживается']);
+    }
+    if (!$la_can_edit) {
+        la_json(403, ['error' => 'Записывать может только Лиса-Алиса или админ']);
+    }
+    if (!csrf_check((string)($_SERVER['HTTP_X_CSRF'] ?? ''))) {
+        la_json(400, ['error' => 'Сессия устарела, обнови страницу']);
     }
 
     $in = json_decode((string)file_get_contents('php://input'), true);
@@ -186,6 +196,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   /* ---- ввод ---- */
   .la-top{ display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,1.6fr); gap:14px; margin-bottom:14px; }
+  .la-top.readonly{ grid-template-columns:1fr; }
 
   .la-form{ display:grid; gap:12px; }
   .la-field label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; font-weight:600; }
@@ -434,8 +445,8 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       </div>
     </header>
 
-    <div class="la-top">
-      <section class="la-card">
+    <div class="la-top<?= $la_can_edit ? '' : ' readonly' ?>">
+      <section class="la-card"<?= $la_can_edit ? '' : ' hidden' ?>>
         <h2>Записать день</h2>
         <form class="la-form" id="laForm" autocomplete="off">
           <div class="la-field">
@@ -533,6 +544,8 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 (function () {
   let DEFAULT_RATE = <?= LA_RATE ?>;
   const API = '/lisa-alisa/index.php?api=1';
+  const CAN_EDIT = <?= $la_can_edit ? 'true' : 'false' ?>;
+  const CSRF = <?= json_encode($la_can_edit ? csrf_token() : '') ?>;
 
   const MONTHS = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
   const MONTHS_GEN = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
@@ -602,7 +615,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   async function save(date, squares, rate) {
     const r = await fetch(API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF': CSRF },
       body: JSON.stringify({ date, squares, rate }),
     });
     const j = await r.json().catch(() => ({}));
@@ -624,7 +637,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     }
     renderMonth();
     renderMonths();
-    if (focus) {
+    if (focus && CAN_EDIT) {
       $('laSquares').focus({ preventScroll: true });
       $('laForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -950,7 +963,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
           <div class="la-log-row">
             <div class="la-log-time">${fmtTime.format(new Date(it.t * 1000))}</div>
             <div class="la-log-what">${describe(it)}</div>
-            <button class="la-undo" type="button" data-undo="${it.i}" title="Вернуть значение, которое было до этого изменения">Вернуть</button>
+            ${CAN_EDIT ? `<button class="la-undo" type="button" data-undo="${it.i}" title="Вернуть значение, которое было до этого изменения">Вернуть</button>` : ''}
           </div>`).join('')}
       </div>
       ${items.length > 8 ? `<button class="la-chip la-log-more" type="button" id="laLogMore">${showAllLog ? 'Свернуть' : `Показать все (${items.length})`}</button>` : ''}`;

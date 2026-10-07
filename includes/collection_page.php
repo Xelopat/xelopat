@@ -9,7 +9,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/auth/lib.php';
 $coll_key = (string)($collection_key ?? '');
 $coll = coll_def($coll_key);
 $coll_user = auth_current_user();
-$coll_is_admin = $coll_user && (($coll_user['role'] ?? '') === 'admin');
+$coll_is_admin = user_has_role($coll_user, 'editor');
 
 const COLL_MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 
@@ -142,6 +142,8 @@ $coll_csrf = $coll_is_admin ? csrf_token() : '';
 $coll_gallery = $coll['layout'] === 'gallery';
 ?>
 <style>
+  /* В разделах ссылки без подчёркивания: карточки целиком кликабельные */
+  .page a{ text-decoration:none; }
   .co-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
   .co-head .page-title{ margin:0; }
   .co-tools{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }

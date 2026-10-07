@@ -99,21 +99,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         admin_back('home');
     }
 
-    if ($action === 'set_role') {
+    if ($action === 'set_roles') {
         $uid = (string)($_POST['uid'] ?? '');
-        $role = (string)($_POST['role'] ?? '') === 'admin' ? 'admin' : 'user';
-        if ($uid === ($me['id'] ?? '') && $role !== 'admin') {
-            admin_flash('err', 'Себя из админов убрать нельзя, иначе некому будет вернуть.');
-            admin_back('users');
-        }
+        $roles = array_values(array_intersect(array_keys(ROLES), (array)($_POST['roles'] ?? [])));
+        // Себе админа не снимаем, иначе некому будет вернуть
+        if ($uid === ($me['id'] ?? '') && !in_array('admin', $roles, true)) $roles[] = 'admin';
         $data = users_load();
         foreach ($data['users'] as $u) {
             if (($u['id'] ?? '') === $uid) {
-                $u['role'] = $role;
+                $u['roles'] = $roles;
+                unset($u['role']);
                 $u['updated_at'] = date('c');
                 user_update($data, $u);
                 users_save($data);
-                admin_flash('ok', ($u['username'] ?? '') . ': теперь ' . ($role === 'admin' ? 'админ' : 'обычный пользователь') . '.');
+                $labels = array_map(function ($r) { return ROLES[$r]['label']; }, $roles);
+                admin_flash('ok', ($u['username'] ?? '') . ': ' . ($labels ? implode(', ', $labels) : 'без ролей') . '.');
                 admin_back('users');
             }
         }
@@ -251,10 +251,16 @@ include __DIR__ . '/header.php';
   .cp-small{ padding:6px 10px; font-size:13px; }
   .cp-danger:hover{ border-color:var(--danger); color:var(--danger); }
   .cp-note{ color:var(--muted); font-size:13px; margin:0 0 12px; }
+  .cp-roles{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0; }
+  .cp-check{ display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border:1px solid var(--line); border-radius:999px; font-size:13px; cursor:pointer; user-select:none; color:var(--text-2); }
+  .cp-check input{ margin:0; accent-color:var(--accent); }
+  .cp-check:has(input:checked){ border-color:rgba(249,201,64,.45); color:var(--text); background:rgba(249,201,64,.07); }
+  .cp-check.locked{ cursor:default; opacity:.75; }
 
   @media (max-width: 700px){
     .cp-form .two{ grid-template-columns:1fr; }
     .cp-table th:nth-child(3), .cp-table td:nth-child(3){ display:none; }
+    .cp-check{ padding:5px 8px; }
   }
 </style>
 
@@ -334,26 +340,30 @@ include __DIR__ . '/header.php';
 
     <section class="cp-pane" id="pane-users">
       <div class="panel" style="overflow-x:auto">
+        <p class="cp-note">Админ может всё. <?php foreach (ROLES as $rk => $rd): if ($rk === 'admin') continue; ?><?= admin_h($rd['label']) ?>: <?= admin_h($rd['hint']) ?>. <?php endforeach; ?></p>
         <table class="data-table cp-table">
-          <thead><tr><th>Логин</th><th>Роль</th><th>Зарегистрирован</th><th></th></tr></thead>
+          <thead><tr><th>Логин</th><th>Роли</th><th>Зарегистрирован</th></tr></thead>
           <tbody>
             <?php foreach ($users as $u): ?>
-              <?php $isMe = ($u['id'] ?? '') === ($me['id'] ?? ''); $isAdmin = ($u['role'] ?? '') === 'admin'; ?>
+              <?php $isMe = ($u['id'] ?? '') === ($me['id'] ?? ''); $uRoles = user_roles($u); ?>
               <tr>
                 <td><?= admin_h((string)($u['username'] ?? '')) ?> <?php if ($isMe): ?><span class="cp-pill me">это ты</span><?php endif; ?></td>
-                <td><span class="cp-pill<?= $isAdmin ? ' admin' : '' ?>"><?= $isAdmin ? 'админ' : 'пользователь' ?></span></td>
-                <td><?= admin_h(($ts = strtotime((string)($u['created_at'] ?? ''))) ? date('d.m.Y', $ts) : '—') ?></td>
-                <td style="text-align:right">
-                  <?php if (!$isMe): ?>
-                    <form class="cp-inline" method="post">
-                      <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
-                      <input type="hidden" name="action" value="set_role">
-                      <input type="hidden" name="uid" value="<?= admin_h((string)($u['id'] ?? '')) ?>">
-                      <input type="hidden" name="role" value="<?= $isAdmin ? 'user' : 'admin' ?>">
-                      <button class="btn cp-small" type="submit"><?= $isAdmin ? 'Снять админа' : 'Сделать админом' ?></button>
-                    </form>
-                  <?php endif; ?>
+                <td>
+                  <form class="cp-roles" method="post">
+                    <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
+                    <input type="hidden" name="action" value="set_roles">
+                    <input type="hidden" name="uid" value="<?= admin_h((string)($u['id'] ?? '')) ?>">
+                    <?php foreach (ROLES as $rk => $rd): ?>
+                      <?php $locked = $isMe && $rk === 'admin'; ?>
+                      <label class="cp-check<?= $locked ? ' locked' : '' ?>" title="<?= admin_h($locked ? 'Себе админа снять нельзя' : $rd['hint']) ?>">
+                        <input type="checkbox" name="roles[]" value="<?= admin_h($rk) ?>"<?= in_array($rk, $uRoles, true) ? ' checked' : '' ?><?= $locked ? ' disabled' : '' ?>>
+                        <span><?= admin_h($rd['label']) ?></span>
+                      </label>
+                    <?php endforeach; ?>
+                    <button class="btn cp-small cp-roles-save" type="submit" hidden>Сохранить</button>
+                  </form>
                 </td>
+                <td><?= admin_h(($ts = strtotime((string)($u['created_at'] ?? ''))) ? date('d.m.Y', $ts) : '—') ?></td>
               </tr>
             <?php endforeach; ?>
           </tbody>
@@ -416,5 +426,12 @@ include __DIR__ . '/header.php';
     show(t.dataset.tab);
   }));
   show(location.hash.slice(1));
+
+  document.querySelectorAll('.cp-roles').forEach((f) => {
+    const btn = f.querySelector('.cp-roles-save');
+    const initial = () => [...f.querySelectorAll('input[type=checkbox]')].map((c) => c.checked).join();
+    const start = initial();
+    f.addEventListener('change', () => { btn.hidden = initial() === start; });
+  });
 })();
 </script>

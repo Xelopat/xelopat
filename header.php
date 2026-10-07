@@ -4,7 +4,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/auth/lib.php';
 $auth_user = auth_current_user();
 $auth_csrf = csrf_token();
 $auth_next = (string)($_SERVER['REQUEST_URI'] ?? '/');
-$auth_is_admin = $auth_user && (($auth_user['role'] ?? '') === 'admin');
+$auth_is_admin = user_has_role($auth_user, 'admin');
 
 $brand_name = 'xelopat';
 $brand_href = '/';

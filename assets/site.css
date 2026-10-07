@@ -553,4 +553,5 @@ body.nav-open{
   background:var(--accent);
 }
 .type-caret.blink{ animation:type-caret-blink .9s step-end 3 forwards; }
-@keyframes type-caret-blink{ 50%{ opacity:0; } }
+/* В конце каждого цикла курсор погашен, поэтому после третьего мигания он не вспыхивает снова */
+@keyframes type-caret-blink{ 0%{ opacity:1; } 50%, 100%{ opacity:0; } }

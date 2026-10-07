@@ -143,8 +143,36 @@ function remember_revoke(): void {
     remember_set_cookie('', time() - 3600);
 }
 
+/* ---------------- Роли ----------------
+   У пользователя список ролей. Админ умеет всё, что умеют остальные роли. */
+
+const ROLES = [
+    'admin' => ['label' => 'Админ', 'hint' => 'всё, включая админку'],
+    'editor' => ['label' => 'Редактор', 'hint' => 'проекты, путешествия, фото, духи'],
+    'lisa' => ['label' => 'Лиса-Алиса', 'hint' => 'учёт квадратов на странице Лиса-Алиса'],
+];
+
+function user_roles(array $u): array {
+    $roles = $u['roles'] ?? null;
+    if (!is_array($roles)) {
+        // Старый формат: одна роль строкой (admin|user)
+        $roles = (($u['role'] ?? '') === 'admin') ? ['admin'] : [];
+    }
+    return array_values(array_intersect(array_keys(ROLES), $roles));
+}
+
+function user_has_role(?array $u, string $role): bool {
+    if (!$u) return false;
+    $roles = user_roles($u);
+    return in_array('admin', $roles, true) || in_array($role, $roles, true);
+}
+
+function auth_can(string $role): bool {
+    return user_has_role(auth_current_user(), $role);
+}
+
 function auth_session_user(array $u): array {
-    return ["id" => $u["id"], "username" => $u["username"], "role" => $u["role"]];
+    return ["id" => $u["id"], "username" => $u["username"], "roles" => user_roles($u)];
 }
 
 function h(string $s): string {
@@ -190,13 +218,13 @@ function user_update(array &$data, array $user): void {
     }
 }
 
-function user_create(string $username, string $password, string $role): array {
+function user_create(string $username, string $password, array $roles = []): array {
     $now = date('c');
     return [
         "id" => bin2hex(random_bytes(8)),
         "username" => $username,
         "password_hash" => password_hash($password, PASSWORD_DEFAULT),
-        "role" => $role, // admin|user
+        "roles" => array_values(array_intersect(array_keys(ROLES), $roles)),
         "created_at" => $now,
         "updated_at" => $now,
     ];
@@ -229,6 +257,22 @@ function auth_current_user(): ?array {
             remember_use();
         }
     }
+
+    // Роли берём из файла пользователей при каждом запросе, чтобы изменения в админке
+    // действовали сразу, без перезахода
+    static $fresh = null;
+    if (is_array($u) && $fresh === null) {
+        $fresh = false;
+        foreach (users_load()["users"] as $row) {
+            if (($row["id"] ?? "") === ($u["id"] ?? null)) { $fresh = auth_session_user($row); break; }
+        }
+        if ($fresh === false) {
+            unset($_SESSION[AUTH_SESSION_KEY]);
+            return null;
+        }
+        $_SESSION[AUTH_SESSION_KEY] = $fresh;
+    }
+    if (is_array($u) && is_array($fresh)) $u = $fresh;
     return is_array($u) ? $u : null;
 }
 
@@ -278,7 +322,7 @@ function require_role(string $role): void {
     $u = auth_current_user();
     if (!$u) require_login();
 
-    if (($u["role"] ?? "") !== $role) {
+    if (!user_has_role($u, $role)) {
         http_response_code(403);
         echo "403 Forbidden";
         exit;

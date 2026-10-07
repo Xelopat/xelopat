@@ -28,7 +28,7 @@
       caret.classList.add('blink');
       caret.addEventListener('animationend', () => caret.remove(), { once: true });
       // Если анимация не отыграла (вкладка в фоне), всё равно убираем курсор
-      setTimeout(() => caret.remove(), 3000);
+      setTimeout(() => caret.remove(), 2800);
     };
     if (reduce || !text) { finish(); return; }
 

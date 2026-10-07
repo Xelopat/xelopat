@@ -17,7 +17,7 @@ $user = null;
 if (function_exists("auth_current_user")) {
     $user = auth_current_user();
 }
-$is_admin = $user && (($user["role"] ?? "") === "admin");
+$is_admin = user_has_role($user, "editor");
 
 $DATA_FILE = __DIR__ . "/data.json";
 

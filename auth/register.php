@@ -37,8 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $role = (count($data["users"]) === 0) ? 'admin' : 'user';
-    $u = user_create($username, $password, $role);
+    // Первый зарегистрированный становится админом, остальные приходят без ролей
+    $u = user_create($username, $password, count($data["users"]) === 0 ? ['admin'] : []);
     $data["users"][] = $u;
     users_save($data);
 
