@@ -110,8 +110,25 @@ $hero_tag = (string)cfg($config, 'hero.tag', '// личный сайт');
 $hero_name = (string)cfg($config, 'hero.name', 'Xelopat');
 $hero_subtitle = (string)cfg($config, 'hero.subtitle', '');
 
-$travels = load_cards_collection($config, 'travels', 'travel');
-$photos = load_cards_collection($config, 'photos', 'photo');
+require_once __DIR__ . '/includes/collection_lib.php';
+
+// Карточки для главной в старом формате (images/videos) из новых разделов
+function home_collection(string $key): array {
+    $out = [];
+    foreach (coll_sorted(coll_load($key)) as $it) {
+        $images = $videos = [];
+        foreach ($it['media'] as $m) {
+            if ($m['type'] === 'video') $videos[] = $m['src'];
+            else $images[] = $m['preview'] ?: $m['src'];
+        }
+        $out[] = ['title' => $it['title'], 'description' => $it['description'], 'details' => $it['details'],
+                  'images' => $images, 'videos' => $videos, 'url' => coll_item_url($key, $it)];
+    }
+    return $out;
+}
+
+$travels = home_collection('travel');
+$photos = home_collection('photo');
 
 $terminal_config = cfg($config, 'terminal', []);
 if (!is_array($terminal_config)) {
@@ -564,7 +581,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
                 <div class="card-title"><?= e($title) ?></div>
                 <div class="card-desc"><?= e($description) ?></div>
                 <div style="margin-top:10px;">
-                  <a class="card-link-btn" href="/card.php?section=travels&id=<?= (int)$travel_index ?>">Подробнее</a>
+                  <a class="card-link-btn" href="<?= e((string)$travel['url']) ?>">Подробнее</a>
                 </div>
               </div>
             </article>
@@ -608,7 +625,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
                 <div class="card-title"><?= e($title) ?></div>
                 <div class="card-desc"><?= e($description) ?></div>
                 <div style="margin-top:10px;">
-                  <a class="card-link-btn" href="/card.php?section=photos&id=<?= (int)$photo_index ?>">Подробнее</a>
+                  <a class="card-link-btn" href="<?= e((string)$photo['url']) ?>">Подробнее</a>
                 </div>
               </div>
             </article>

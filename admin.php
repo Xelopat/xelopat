@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/auth/lib.php';
+require_once __DIR__ . '/includes/collection_lib.php';
 require_role('admin');
 
 $csrf = csrf_token();
@@ -1260,144 +1261,16 @@ $collections = [
     <div class="row">
       <div>
         <h2 class="title">Карточки разделов</h2>
-        <div class="muted">Редактирование карточек: название, описание, фото и видео. Сохранение без перезагрузки.</div>
+        <div class="muted">Карточки теперь редактируются прямо на страницах разделов: кнопка «+ Добавить» и «Изменить» в просмотре видны только админу.</div>
       </div>
     </div>
 
     <div class="collection-grid">
-      <?php foreach ($collections as $collection): ?>
-        <form method="post" enctype="multipart/form-data" class="subcard js-admin-save-form">
-          <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
-          <input type="hidden" name="action" value="save_collection">
-          <input type="hidden" name="collection" value="<?= admin_h((string)$collection['key']) ?>">
-
-          <div>
-            <h3 class="subtitle"><?= admin_h((string)$collection['title']) ?></h3>
-            <div class="muted"><?= admin_h((string)$collection['hint']) ?></div>
-          </div>
-
-          <div class="projects-list" id="<?= admin_h((string)$collection['list_id']) ?>" data-collection-list>
-            <?php foreach ((array)$collection['items'] as $item_index => $item): ?>
-              <?php
-                $item_images = $item['images'] ?? [];
-                if (!is_array($item_images) || !$item_images) {
-                    $item_images = [((string)($item['image'] ?? ''))];
-                }
-                if (!$item_images) {
-                    $item_images = [''];
-                }
-                $item_videos = $item['videos'] ?? [];
-                if (!is_array($item_videos) || !$item_videos) {
-                    $item_videos = [((string)($item['video'] ?? ''))];
-                }
-                if (!$item_videos) {
-                    $item_videos = [''];
-                }
-              ?>
-              <div class="project-item" data-project-item>
-                <div class="project-row">
-                  <label>
-                    Название
-                    <input type="text" data-field="item-title" name="item_title[<?= (int)$item_index ?>]" value="<?= admin_h((string)($item['title'] ?? '')) ?>" placeholder="Название">
-                  </label>
-                  <label>
-                    Дата
-                    <input type="date" data-field="item-date" name="item_date[<?= (int)$item_index ?>]" value="<?= admin_h((string)($item['date'] ?? '')) ?>">
-                  </label>
-                </div>
-
-                <label>
-                  Описание
-                  <textarea data-field="item-description" name="item_description[<?= (int)$item_index ?>]" placeholder="Коротко о карточке"><?= admin_h((string)($item['description'] ?? '')) ?></textarea>
-                </label>
-                <label>
-                  Подробно (можно HTML, включая &lt;img src="..."&gt;)
-                  <textarea data-field="item-details" name="item_details[<?= (int)$item_index ?>]" placeholder="Подробная информация карточки"><?= admin_h((string)($item['details'] ?? '')) ?></textarea>
-                </label>
-
-                <div class="media-grid">
-                  <div class="media-block">
-                    <div class="media-head">Фото</div>
-                    <details class="media-details">
-                      <summary>URL фото (опционально)</summary>
-                      <label>
-                        <div class="image-urls" data-image-urls>
-                          <?php foreach ($item_images as $image_url): ?>
-                            <div class="image-url-row">
-                              <img class="image-url-thumb" data-image-preview src="<?= admin_h((string)$image_url) ?>" alt="preview"<?= trim((string)$image_url) === '' ? ' style="visibility:hidden"' : '' ?>>
-                              <input type="text" data-field="item-image-url" name="item_images[<?= (int)$item_index ?>][]" value="<?= admin_h((string)$image_url) ?>" placeholder="/uploads/site/example.jpg">
-                              <div class="row-actions">
-                                <button type="button" data-move-image-url-up title="Выше">↑</button>
-                                <button type="button" data-move-image-url-down title="Ниже">↓</button>
-                                <button type="button" class="remove-image-url" data-remove-image-url>×</button>
-                              </div>
-                            </div>
-                          <?php endforeach; ?>
-                        </div>
-                        <button type="button" data-add-image-url>Добавить URL фото</button>
-                      </label>
-                    </details>
-                  </div>
-                  <div class="media-block">
-                    <div class="media-head">Видео</div>
-                    <details class="media-details">
-                      <summary>URL видео (опционально)</summary>
-                      <label>
-                        <div class="video-urls" data-video-urls>
-                          <?php foreach ($item_videos as $video_url): ?>
-                            <div class="video-url-row">
-                              <div class="video-url-badge">VIDEO</div>
-                              <input type="text" data-field="item-video-url" name="item_videos[<?= (int)$item_index ?>][]" value="<?= admin_h((string)$video_url) ?>" placeholder="/uploads/site/example.mp4">
-                              <div class="row-actions">
-                                <button type="button" data-move-video-url-up title="Выше">↑</button>
-                                <button type="button" data-move-video-url-down title="Ниже">↓</button>
-                                <button type="button" class="remove-video-url" data-remove-video-url>×</button>
-                              </div>
-                            </div>
-                          <?php endforeach; ?>
-                        </div>
-                        <button type="button" data-add-video-url>Добавить URL видео</button>
-                      </label>
-                    </details>
-                  </div>
-                </div>
-
-                <label>
-                  Загрузка медиа (фото и видео)
-                  <input type="file" data-field="item-upload-media" name="item_upload_media[<?= (int)$item_index ?>][]" accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/heic,image/heif,.heic,.heif,video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
-                  <span class="file-note">Можно выбрать несколько файлов или вставить из буфера через Ctrl+V.</span>
-                  <div class="selected-media-list" data-selected-media-list></div>
-                </label>
-
-                <div class="project-tools">
-                  <div class="project-order">
-                    <button type="button" data-move-up title="Выше">↑</button>
-                    <button type="button" data-move-down title="Ниже">↓</button>
-                  </div>
-                  <button type="button" class="remove-project" data-remove-project>Удалить</button>
-                </div>
-              </div>
-            <?php endforeach; ?>
-          </div>
-
-          <div class="collection-actions">
-            <div class="collection-actions-left">
-              <button type="button" data-add-item data-target="<?= admin_h((string)$collection['list_id']) ?>">Добавить карточку</button>
-              <button type="button" data-sort-by-date data-target="<?= admin_h((string)$collection['list_id']) ?>">Сортировать по дате ↓</button>
-            </div>
-            <div class="collection-actions-right">
-              <div class="bulk-inline">
-                <label>
-                  Массово: медиа
-                  <input type="file" data-field="bulk-upload-media" name="bulk_upload_media[]" accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/heic,image/heif,.heic,.heif,video/mp4,video/webm,video/ogg,video/quicktime,.m4v,.mov" multiple>
-                  <div class="selected-media-list" data-selected-media-list></div>
-                </label>
-              </div>
-              <button class="primary" type="submit">Сохранить</button>
-            </div>
-          </div>
-          <span class="file-note">Массовая загрузка добавляет файлы как новые карточки в этот раздел.</span>
-        </form>
+      <?php foreach (COLLECTIONS as $coll_key => $coll_def): ?>
+        <a class="subcard" href="<?= admin_h($coll_def['url']) ?>" style="display:block;text-decoration:none;color:inherit">
+          <h3 class="subtitle"><?= admin_h($coll_def['title']) ?></h3>
+          <div class="muted"><?= count(coll_load($coll_key)) ?> шт. Открыть раздел и редактировать там →</div>
+        </a>
       <?php endforeach; ?>
     </div>
   </section>

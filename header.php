@@ -120,8 +120,8 @@ if (isset($site_page_title)):
       <a class="nav-link<?= strpos($uri, '/projects/') === 0 ? ' active' : '' ?>" href="/projects/index.php">Проекты</a>
 
       <div class="dd" id="dd-univer-wrap">
-        <button type="button" class="nav-btn<?= strpos($uri, '/crypto/') === 0 || strpos($uri, '/adminis/') === 0 || strpos($uri, '/coursework/') === 0 ? ' active' : '' ?>" data-dd-btn="univer" aria-expanded="false">Универ</button>
-        <div class="dd-panel" id="dd-univer" role="dialog" aria-label="Универ">
+        <button type="button" class="nav-btn<?= strpos($uri, '/crypto/') === 0 || strpos($uri, '/adminis/') === 0 || strpos($uri, '/coursework/') === 0 ? ' active' : '' ?>" data-dd-btn="univer" aria-expanded="false">МЭИ</button>
+        <div class="dd-panel" id="dd-univer" role="dialog" aria-label="МЭИ">
           <?php foreach ($univer_sections as $section): ?>
             <section class="dd-group">
               <div class="dd-group-title"><?= site_h((string)$section['title']) ?></div>
