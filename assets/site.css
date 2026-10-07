@@ -541,3 +541,16 @@ body.nav-open{
   .page-sub{ font-size:13px; }
   .panel{ padding:14px; }
 }
+
+/* Курсор печати заголовка (assets/site.js) */
+.type-caret{
+  display:inline-block;
+  width:.09em;
+  min-width:2px;
+  height:.92em;
+  margin-left:.08em;
+  vertical-align:-.08em;
+  background:var(--accent);
+}
+.type-caret.blink{ animation:type-caret-blink .9s step-end 3 forwards; }
+@keyframes type-caret-blink{ 50%{ opacity:0; } }

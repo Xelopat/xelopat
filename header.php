@@ -67,6 +67,7 @@ function site_active(string $href, string $uri): bool {
 // Страницы без собственного <head> задают $site_page_title до подключения шапки —
 // тогда шапка сама открывает документ (doctype, кодировка, заголовок вкладки).
 $site_css_v = @filemtime($_SERVER['DOCUMENT_ROOT'] . '/assets/site.css') ?: 1;
+$site_js_v = @filemtime($_SERVER['DOCUMENT_ROOT'] . '/assets/site.js') ?: 1;
 if (isset($site_page_title)):
 ?>
 <!DOCTYPE html>
@@ -77,10 +78,12 @@ if (isset($site_page_title)):
   <title><?= site_h((string)$site_page_title) ?></title>
   <link rel="icon" type="image/png" href="/img/xelopat.png">
   <link rel="stylesheet" href="/assets/site.css?v=<?= $site_css_v ?>">
+  <script src="/assets/site.js?v=<?= $site_js_v ?>" defer></script>
 </head>
 <body>
 <?php else: ?>
 <link rel="stylesheet" href="/assets/site.css?v=<?= $site_css_v ?>">
+<script src="/assets/site.js?v=<?= $site_js_v ?>" defer></script>
 <?php endif; ?>
 <script>
 (function () {

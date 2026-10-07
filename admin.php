@@ -212,55 +212,55 @@ $site_page_title = 'Админка — xelopat';
 include __DIR__ . '/header.php';
 ?>
 <style>
-  .ad-head{ display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
-  .ad-head .page-title{ margin:0; }
-  .ad-tabs{ display:flex; gap:4px; background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:4px; margin-bottom:16px; overflow-x:auto; }
-  .ad-tabs a{ flex:none; padding:8px 14px; border-radius:8px; color:var(--text-2); text-decoration:none; font-size:14px; font-weight:600; }
-  .ad-tabs a:hover{ color:var(--text); }
-  .ad-tabs a.on{ background:var(--accent); color:#1b1606; }
-  .ad-pane{ display:none; }
-  .ad-pane.on{ display:block; }
+  .cp-head{ display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+  .cp-head .page-title{ margin:0; }
+  .cp-tabs{ display:flex; gap:4px; background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:4px; margin-bottom:16px; overflow-x:auto; }
+  .cp-tabs a{ flex:none; padding:8px 14px; border-radius:8px; color:var(--text-2); text-decoration:none; font-size:14px; font-weight:600; }
+  .cp-tabs a:hover{ color:var(--text); }
+  .cp-tabs a.on{ background:var(--accent); color:#1b1606; }
+  .cp-pane{ display:none; }
+  .cp-pane.on{ display:block; }
 
-  .ad-flash{ padding:12px 14px; border-radius:10px; margin-bottom:14px; font-size:14px; border:1px solid; }
-  .ad-flash.ok{ color:var(--green); border-color:rgba(97,209,173,.35); background:rgba(97,209,173,.07); }
-  .ad-flash.err{ color:var(--danger); border-color:rgba(255,143,143,.35); background:rgba(255,143,143,.07); }
+  .cp-flash{ padding:12px 14px; border-radius:10px; margin-bottom:14px; font-size:14px; border:1px solid; }
+  .cp-flash.ok{ color:var(--green); border-color:rgba(97,209,173,.35); background:rgba(97,209,173,.07); }
+  .cp-flash.err{ color:var(--danger); border-color:rgba(255,143,143,.35); background:rgba(255,143,143,.07); }
 
-  .ad-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:12px; }
-  .ad-tile{ display:flex; flex-direction:column; gap:6px; }
-  .ad-tile h3{ margin:0; font-size:17px; }
-  .ad-tile .stat{ font-size:20px; font-weight:800; color:var(--accent); }
-  .ad-tile .muted{ font-size:12px; color:var(--muted); }
-  .ad-tile .row{ display:flex; gap:8px; margin-top:auto; padding-top:8px; }
-  .ad-tile .row .btn{ flex:1; text-align:center; text-decoration:none; }
-  .ad-add{ border-color:var(--accent); color:var(--accent); }
+  .cp-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:12px; }
+  .cp-tile{ display:flex; flex-direction:column; gap:6px; }
+  .cp-tile h3{ margin:0; font-size:17px; }
+  .cp-tile .stat{ font-size:20px; font-weight:800; color:var(--accent); }
+  .cp-tile .muted{ font-size:12px; color:var(--muted); }
+  .cp-tile .row{ display:flex; gap:8px; margin-top:auto; padding-top:8px; }
+  .cp-tile .row .btn{ flex:1; text-align:center; text-decoration:none; }
+  .cp-add{ border-color:var(--accent); color:var(--accent); }
 
-  .ad-form{ display:grid; gap:12px; }
-  .ad-form .two{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .ad-form h3{ margin:8px 0 0; font-size:14px; color:var(--text-2); font-weight:600; }
-  .ad-save{ background:var(--accent); color:#1b1606; border-color:var(--accent); justify-self:start; }
-  .ad-save:hover{ color:#1b1606; filter:brightness(1.08); }
-  .ad-json{ margin-top:16px; }
-  .ad-json summary{ cursor:pointer; color:var(--text-2); font-size:14px; }
-  .ad-json textarea{ min-height:360px; font-family:var(--mono); font-size:12px; }
+  .cp-form{ display:grid; gap:12px; }
+  .cp-form .two{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .cp-form h3{ margin:8px 0 0; font-size:14px; color:var(--text-2); font-weight:600; }
+  .cp-save{ background:var(--accent); color:#1b1606; border-color:var(--accent); justify-self:start; }
+  .cp-save:hover{ color:#1b1606; filter:brightness(1.08); }
+  .cp-json{ margin-top:16px; }
+  .cp-json summary{ cursor:pointer; color:var(--text-2); font-size:14px; }
+  .cp-json textarea{ min-height:360px; font-family:var(--mono); font-size:12px; }
 
-  .ad-table td, .ad-table th{ vertical-align:middle; }
-  .ad-pill{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid var(--line); color:var(--text-2); }
-  .ad-pill.admin{ color:var(--accent); border-color:rgba(249,201,64,.4); }
-  .ad-pill.me{ color:var(--green); border-color:rgba(97,209,173,.4); }
-  .ad-inline{ display:inline; margin:0; }
-  .ad-small{ padding:6px 10px; font-size:13px; }
-  .ad-danger:hover{ border-color:var(--danger); color:var(--danger); }
-  .ad-note{ color:var(--muted); font-size:13px; margin:0 0 12px; }
+  .cp-table td, .cp-table th{ vertical-align:middle; }
+  .cp-pill{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid var(--line); color:var(--text-2); }
+  .cp-pill.admin{ color:var(--accent); border-color:rgba(249,201,64,.4); }
+  .cp-pill.me{ color:var(--green); border-color:rgba(97,209,173,.4); }
+  .cp-inline{ display:inline; margin:0; }
+  .cp-small{ padding:6px 10px; font-size:13px; }
+  .cp-danger:hover{ border-color:var(--danger); color:var(--danger); }
+  .cp-note{ color:var(--muted); font-size:13px; margin:0 0 12px; }
 
   @media (max-width: 700px){
-    .ad-form .two{ grid-template-columns:1fr; }
-    .ad-table th:nth-child(3), .ad-table td:nth-child(3){ display:none; }
+    .cp-form .two{ grid-template-columns:1fr; }
+    .cp-table th:nth-child(3), .cp-table td:nth-child(3){ display:none; }
   }
 </style>
 
 <main class="page">
   <div class="page-wrap">
-    <div class="ad-head">
+    <div class="cp-head">
       <div>
         <div class="page-label">// admin</div>
         <h1 class="page-title">Админка</h1>
@@ -269,38 +269,38 @@ include __DIR__ . '/header.php';
     </div>
 
     <?php foreach ($load_errors as $le): ?>
-      <div class="ad-flash err"><?= admin_h($le) ?></div>
+      <div class="cp-flash err"><?= admin_h($le) ?></div>
     <?php endforeach; ?>
     <?php if ($flash): ?>
-      <div class="ad-flash <?= $flash[0] === 'ok' ? 'ok' : 'err' ?>"><?= admin_h($flash[1]) ?></div>
+      <div class="cp-flash <?= $flash[0] === 'ok' ? 'ok' : 'err' ?>"><?= admin_h($flash[1]) ?></div>
     <?php endif; ?>
 
-    <nav class="ad-tabs" id="adTabs">
+    <nav class="cp-tabs" id="cpTabs">
       <a href="#sections" data-tab="sections" class="on">Разделы</a>
       <a href="#home" data-tab="home">Главная</a>
       <a href="#users" data-tab="users">Пользователи</a>
       <a href="#sessions" data-tab="sessions">Мои входы</a>
     </nav>
 
-    <section class="ad-pane on" id="pane-sections">
-      <div class="ad-grid">
+    <section class="cp-pane on" id="pane-sections">
+      <div class="cp-grid">
         <?php foreach ($sections as $s): ?>
-          <div class="panel ad-tile">
+          <div class="panel cp-tile">
             <h3><?= admin_h($s['title']) ?></h3>
             <div class="stat"><?= admin_h($s['stat']) ?></div>
             <div class="muted"><?= admin_h($s['last']) ?></div>
             <div class="row">
-              <a class="btn ad-small" href="<?= admin_h($s['url']) ?>">Открыть</a>
-              <?php if ($s['add']): ?><a class="btn ad-small ad-add" href="<?= admin_h($s['add']) ?>">+ Добавить</a><?php endif; ?>
+              <a class="btn cp-small" href="<?= admin_h($s['url']) ?>">Открыть</a>
+              <?php if ($s['add']): ?><a class="btn cp-small cp-add" href="<?= admin_h($s['add']) ?>">+ Добавить</a><?php endif; ?>
             </div>
           </div>
         <?php endforeach; ?>
       </div>
     </section>
 
-    <section class="ad-pane" id="pane-home">
+    <section class="cp-pane" id="pane-home">
       <div class="panel">
-        <form class="ad-form" method="post">
+        <form class="cp-form" method="post">
           <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
           <input type="hidden" name="action" value="save_home">
           <h3>Шапка главной</h3>
@@ -317,40 +317,40 @@ include __DIR__ . '/header.php';
           <div class="field"><label>Приветствие</label><textarea name="term_welcome" rows="2"><?= admin_h((string)($cfg['terminal']['welcome'] ?? '')) ?></textarea></div>
           <h3>Подвал</h3>
           <div class="field"><label>Текст внизу страницы</label><input name="footer_text" value="<?= admin_h((string)($cfg['footer']['text'] ?? '')) ?>"></div>
-          <button class="btn ad-save" type="submit">Сохранить</button>
+          <button class="btn cp-save" type="submit">Сохранить</button>
         </form>
 
-        <details class="ad-json">
+        <details class="cp-json">
           <summary>Весь конфиг в JSON (файлы терминала и остальное)</summary>
-          <form class="ad-form" method="post" style="margin-top:10px">
+          <form class="cp-form" method="post" style="margin-top:10px">
             <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
             <input type="hidden" name="action" value="save_json">
             <div class="field"><textarea name="json" spellcheck="false"><?= admin_h($cfg_json) ?></textarea></div>
-            <button class="btn ad-save" type="submit">Сохранить JSON</button>
+            <button class="btn cp-save" type="submit">Сохранить JSON</button>
           </form>
         </details>
       </div>
     </section>
 
-    <section class="ad-pane" id="pane-users">
+    <section class="cp-pane" id="pane-users">
       <div class="panel" style="overflow-x:auto">
-        <table class="data-table ad-table">
+        <table class="data-table cp-table">
           <thead><tr><th>Логин</th><th>Роль</th><th>Зарегистрирован</th><th></th></tr></thead>
           <tbody>
             <?php foreach ($users as $u): ?>
               <?php $isMe = ($u['id'] ?? '') === ($me['id'] ?? ''); $isAdmin = ($u['role'] ?? '') === 'admin'; ?>
               <tr>
-                <td><?= admin_h((string)($u['username'] ?? '')) ?> <?php if ($isMe): ?><span class="ad-pill me">это ты</span><?php endif; ?></td>
-                <td><span class="ad-pill<?= $isAdmin ? ' admin' : '' ?>"><?= $isAdmin ? 'админ' : 'пользователь' ?></span></td>
+                <td><?= admin_h((string)($u['username'] ?? '')) ?> <?php if ($isMe): ?><span class="cp-pill me">это ты</span><?php endif; ?></td>
+                <td><span class="cp-pill<?= $isAdmin ? ' admin' : '' ?>"><?= $isAdmin ? 'админ' : 'пользователь' ?></span></td>
                 <td><?= admin_h(($ts = strtotime((string)($u['created_at'] ?? ''))) ? date('d.m.Y', $ts) : '—') ?></td>
                 <td style="text-align:right">
                   <?php if (!$isMe): ?>
-                    <form class="ad-inline" method="post">
+                    <form class="cp-inline" method="post">
                       <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
                       <input type="hidden" name="action" value="set_role">
                       <input type="hidden" name="uid" value="<?= admin_h((string)($u['id'] ?? '')) ?>">
                       <input type="hidden" name="role" value="<?= $isAdmin ? 'user' : 'admin' ?>">
-                      <button class="btn ad-small" type="submit"><?= $isAdmin ? 'Снять админа' : 'Сделать админом' ?></button>
+                      <button class="btn cp-small" type="submit"><?= $isAdmin ? 'Снять админа' : 'Сделать админом' ?></button>
                     </form>
                   <?php endif; ?>
                 </td>
@@ -361,27 +361,27 @@ include __DIR__ . '/header.php';
       </div>
     </section>
 
-    <section class="ad-pane" id="pane-sessions">
+    <section class="cp-pane" id="pane-sessions">
       <div class="panel" style="overflow-x:auto">
-        <p class="ad-note">Устройства, где ты вошёл. Вход держится 90 дней с последнего захода и продлевается сам.</p>
+        <p class="cp-note">Устройства, где ты вошёл. Вход держится 90 дней с последнего захода и продлевается сам.</p>
         <?php if (!$sessions): ?>
-          <p class="ad-note">Сохранённых входов нет. Выйди и войди заново, чтобы включить долгий вход на этом устройстве.</p>
+          <p class="cp-note">Сохранённых входов нет. Выйди и войди заново, чтобы включить долгий вход на этом устройстве.</p>
         <?php else: ?>
-          <table class="data-table ad-table">
+          <table class="data-table cp-table">
             <thead><tr><th>Устройство</th><th>Последний заход</th><th>Вход</th><th></th></tr></thead>
             <tbody>
               <?php foreach ($sessions as $s): ?>
                 <tr>
-                  <td><?= admin_h($s['device']) ?> <?php if ($s['current']): ?><span class="ad-pill me">это устройство</span><?php endif; ?></td>
+                  <td><?= admin_h($s['device']) ?> <?php if ($s['current']): ?><span class="cp-pill me">это устройство</span><?php endif; ?></td>
                   <td><?= admin_h(admin_when($s['refreshed'])) ?></td>
                   <td><?= admin_h(date('d.m.Y', $s['created'])) ?></td>
                   <td style="text-align:right">
                     <?php if (!$s['current']): ?>
-                      <form class="ad-inline" method="post">
+                      <form class="cp-inline" method="post">
                         <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
                         <input type="hidden" name="action" value="revoke_session">
                         <input type="hidden" name="token" value="<?= admin_h($s['id']) ?>">
-                        <button class="btn ad-small ad-danger" type="submit">Отозвать</button>
+                        <button class="btn cp-small cp-danger" type="submit">Отозвать</button>
                       </form>
                     <?php endif; ?>
                   </td>
@@ -393,7 +393,7 @@ include __DIR__ . '/header.php';
             <form method="post" style="margin-top:12px">
               <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
               <input type="hidden" name="action" value="revoke_others">
-              <button class="btn ad-danger" type="submit" onclick="return confirm('Выйти на всех остальных устройствах?')">Выйти на остальных устройствах</button>
+              <button class="btn cp-danger" type="submit" onclick="return confirm('Выйти на всех остальных устройствах?')">Выйти на остальных устройствах</button>
             </form>
           <?php endif; ?>
         <?php endif; ?>
@@ -404,11 +404,11 @@ include __DIR__ . '/header.php';
 
 <script>
 (function () {
-  const tabs = document.querySelectorAll('#adTabs [data-tab]');
+  const tabs = document.querySelectorAll('#cpTabs [data-tab]');
   function show(name) {
     if (!document.getElementById('pane-' + name)) name = 'sections';
     tabs.forEach((t) => t.classList.toggle('on', t.dataset.tab === name));
-    document.querySelectorAll('.ad-pane').forEach((p) => p.classList.toggle('on', p.id === 'pane-' + name));
+    document.querySelectorAll('.cp-pane').forEach((p) => p.classList.toggle('on', p.id === 'pane-' + name));
   }
   tabs.forEach((t) => t.addEventListener('click', (e) => {
     e.preventDefault();

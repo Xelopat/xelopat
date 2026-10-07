@@ -205,18 +205,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     display:none;
   }
 
-  .cursor{
-    display:inline-block;
-    width:4px;
-    height:52px;
-    background:var(--accent);
-    margin-left:3px;
-    vertical-align:middle;
-    animation:blink 1s step-end infinite;
-  }
-
-  @keyframes blink { 50% { opacity:0; } }
-
   .hero-divider{
     width:min(320px, 100%);
     height:1px;
@@ -453,10 +441,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     .hero-subtitle{
       font-size:14px;
     }
-    .cursor{
-      width:3px;
-      height:clamp(36px, 10vw, 48px);
-    }
     .hero-divider{
       width:100%;
     }
@@ -523,7 +507,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     <section class="hero">
       <div>
         <div class="hero-tag"><?= e($hero_tag) ?></div>
-        <h1 class="hero-name"><span id="heroNameText" data-hero-name="<?= e($hero_name) ?>"></span><span class="cursor"></span></h1>
+        <h1 class="hero-name" id="heroName"><?= e($hero_name) ?></h1>
         <div class="hero-meta-block" id="heroMetaBlock">
           <div class="hero-divider"></div>
           <?php if ($hero_subtitle !== ''): ?>
@@ -646,13 +630,10 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   if (!terminal) return;
 
   const output = document.getElementById('termOutput');
-  const heroNameText = document.getElementById('heroNameText');
   const heroMetaBlock = document.getElementById('heroMetaBlock');
   const collapseBtn = terminal.querySelector('[data-term-action="collapse"]');
   const clearBtn = terminal.querySelector('[data-term-action="clear"]');
   const retypeBtn = terminal.querySelector('[data-term-action="retype"]');
-  const heroNameValue = heroNameText ? String(heroNameText.getAttribute('data-hero-name') || '') : '';
-  let heroTypeTimer = null;
   let input = null;
 
   let config = {};
@@ -824,22 +805,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   }
 
   function typeHeroName() {
-    if (!heroNameText) return;
-    if (heroTypeTimer) {
-      clearInterval(heroTypeTimer);
-      heroTypeTimer = null;
-    }
-    heroNameText.textContent = '';
-    let i = 0;
-    const speedMs = 72;
-    heroTypeTimer = setInterval(() => {
-      i += 1;
-      heroNameText.textContent = heroNameValue.slice(0, i);
-      if (i >= heroNameValue.length) {
-        clearInterval(heroTypeTimer);
-        heroTypeTimer = null;
-      }
-    }, speedMs);
+    if (window.siteTypeTitle) window.siteTypeTitle(document.getElementById('heroName'));
   }
 
   function getNode(pathParts) {
@@ -1181,6 +1147,5 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   const welcome = Array.isArray(config.welcome) ? config.welcome : [];
   welcome.forEach((line) => printInfo(String(line)));
   createPromptLine('');
-  typeHeroName();
 })();
 </script>

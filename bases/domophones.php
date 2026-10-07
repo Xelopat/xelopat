@@ -587,7 +587,7 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
     <section class="db-head">
       <div>
         <span class="db-kicker">// базы</span>
-        <h1 class="db-title">Домофоны<span style="color:#f9c940">_</span></h1>
+        <h1 class="db-title">Домофоны</h1>
         <p class="db-subtitle">Поиск по улице, дому, корпусу, подъезду и коду.</p>
       </div>
       <div class="db-stats" aria-label="Статистика базы">
