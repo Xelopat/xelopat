@@ -638,6 +638,11 @@ $coll_gallery = $coll['layout'] === 'gallery';
   }
 
   $('coAdd').onclick = () => openForm(null);
+  // Кнопка «+ Добавить» из админки ведёт сюда с ?add=1
+  if (new URLSearchParams(location.search).has('add')) {
+    history.replaceState(null, '', BASE);
+    openForm(null);
+  }
   $('coEdit').onclick = () => { closeModal($('coViewModal')); openForm(current); };
   $('coDelete').onclick = async () => {
     if (!confirm(`Удалить «${current.title}» вместе с файлами?`)) return;

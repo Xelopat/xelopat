@@ -136,6 +136,8 @@ if (isset($site_page_title)):
         </div>
       </div>
 
+      <?php // Хобби видно только после входа; сами страницы открываются и по прямой ссылке ?>
+      <?php if ($auth_user): ?>
       <div class="dd" id="dd-hobby-wrap">
         <button type="button" class="nav-btn<?= strpos($uri, '/perfumes/') === 0 || strpos($uri, '/photo/') === 0 || strpos($uri, '/travel/') === 0 ? ' active' : '' ?>" data-dd-btn="hobby" aria-expanded="false">Хобби</button>
         <div class="dd-panel" id="dd-hobby" role="dialog" aria-label="Хобби">
@@ -147,6 +149,7 @@ if (isset($site_page_title)):
           </ul>
         </div>
       </div>
+      <?php endif; ?>
 
       <div class="dd" id="dd-bases-wrap">
         <button type="button" class="nav-btn<?= strpos($uri, '/bases/') === 0 ? ' active' : '' ?>" data-dd-btn="bases" aria-expanded="false">Базы</button>
