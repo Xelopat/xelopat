@@ -45,6 +45,8 @@ jobs:
             --include="/data/domophones.sqlite" \
             --include="/data/.htaccess" \
             --include="/data/default_creds.json" \
+            --include="/data/default_creds.sqlite" \
+            --include="/data/mac_oui.sqlite" \
             --exclude="/data/***" \
             --exclude-from=".deployignore" \
             -e "ssh -i ~/.ssh/deploy_key -p $PORT -o IdentitiesOnly=yes" \

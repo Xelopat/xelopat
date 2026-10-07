@@ -48,6 +48,7 @@ $hobby_items = [
 $base_items = [
     ['Домофоны', '/bases/domophones.php'],
     ['Пароли по умолчанию', '/bases/default-creds.php'],
+    ['Производитель по MAC', '/bases/mac.php'],
 ];
 
 $uri = strtok((string)($_SERVER['REQUEST_URI'] ?? '/'), '?');

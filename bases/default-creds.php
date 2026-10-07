@@ -1,42 +1,62 @@
 <?php
-// База заводских логинов/паролей по умолчанию. Публичные данные из мануалов —
-// чтобы проверить и сменить дефолты на своём оборудовании.
+// База заводских логинов/паролей по умолчанию (SQLite). Публичные данные из мануалов
+// и списка SecLists — чтобы проверить и сменить дефолты на своём оборудовании.
 declare(strict_types=1);
 
 $site_page_title = 'Пароли по умолчанию — xelopat';
 
-$dc_file = $_SERVER['DOCUMENT_ROOT'] . '/data/default_creds.json';
-$dc_data = is_file($dc_file) ? json_decode((string)file_get_contents($dc_file), true) : [];
-$dc_items = is_array($dc_data['items'] ?? null) ? $dc_data['items'] : [];
-$dc_updated = (string)($dc_data['updated'] ?? '');
+const DC_PER_PAGE = 100;
 
-function dc_lower(string $s): string {
-    return function_exists('mb_strtolower') ? mb_strtolower($s, 'UTF-8') : strtolower($s);
-}
-
+$dc_db_path = $_SERVER['DOCUMENT_ROOT'] . '/data/default_creds.sqlite';
 $dc_query = trim((string)($_GET['q'] ?? ''));
 $dc_type = trim((string)($_GET['type'] ?? ''));
+$dc_page = max(1, (int)($_GET['page'] ?? 1));
 
-// Типы для фильтра — в порядке появления
+$dc_error = '';
+$dc_total = 0;
+$dc_all = 0;
 $dc_types = [];
-foreach ($dc_items as $it) {
-    $t = (string)($it['type'] ?? '');
-    if ($t !== '' && !in_array($t, $dc_types, true)) $dc_types[] = $t;
-}
-
 $dc_results = [];
-$needles = preg_split('/\s+/u', $dc_query, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-foreach ($dc_items as $it) {
-    if ($dc_type !== '' && (string)($it['type'] ?? '') !== $dc_type) continue;
-    if ($needles) {
-        $hay = dc_lower(implode(' ', [$it['vendor'] ?? '', $it['model'] ?? '', $it['type'] ?? '', $it['login'] ?? '', $it['password'] ?? '', $it['note'] ?? '']));
-        $ok = true;
-        foreach ($needles as $n) {
-            if (strpos($hay, dc_lower($n)) === false) { $ok = false; break; }
-        }
-        if (!$ok) continue;
+
+try {
+    if (!is_file($dc_db_path)) throw new RuntimeException('База не найдена.');
+    $pdo = new PDO('sqlite:' . $dc_db_path);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    $dc_all = (int)$pdo->query('SELECT COUNT(*) FROM creds')->fetchColumn();
+    foreach ($pdo->query('SELECT type, COUNT(*) c FROM creds GROUP BY type') as $r) $dc_types[(string)$r['type']] = (int)$r['c'];
+    // Сначала устройства, потом общие категории
+    $order = ['Роутер', 'Камера', 'Видеорегистратор', 'NAS', 'Коммутатор', 'Принтер', 'IP-телефон', 'ИБП/питание', 'Сервер/ПО', 'Прочее'];
+    uksort($dc_types, function ($a, $b) use ($order) {
+        $ia = array_search($a, $order, true); $ib = array_search($b, $order, true);
+        $ia = $ia === false ? 99 : $ia; $ib = $ib === false ? 99 : $ib;
+        return $ia <=> $ib;
+    });
+
+    $where = [];
+    $params = [];
+    if ($dc_type !== '') { $where[] = 'type = :type'; $params[':type'] = $dc_type; }
+    foreach (preg_split('/\s+/u', $dc_query, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $i => $term) {
+        $k = ':t' . $i;
+        $where[] = "(vendor LIKE $k OR model LIKE $k OR login LIKE $k OR password LIKE $k OR note LIKE $k)";
+        $params[$k] = '%' . $term . '%';
     }
-    $dc_results[] = $it;
+    $sql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+
+    $st = $pdo->prepare('SELECT COUNT(*) FROM creds' . $sql);
+    $st->execute($params);
+    $dc_total = (int)$st->fetchColumn();
+
+    $pages = max(1, (int)ceil($dc_total / DC_PER_PAGE));
+    if ($dc_page > $pages) $dc_page = $pages;
+    $offset = ($dc_page - 1) * DC_PER_PAGE;
+
+    $st = $pdo->prepare('SELECT vendor, model, type, login, password, access, note, featured FROM creds'
+        . $sql . ' ORDER BY featured DESC, vendor COLLATE NOCASE, model LIMIT ' . DC_PER_PAGE . ' OFFSET ' . $offset);
+    $st->execute($params);
+    $dc_results = $st->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    $dc_error = $e->getMessage();
 }
 
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
@@ -44,6 +64,12 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 function dc_h(string $s): string {
     return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
+function dc_qs(array $over): string {
+    $base = ['q' => $GLOBALS['dc_query'], 'type' => $GLOBALS['dc_type'], 'page' => $GLOBALS['dc_page']];
+    $q = array_filter(array_merge($base, $over), fn($v) => $v !== '' && $v !== null);
+    return $q ? '?' . http_build_query($q) : '?';
+}
+$dc_pages = max(1, (int)ceil($dc_total / DC_PER_PAGE));
 ?>
 <style>
   .dc-note{
@@ -67,6 +93,7 @@ function dc_h(string $s): string {
   }
   .dc-chip:hover{ color:var(--text); border-color:var(--green); }
   .dc-chip.on{ background:var(--accent); color:#1b1606; border-color:transparent; font-weight:600; }
+  .dc-chip small{ opacity:.65; margin-left:3px; }
   .dc-count{ font-family:var(--mono); font-size:11px; color:var(--muted); margin-bottom:10px; }
   .dc-tablewrap{ overflow-x:auto; }
   .dc-cred{ font-family:var(--mono); color:var(--accent); }
@@ -74,16 +101,23 @@ function dc_h(string $s): string {
     display:inline-block; font-size:11px; font-family:var(--mono);
     padding:2px 7px; border-radius:5px; background:var(--panel-2); border:1px solid var(--line); color:var(--text-2);
   }
+  .dc-star{ color:var(--accent); }
   .dc-note-cell{ color:var(--muted); font-size:12px; }
   .dc-empty{ padding:30px 0; text-align:center; color:var(--muted); }
   .data-table td{ vertical-align:top; }
-  @media (max-width: 640px){
+  .dc-pager{ display:flex; gap:8px; align-items:center; justify-content:center; margin-top:18px; flex-wrap:wrap; }
+  .dc-pager a, .dc-pager span{ padding:7px 12px; border-radius:8px; font-size:13px; }
+  .dc-pager a{ border:1px solid var(--line); background:var(--panel); color:var(--text); text-decoration:none; }
+  .dc-pager a:hover{ border-color:var(--accent); color:var(--accent); }
+  .dc-pager .cur{ color:var(--muted); font-family:var(--mono); }
+  @media (max-width: 680px){
     .data-table thead{ display:none; }
     .data-table tbody tr{ display:block; border-bottom:1px solid var(--line); padding:8px 0; }
     .data-table td{ display:block; padding:3px 8px; border:none; }
     .data-table td::before{ content:attr(data-label) ": "; color:var(--muted); font-family:var(--mono); font-size:10px; text-transform:uppercase; }
     .data-table td.dc-td-vendor::before{ content:""; }
     .dc-td-vendor{ font-weight:700; font-size:15px; padding-top:6px; }
+    .dc-note-cell:empty, td[data-label="Доступ"]:empty, td[data-label="Модель"]:empty{ display:none; }
   }
 </style>
 
@@ -91,51 +125,63 @@ function dc_h(string $s): string {
   <div class="page-wrap">
     <div class="page-label">// базы</div>
     <h1 class="page-title">Пароли по умолчанию</h1>
-    <p class="page-sub">Заводские логины и пароли роутеров, камер и сетевых хранилищ из открытых мануалов.</p>
+    <p class="page-sub">Заводские логины и пароли роутеров, камер, сетевых устройств и ПО из открытых мануалов и списка SecLists.</p>
 
     <div class="dc-note">
       <span>🔒</span>
       <span>Только для проверки <b>своего</b> оборудования. Если в вашу камеру или роутер до сих пор можно войти с заводским паролем — его немедленно нужно сменить. Доступ к чужим устройствам без разрешения незаконен.</span>
     </div>
 
-    <form class="dc-tools" method="get">
-      <?php if ($dc_type !== ''): ?><input type="hidden" name="type" value="<?= dc_h($dc_type) ?>"><?php endif; ?>
-      <input type="search" name="q" value="<?= dc_h($dc_query) ?>" placeholder="Например: Hikvision, TP-Link, камера" autofocus>
-      <button class="btn" type="submit">Найти</button>
-    </form>
-
-    <div class="dc-chips">
-      <a class="dc-chip<?= $dc_type === '' ? ' on' : '' ?>" href="?<?= $dc_query !== '' ? 'q=' . urlencode($dc_query) : '' ?>">Все</a>
-      <?php foreach ($dc_types as $t): ?>
-        <a class="dc-chip<?= $dc_type === $t ? ' on' : '' ?>" href="?type=<?= urlencode($t) ?><?= $dc_query !== '' ? '&q=' . urlencode($dc_query) : '' ?>"><?= dc_h($t) ?></a>
-      <?php endforeach; ?>
-    </div>
-
-    <div class="dc-count">Найдено: <?= count($dc_results) ?> из <?= count($dc_items) ?><?= $dc_updated !== '' ? ' · обновлено ' . dc_h($dc_updated) : '' ?></div>
-
-    <?php if (!$dc_results): ?>
-      <div class="dc-empty">Ничего не найдено. Попробуйте другое название производителя или модели.</div>
+    <?php if ($dc_error !== ''): ?>
+      <div class="dc-empty" style="color:var(--danger)">База недоступна: <?= dc_h($dc_error) ?></div>
     <?php else: ?>
-      <div class="dc-tablewrap">
-        <table class="data-table">
-          <thead>
-            <tr><th>Производитель</th><th>Модель</th><th>Тип</th><th>Логин</th><th>Пароль</th><th>Доступ</th><th>Примечание</th></tr>
-          </thead>
-          <tbody>
-            <?php foreach ($dc_results as $it): ?>
-              <tr>
-                <td class="dc-td-vendor" data-label="Производитель"><?= dc_h((string)($it['vendor'] ?? '')) ?></td>
-                <td data-label="Модель"><?= dc_h((string)($it['model'] ?? '')) ?></td>
-                <td data-label="Тип"><span class="dc-type"><?= dc_h((string)($it['type'] ?? '')) ?></span></td>
-                <td data-label="Логин"><span class="dc-cred"><?= dc_h((string)($it['login'] ?? '')) ?></span></td>
-                <td data-label="Пароль"><span class="dc-cred"><?= dc_h((string)($it['password'] ?? '')) ?></span></td>
-                <td data-label="Доступ"><?= dc_h((string)($it['access'] ?? '')) ?></td>
-                <td class="dc-note-cell" data-label="Примечание"><?= dc_h((string)($it['note'] ?? '')) ?></td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
+      <form class="dc-tools" method="get">
+        <?php if ($dc_type !== ''): ?><input type="hidden" name="type" value="<?= dc_h($dc_type) ?>"><?php endif; ?>
+        <input type="search" name="q" value="<?= dc_h($dc_query) ?>" placeholder="Например: Hikvision, TP-Link, admin, камера" autofocus>
+        <button class="btn" type="submit">Найти</button>
+      </form>
+
+      <div class="dc-chips">
+        <a class="dc-chip<?= $dc_type === '' ? ' on' : '' ?>" href="<?= dc_h(dc_qs(['type' => '', 'page' => 1])) ?>">Все <small><?= $dc_all ?></small></a>
+        <?php foreach ($dc_types as $t => $c): ?>
+          <a class="dc-chip<?= $dc_type === $t ? ' on' : '' ?>" href="<?= dc_h(dc_qs(['type' => $t, 'page' => 1])) ?>"><?= dc_h($t) ?> <small><?= $c ?></small></a>
+        <?php endforeach; ?>
       </div>
+
+      <div class="dc-count">Найдено: <?= number_format($dc_total, 0, '.', ' ') ?><?= $dc_pages > 1 ? ' · страница ' . $dc_page . ' из ' . $dc_pages : '' ?></div>
+
+      <?php if (!$dc_results): ?>
+        <div class="dc-empty">Ничего не найдено. Попробуйте другое название производителя или модели.</div>
+      <?php else: ?>
+        <div class="dc-tablewrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Производитель</th><th>Модель</th><th>Тип</th><th>Логин</th><th>Пароль</th><th>Доступ</th><th>Примечание</th></tr>
+            </thead>
+            <tbody>
+              <?php foreach ($dc_results as $it): ?>
+                <tr>
+                  <td class="dc-td-vendor" data-label="Производитель"><?= $it['featured'] ? '<span class="dc-star" title="Проверенная запись">★</span> ' : '' ?><?= dc_h((string)$it['vendor']) ?></td>
+                  <td data-label="Модель"><?= dc_h((string)$it['model']) ?></td>
+                  <td data-label="Тип"><span class="dc-type"><?= dc_h((string)$it['type']) ?></span></td>
+                  <td data-label="Логин"><span class="dc-cred"><?= dc_h((string)$it['login']) ?></span></td>
+                  <td data-label="Пароль"><span class="dc-cred"><?= dc_h((string)$it['password']) ?></span></td>
+                  <td data-label="Доступ"><?= dc_h((string)$it['access']) ?></td>
+                  <td class="dc-note-cell" data-label="Примечание"><?= dc_h((string)$it['note']) ?></td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+
+        <?php if ($dc_pages > 1): ?>
+          <div class="dc-pager">
+            <?php if ($dc_page > 1): ?><a href="<?= dc_h(dc_qs(['page' => $dc_page - 1])) ?>">← Назад</a><?php endif; ?>
+            <span class="cur"><?= $dc_page ?> / <?= $dc_pages ?></span>
+            <?php if ($dc_page < $dc_pages): ?><a href="<?= dc_h(dc_qs(['page' => $dc_page + 1])) ?>">Вперёд →</a><?php endif; ?>
+          </div>
+        <?php endif; ?>
+      <?php endif; ?>
     <?php endif; ?>
   </div>
 </main>
