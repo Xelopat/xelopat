@@ -266,7 +266,9 @@ $coll_gallery = $coll['layout'] === 'gallery';
   .co-mi{ position:relative; aspect-ratio:1; border-radius:9px; overflow:hidden; background:var(--panel-2); border:1px solid var(--line); }
   .co-mi img, .co-mi video{ width:100%; height:100%; object-fit:cover; display:block; }
   .co-mi.new{ border-color:var(--green); }
-  .co-mi .cover{ position:absolute; left:5px; top:5px; font-size:10px; font-family:var(--mono); background:var(--accent); color:#1b1606; border-radius:5px; padding:2px 5px; }
+  .co-mi .cover{ position:absolute; left:5px; top:5px; display:flex; align-items:center; gap:4px; font-size:10px; font-family:var(--mono); background:var(--accent); color:#1b1606; border-radius:5px; padding:2px 2px 2px 5px; }
+  .co-mi .cover .fit{ border:none; border-radius:4px; background:rgba(27,22,6,.85); color:var(--accent); font:inherit; font-size:10px; line-height:1; padding:3px 5px; cursor:pointer; min-width:22px; }
+  .co-mi .cover .fit:hover{ background:#1b1606; }
   .co-mi .ctl{ position:absolute; inset:auto 0 0 0; display:flex; justify-content:space-between; padding:4px; background:linear-gradient(180deg, transparent, rgba(0,0,0,.7)); }
   .co-mi .ctl button{ width:26px; height:26px; border-radius:6px; border:none; background:rgba(21,21,24,.85); color:#fff; cursor:pointer; font-size:13px; }
   .co-mi .ctl button:hover{ color:var(--accent); }
@@ -416,14 +418,7 @@ $coll_gallery = $coll['layout'] === 'gallery';
         <div class="field"><label for="coTags">Теги через запятую</label><input id="coTags" name="tags"></div>
         <div class="field"><label for="coLinkIn">Ссылка</label><input id="coLinkIn" name="link" placeholder="https://"></div>
       </div>
-      <div class="field">
-        <label for="coFit">Обложка на карточке</label>
-        <select id="coFit" name="fit">
-          <option value="auto">Автоматически: заполнить рамку</option>
-          <option value="width">По ширине: фото целиком, высота своя</option>
-          <option value="height">По высоте: рамка обычная, фото целиком</option>
-        </select>
-      </div>
+      <input type="hidden" name="fit" id="coFit" value="auto">
 
       <div class="field">
         <label>Фото и видео</label>
@@ -600,6 +595,10 @@ $coll_gallery = $coll['layout'] === 'gallery';
   let media = [];
   let dragIndex = null;
 
+  const FIT_ORDER = ['auto', 'width', 'height'];
+  const FIT_ICON = { auto: 'авто', width: '↔', height: '↕' };
+  const FIT_HINT = { auto: 'Заполнить рамку карточки', width: 'По ширине: фото целиком, высота своя', height: 'По высоте: рамка обычная, фото целиком' };
+
   const MAX_SIDE = 2560;
   const VIDEO_RE = /\.(mp4|webm|mov|m4v)$/i;
   const IMAGE_RE = /\.(jpe?g|png|webp|gif)$/i;
@@ -664,7 +663,19 @@ $coll_gallery = $coll['layout'] === 'gallery';
       const type = x.kind === 'new' ? x.type : x.m.type;
       if (type === 'video') card.append(el('div', { class: 'vid' }, x.kind === 'new' ? x.file.name : 'видео'));
       else card.append(el('img', { src: x.kind === 'new' ? x.url : (x.m.preview || x.m.src), alt: '', draggable: 'false' }));
-      if (i === 0) card.append(el('span', { class: 'cover' }, 'обложка'));
+      if (i === 0) {
+        // Справа от «обложка» кнопка режима: авто → по ширине → по высоте
+        const badge = el('span', { class: 'cover' }, 'обложка');
+        const fit = form.elements.fit.value;
+        const btn = el('button', { type: 'button', class: 'fit', title: FIT_HINT[fit] + '. Нажми, чтобы сменить' }, FIT_ICON[fit]);
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          form.elements.fit.value = FIT_ORDER[(FIT_ORDER.indexOf(fit) + 1) % FIT_ORDER.length];
+          renderMedia();
+        };
+        badge.append(btn);
+        card.append(badge);
+      }
 
       const ctl = el('div', { class: 'ctl' });
       const left = el('button', { type: 'button', title: 'Левее' }, '←');

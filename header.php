@@ -6,6 +6,10 @@ $auth_csrf = csrf_token();
 $auth_next = (string)($_SERVER['REQUEST_URI'] ?? '/');
 $auth_is_admin = user_has_role($auth_user, 'admin');
 
+// Локальная статистика посещений (без IP, ботов и визитов админов)
+require_once __DIR__ . '/includes/stats.php';
+stats_track($auth_user);
+
 $brand_name = 'xelopat';
 $brand_href = '/';
 

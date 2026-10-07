@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/auth/lib.php';
 require_once __DIR__ . '/includes/collection_lib.php';
+require_once __DIR__ . '/includes/stats.php';
 require_role('admin');
 
 // Если что-то упадёт, админ увидит причину, а не пустую страницу
@@ -99,6 +100,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         admin_back('home');
     }
 
+    if ($action === 'import_logs') {
+        $r = stats_import_logs();
+        $r['ok']
+            ? admin_flash('ok', 'Из логов добавлено просмотров: ' . $r['added'] . ($r['added'] ? ' (' . $r['from'] . ' — ' . $r['to'] . ')' : '') . '. Файлов: ' . $r['files'] . ', строк: ' . $r['lines'] . '.')
+            : admin_flash('err', $r['error']);
+        admin_back('stats');
+    }
+
     if ($action === 'set_roles') {
         $uid = (string)($_POST['uid'] ?? '');
         $roles = array_values(array_intersect(array_keys(ROLES), (array)($_POST['roles'] ?? [])));
@@ -190,6 +199,16 @@ $sections[] = ['title' => 'Домофоны', 'url' => '/bases/domophones.php', 
     $load_errors[] = 'Разделы: ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')';
 }
 
+$stats_days = in_array((int)($_GET['days'] ?? 30), [7, 30, 90, 365], true) ? (int)($_GET['days'] ?? 30) : 30;
+$stats = ['ok' => false];
+$stats_logs = [];
+try {
+    $stats = stats_report($stats_days);
+    $stats_logs = stats_log_files();
+} catch (Throwable $e) {
+    $load_errors[] = 'Статистика: ' . $e->getMessage();
+}
+
 $cfg = admin_config($config_path);
 $cfg_json = json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
 $users = users_load()['users'];
@@ -251,6 +270,26 @@ include __DIR__ . '/header.php';
   .cp-small{ padding:6px 10px; font-size:13px; }
   .cp-danger:hover{ border-color:var(--danger); color:var(--danger); }
   .cp-note{ color:var(--muted); font-size:13px; margin:0 0 12px; }
+  .cp-h3{ margin:0 0 12px; font-size:14px; font-weight:700; }
+  .cp-range{ display:inline-flex; gap:3px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:3px; margin-bottom:12px; }
+  .cp-range a{ padding:6px 12px; border-radius:7px; color:var(--text-2); text-decoration:none; font-size:13px; font-weight:600; }
+  .cp-range a.on{ background:var(--panel-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line); }
+  .cp-kpis{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; margin-bottom:12px; }
+  .cp-kpis .k{ font-family:var(--mono); font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .cp-kpis .v{ font-size:26px; font-weight:800; margin-top:4px; }
+  .cp-chart{ position:relative; display:grid; grid-template-columns:repeat(var(--n), minmax(0,1fr)); gap:2px; align-items:end; height:160px; border-bottom:1px solid var(--line); }
+  .cp-bar{ height:100%; display:flex; align-items:flex-end; cursor:default; }
+  .cp-bar i{ display:block; width:100%; background:var(--accent); border-radius:4px 4px 0 0; }
+  .cp-bar:hover i{ filter:brightness(1.15); }
+  .cp-bar:hover{ background:rgba(255,255,255,.03); }
+  .cp-tip{ position:absolute; z-index:2; pointer-events:none; white-space:pre; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px 9px; font-size:12px; color:var(--text); box-shadow:var(--shadow); transform:translate(-50%, -100%); }
+  .cp-axis{ display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:6px; }
+  .cp-lists{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-top:12px; }
+  .cp-row{ position:relative; display:flex; justify-content:space-between; gap:10px; padding:6px 8px; font-size:13px; border-radius:6px; overflow:hidden; }
+  .cp-row-bar{ position:absolute; inset:0 auto 0 0; background:rgba(249,201,64,.12); border-radius:6px; }
+  .cp-row-k, .cp-row-v{ position:relative; }
+  .cp-row-k{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cp-row-v{ font-family:var(--mono); color:var(--text-2); }
   .cp-roles{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0; }
   .cp-check{ display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border:1px solid var(--line); border-radius:999px; font-size:13px; cursor:pointer; user-select:none; color:var(--text-2); }
   .cp-check input{ margin:0; accent-color:var(--accent); }
@@ -261,6 +300,9 @@ include __DIR__ . '/header.php';
     .cp-form .two{ grid-template-columns:1fr; }
     .cp-table th:nth-child(3), .cp-table td:nth-child(3){ display:none; }
     .cp-check{ padding:5px 8px; }
+    .cp-kpis{ grid-template-columns:1fr 1fr; }
+    .cp-lists{ grid-template-columns:1fr; }
+    .cp-chart{ gap:1px; }
   }
 </style>
 
@@ -283,6 +325,7 @@ include __DIR__ . '/header.php';
 
     <nav class="cp-tabs" id="cpTabs">
       <a href="#sections" data-tab="sections" class="on">Разделы</a>
+      <a href="#stats" data-tab="stats">Статистика</a>
       <a href="#home" data-tab="home">Главная</a>
       <a href="#users" data-tab="users">Пользователи</a>
       <a href="#sessions" data-tab="sessions">Мои входы</a>
@@ -302,6 +345,87 @@ include __DIR__ . '/header.php';
           </div>
         <?php endforeach; ?>
       </div>
+    </section>
+
+    <section class="cp-pane" id="pane-stats">
+      <?php if (!$stats['ok']): ?>
+        <div class="panel"><p class="cp-note">База статистики недоступна: на сервере нет SQLite для PHP.</p></div>
+      <?php else: ?>
+        <?php
+          // Подписи страниц берём из меню сайта
+          $page_names = ['/' => 'Главная', '/lisa-alisa/' => 'Лиса-Алиса'];
+          foreach (COLLECTIONS as $cd) $page_names[stats_norm_path($cd['url'])] = $cd['title'];
+          foreach ($univer_sections as $sec) foreach ($sec['items'] as $it) $page_names[stats_norm_path($it[1])] = $it[0];
+          foreach (array_merge($hobby_items, $base_items) as $it) $page_names[stats_norm_path($it[1])] = $it[0];
+          $maxDay = max(1, max(array_column($stats['series'], 'views')));
+          $avg = $stats['views'] / max(1, count($stats['series']));
+        ?>
+        <div class="cp-range">
+          <?php foreach ([7 => '7 дней', 30 => '30 дней', 90 => '90 дней', 365 => 'Год'] as $d => $lbl): ?>
+            <a class="<?= $d === $stats_days ? 'on' : '' ?>" href="/admin.php?days=<?= $d ?>#stats"><?= $lbl ?></a>
+          <?php endforeach; ?>
+        </div>
+
+        <div class="cp-kpis">
+          <div class="panel"><div class="k">Просмотры</div><div class="v"><?= number_format($stats['views'], 0, ',', ' ') ?></div></div>
+          <div class="panel"><div class="k">Посетители</div><div class="v"><?= number_format($stats['uniques'], 0, ',', ' ') ?></div></div>
+          <div class="panel"><div class="k">Сегодня</div><div class="v"><?= number_format($stats['today'], 0, ',', ' ') ?></div></div>
+          <div class="panel"><div class="k">В среднем в день</div><div class="v"><?= number_format($avg, $avg < 10 ? 1 : 0, ',', ' ') ?></div></div>
+        </div>
+
+        <div class="panel cp-chart-card">
+          <h3 class="cp-h3">Просмотры по дням</h3>
+          <div class="cp-chart" id="cpChart" style="--n:<?= count($stats['series']) ?>">
+            <?php foreach ($stats['series'] as $i => $p): ?>
+              <?php $ts = strtotime($p['day']); ?>
+              <div class="cp-bar<?= $p['views'] ? '' : ' empty' ?>" data-tip="<?= admin_h(date('d.m.Y', $ts) . "\nпросмотры: " . $p['views'] . "\nпосетители: " . $p['uniques']) ?>">
+                <i style="height:<?= $p['views'] ? max(2, round($p['views'] / $maxDay * 100, 1)) : 0 ?>%"></i>
+              </div>
+            <?php endforeach; ?>
+            <div class="cp-tip" id="cpTip" hidden></div>
+          </div>
+          <div class="cp-axis">
+            <span><?= admin_h(date('d.m', strtotime($stats['series'][0]['day']))) ?></span>
+            <span>макс. <?= $maxDay ?> в день</span>
+            <span>сегодня</span>
+          </div>
+        </div>
+
+        <div class="cp-lists">
+          <?php foreach ([['Страницы', $stats['pages'], true], ['Откуда пришли', $stats['refs'], false], ['Устройства', $stats['devices'], false], ['Браузеры', $stats['browsers'], false]] as [$ttl, $rows, $isPage]): ?>
+            <div class="panel">
+              <h3 class="cp-h3"><?= admin_h($ttl) ?></h3>
+              <?php if (!$rows): ?>
+                <p class="cp-note"><?= $ttl === 'Откуда пришли' ? 'Только прямые заходы.' : 'Пока пусто.' ?></p>
+              <?php else: $top = max(1, (int)$rows[0]['v']); ?>
+                <?php foreach ($rows as $r): ?>
+                  <?php $label = $isPage ? ($page_names[$r['k']] ?? $r['k']) : $r['k']; ?>
+                  <div class="cp-row" title="<?= admin_h($r['k']) ?>">
+                    <span class="cp-row-bar" style="width:<?= round($r['v'] / $top * 100, 1) ?>%"></span>
+                    <span class="cp-row-k"><?= admin_h($label) ?></span>
+                    <span class="cp-row-v"><?= number_format((int)$r['v'], 0, ',', ' ') ?></span>
+                  </div>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </div>
+          <?php endforeach; ?>
+        </div>
+
+        <div class="panel" style="margin-top:12px">
+          <h3 class="cp-h3">История из логов FastPanel</h3>
+          <?php if ($stats_logs): ?>
+            <p class="cp-note">Найдено файлов логов: <?= count($stats_logs) ?> (<?= admin_h(implode(', ', array_map('basename', array_slice($stats_logs, 0, 4)))) ?><?= count($stats_logs) > 4 ? ' и другие' : '' ?>). Импорт берёт только время до начала собственного подсчёта, поэтому ничего не задвоится. Можно запускать повторно.</p>
+            <form method="post">
+              <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
+              <input type="hidden" name="action" value="import_logs">
+              <button class="btn cp-save" type="submit">Подтянуть историю</button>
+            </form>
+          <?php else: ?>
+            <p class="cp-note">Логи не найдены или PHP не может их прочитать. Проверял: <?= admin_h(implode(', ', stats_log_dirs_checked())) ?>.</p>
+          <?php endif; ?>
+          <p class="cp-note" style="margin:10px 0 0">Всего в базе: <?= number_format($stats['all_views'], 0, ',', ' ') ?> просмотров<?= $stats['first_day'] ? ' с ' . admin_h(date('d.m.Y', strtotime($stats['first_day']))) : '' ?><?= $stats['log_rows'] ? ', из них из логов ' . number_format($stats['log_rows'], 0, ',', ' ') : '' ?>. Боты и твои визиты как админа не считаются, IP не сохраняется.</p>
+        </div>
+      <?php endif; ?>
     </section>
 
     <section class="cp-pane" id="pane-home">
@@ -426,6 +550,21 @@ include __DIR__ . '/header.php';
     show(t.dataset.tab);
   }));
   show(location.hash.slice(1));
+
+  const chart = document.getElementById('cpChart'), tip = document.getElementById('cpTip');
+  if (chart && tip) {
+    chart.addEventListener('mousemove', (e) => {
+      const bar = e.target.closest('.cp-bar');
+      if (!bar) { tip.hidden = true; return; }
+      const r = chart.getBoundingClientRect(), b = bar.getBoundingClientRect();
+      tip.textContent = bar.dataset.tip.replace('\\n', '\n');
+      tip.hidden = false;
+      const x = Math.min(Math.max(b.left + b.width / 2 - r.left, 70), r.width - 70);
+      tip.style.left = x + 'px';
+      tip.style.top = '-6px';
+    });
+    chart.addEventListener('mouseleave', () => { tip.hidden = true; });
+  }
 
   document.querySelectorAll('.cp-roles').forEach((f) => {
     const btn = f.querySelector('.cp-roles-save');
