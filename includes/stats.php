@@ -92,13 +92,15 @@ function stats_track(?array $user): void {
         if ($user && in_array('admin', (array)($user['roles'] ?? []), true)) return; // свои заходы не считаем
         $ua = (string)($_SERVER['HTTP_USER_AGENT'] ?? '');
         if (stats_is_bot($ua)) return;
+        $uri = (string)($_SERVER['REQUEST_URI'] ?? '/');
+        if (stats_skip_path((string)(parse_url($uri, PHP_URL_PATH) ?: '/'), (string)(parse_url($uri, PHP_URL_QUERY) ?: ''))) return;
         $db = stats_db();
         if (!$db) return;
         $now = time();
         $st = $db->prepare("INSERT INTO visits (ts, day, path, ref, visitor, device, browser, source) VALUES (?, ?, ?, ?, ?, ?, ?, 'live')");
         $st->execute([
             $now, date('Y-m-d', $now),
-            stats_norm_path((string)($_SERVER['REQUEST_URI'] ?? '/')),
+            stats_norm_path($uri),
             stats_ref_host((string)($_SERVER['HTTP_REFERER'] ?? ''), (string)($_SERVER['HTTP_HOST'] ?? '')),
             stats_visitor((string)($_SERVER['REMOTE_ADDR'] ?? ''), $ua),
             stats_device($ua), stats_browser($ua),
@@ -202,19 +204,13 @@ function stats_report(int $days): array {
     $tot = $q('SELECT COUNT(*) v, COUNT(DISTINCT visitor) u FROM visits WHERE day >= ?', [$from])->fetch();
     $all = $q("SELECT COUNT(*) v, MIN(day) first, SUM(source = 'log') logs FROM visits")->fetch();
 
-    $top = function (string $col) use ($q, $from) {
-        return $q("SELECT $col k, COUNT(*) v FROM visits WHERE day >= ? AND $col != '' GROUP BY $col ORDER BY v DESC LIMIT 10", [$from])->fetchAll();
-    };
     return [
         'ok' => true,
         'series' => $series,
         'views' => (int)$tot['v'],
         'uniques' => (int)$tot['u'],
         'today' => (int)end($series)['views'],
-        'pages' => $top('path'),
-        'refs' => $top('ref'),
-        'devices' => $top('device'),
-        'browsers' => $top('browser'),
+        'pages' => $q('SELECT path k, COUNT(*) v, COUNT(DISTINCT visitor) u FROM visits WHERE day >= ? GROUP BY path ORDER BY v DESC LIMIT 30', [$from])->fetchAll(),
         'all_views' => (int)$all['v'],
         'first_day' => (string)($all['first'] ?? ''),
         'log_rows' => (int)$all['logs'],

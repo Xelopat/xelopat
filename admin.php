@@ -284,12 +284,18 @@ include __DIR__ . '/header.php';
   .cp-bar:hover{ background:rgba(255,255,255,.03); }
   .cp-tip{ position:absolute; z-index:2; pointer-events:none; white-space:pre; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px 9px; font-size:12px; color:var(--text); box-shadow:var(--shadow); transform:translate(-50%, -100%); }
   .cp-axis{ display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:6px; }
-  .cp-lists{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-top:12px; }
-  .cp-row{ position:relative; display:flex; justify-content:space-between; gap:10px; padding:6px 8px; font-size:13px; border-radius:6px; overflow:hidden; }
+  .cp-pages-head{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+  .cp-sort{ margin:0; }
+  .cp-sort button{ border:none; background:none; font:inherit; padding:6px 12px; border-radius:7px; color:var(--text-2); font-size:13px; font-weight:600; cursor:pointer; }
+  .cp-sort button.on{ background:var(--panel-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line); }
+  .cp-row{ position:relative; display:grid; grid-template-columns:minmax(0,1fr) 90px 90px; gap:10px; padding:6px 8px; font-size:13px; border-radius:6px; overflow:hidden; }
+  .cp-row-head{ font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  .cp-row-n{ position:relative; text-align:right; font-family:var(--mono); color:var(--text-2); }
+  .cp-row-n.on{ color:var(--text); font-weight:700; }
   .cp-row-bar{ position:absolute; inset:0 auto 0 0; background:rgba(249,201,64,.12); border-radius:6px; }
-  .cp-row-k, .cp-row-v{ position:relative; }
+  .cp-row-k{ position:relative; }
   .cp-row-k{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .cp-row-v{ font-family:var(--mono); color:var(--text-2); }
+
   .cp-roles{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0; }
   .cp-check{ display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border:1px solid var(--line); border-radius:999px; font-size:13px; cursor:pointer; user-select:none; color:var(--text-2); }
   .cp-check input{ margin:0; accent-color:var(--accent); }
@@ -301,7 +307,7 @@ include __DIR__ . '/header.php';
     .cp-table th:nth-child(3), .cp-table td:nth-child(3){ display:none; }
     .cp-check{ padding:5px 8px; }
     .cp-kpis{ grid-template-columns:1fr 1fr; }
-    .cp-lists{ grid-template-columns:1fr; }
+    .cp-row{ grid-template-columns:minmax(0,1fr) 64px 64px; gap:6px; }
     .cp-chart{ gap:1px; }
   }
 </style>
@@ -391,24 +397,29 @@ include __DIR__ . '/header.php';
           </div>
         </div>
 
-        <div class="cp-lists">
-          <?php foreach ([['Страницы', $stats['pages'], true], ['Откуда пришли', $stats['refs'], false], ['Устройства', $stats['devices'], false], ['Браузеры', $stats['browsers'], false]] as [$ttl, $rows, $isPage]): ?>
-            <div class="panel">
-              <h3 class="cp-h3"><?= admin_h($ttl) ?></h3>
-              <?php if (!$rows): ?>
-                <p class="cp-note"><?= $ttl === 'Откуда пришли' ? 'Только прямые заходы.' : 'Пока пусто.' ?></p>
-              <?php else: $top = max(1, (int)$rows[0]['v']); ?>
-                <?php foreach ($rows as $r): ?>
-                  <?php $label = $isPage ? ($page_names[$r['k']] ?? $r['k']) : $r['k']; ?>
-                  <div class="cp-row" title="<?= admin_h($r['k']) ?>">
-                    <span class="cp-row-bar" style="width:<?= round($r['v'] / $top * 100, 1) ?>%"></span>
-                    <span class="cp-row-k"><?= admin_h($label) ?></span>
-                    <span class="cp-row-v"><?= number_format((int)$r['v'], 0, ',', ' ') ?></span>
-                  </div>
-                <?php endforeach; ?>
-              <?php endif; ?>
+        <div class="panel cp-pages" style="margin-top:12px">
+          <div class="cp-pages-head">
+            <h3 class="cp-h3" style="margin:0">Страницы</h3>
+            <div class="cp-range cp-sort" id="cpSort">
+              <button type="button" data-sort="v" class="on">По просмотрам</button>
+              <button type="button" data-sort="u">По посетителям</button>
             </div>
-          <?php endforeach; ?>
+          </div>
+          <?php if (!$stats['pages']): ?>
+            <p class="cp-note">Пока пусто.</p>
+          <?php else: ?>
+            <div class="cp-row cp-row-head"><span class="cp-row-k">Страница</span><span class="cp-row-n">Просмотры</span><span class="cp-row-n">Посетители</span></div>
+            <div id="cpPages">
+              <?php foreach ($stats['pages'] as $r): ?>
+                <div class="cp-row" title="<?= admin_h($r['k']) ?>" data-v="<?= (int)$r['v'] ?>" data-u="<?= (int)$r['u'] ?>">
+                  <span class="cp-row-bar"></span>
+                  <span class="cp-row-k"><?= admin_h($page_names[$r['k']] ?? $r['k']) ?></span>
+                  <span class="cp-row-n"><?= number_format((int)$r['v'], 0, ',', ' ') ?></span>
+                  <span class="cp-row-n"><?= number_format((int)$r['u'], 0, ',', ' ') ?></span>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
         </div>
 
         <div class="panel" style="margin-top:12px">
@@ -565,6 +576,24 @@ include __DIR__ . '/header.php';
     });
     chart.addEventListener('mouseleave', () => { tip.hidden = true; });
   }
+
+  // Страницы: сортировка и полоска по выбранной метрике
+  const pages = document.getElementById('cpPages');
+  function sortPages(key) {
+    if (!pages) return;
+    const rows = [...pages.children];
+    rows.sort((a, b) => b.dataset[key] - a.dataset[key]);
+    const max = Math.max(1, ...rows.map((r) => +r.dataset[key]));
+    const col = key === 'v' ? 0 : 1;
+    rows.forEach((r) => {
+      r.querySelector('.cp-row-bar').style.width = (r.dataset[key] / max * 100) + '%';
+      r.querySelectorAll('.cp-row-n').forEach((n, k) => n.classList.toggle('on', k === col));
+      pages.append(r);
+    });
+    document.querySelectorAll('#cpSort [data-sort]').forEach((b) => b.classList.toggle('on', b.dataset.sort === key));
+  }
+  document.querySelectorAll('#cpSort [data-sort]').forEach((b) => b.addEventListener('click', () => sortPages(b.dataset.sort)));
+  sortPages('v');
 
   document.querySelectorAll('.cp-roles').forEach((f) => {
     const btn = f.querySelector('.cp-roles-save');
