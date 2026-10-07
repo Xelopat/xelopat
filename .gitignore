@@ -14,6 +14,7 @@ coursework/library.db
 coursework/books/
 data/*
 !data/.htaccess
+!data/default_creds.json
 База Домофонов/
 *.log
 .vscode/
