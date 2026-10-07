@@ -126,7 +126,7 @@ body.nav-open{
   position:absolute;
   left:0;
   right:0;
-  bottom:-8px;
+  bottom:-6px;
   height:2px;
   background:var(--accent);
 }
@@ -185,7 +185,7 @@ body.nav-open{
 .dd-panel{
   display:none;
   position:absolute;
-  top:calc(100% + 6px);
+  top:calc(100% + 10px);
   left:0;
   min-width:330px;
   background:#1b1b22;

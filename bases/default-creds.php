@@ -93,20 +93,18 @@ $dc_pages = max(1, (int)ceil($dc_total / DC_PER_PAGE));
       <div class="b-alert">База недоступна: <?= dc_h($dc_error) ?></div>
     <?php else: ?>
       <section class="b-panel">
-        <form class="b-form" method="get">
-          <?php if ($dc_type !== ''): ?><input type="hidden" name="type" value="<?= dc_h($dc_type) ?>"><?php endif; ?>
+        <form class="b-form b-form-3" method="get">
           <input class="b-input" type="search" name="q" value="<?= dc_h($dc_query) ?>" placeholder="Hikvision, TP-Link, admin, камера" autofocus>
+          <select class="b-select" name="type" onchange="this.form.submit()">
+            <option value=""<?= $dc_type === '' ? ' selected' : '' ?>>Все типы (<?= $dc_all ?>)</option>
+            <?php foreach ($dc_types as $t => $c): ?>
+              <option value="<?= dc_h($t) ?>"<?= $dc_type === $t ? ' selected' : '' ?>><?= dc_h($t) ?> (<?= $c ?>)</option>
+            <?php endforeach; ?>
+          </select>
           <button class="b-btn" type="submit">Найти</button>
         </form>
-        <p class="b-hint">Ищет по производителю, модели, логину, паролю и примечанию. Слова через пробел сужают поиск. Звёздочкой отмечены проверенные записи.</p>
+        <p class="b-hint">Ищет по производителю, модели, логину и паролю. Слова через пробел сужают поиск. Звёздочкой отмечены проверенные записи.</p>
       </section>
-
-      <div class="b-chips">
-        <a class="b-chip<?= $dc_type === '' ? ' on' : '' ?>" href="<?= dc_h(dc_qs(['type' => '', 'page' => 1])) ?>">Все <small><?= $dc_all ?></small></a>
-        <?php foreach ($dc_types as $t => $c): ?>
-          <a class="b-chip<?= $dc_type === $t ? ' on' : '' ?>" href="<?= dc_h(dc_qs(['type' => $t, 'page' => 1])) ?>"><?= dc_h($t) ?> <small><?= $c ?></small></a>
-        <?php endforeach; ?>
-      </div>
 
       <div class="b-count">Найдено: <?= number_format($dc_total, 0, '.', ' ') ?><?= $dc_pages > 1 ? ', страница ' . $dc_page . ' из ' . $dc_pages : '' ?></div>
 
@@ -116,11 +114,10 @@ $dc_pages = max(1, (int)ceil($dc_total / DC_PER_PAGE));
         <div class="b-tablewrap">
           <table class="b-table">
             <thead>
-              <tr><th>Устройство</th><th>Тип</th><th>Логин</th><th>Пароль</th><th>Доступ и примечание</th></tr>
+              <tr><th>Устройство</th><th>Тип</th><th>Логин</th><th>Пароль</th><th>Доступ</th></tr>
             </thead>
             <tbody>
               <?php foreach ($dc_results as $it): ?>
-                <?php $extra = trim(dc_h((string)$it['access']) . ((string)$it['access'] !== '' && (string)$it['note'] !== '' ? '. ' : '') . dc_h((string)$it['note'])); ?>
                 <tr>
                   <td class="b-cell-lead" data-label="Устройство">
                     <?= $it['featured'] ? '<span class="b-star" title="Проверенная запись">★</span> ' : '' ?><?= dc_h((string)$it['vendor']) ?>
@@ -129,7 +126,7 @@ $dc_pages = max(1, (int)ceil($dc_total / DC_PER_PAGE));
                   <td data-label="Тип"><span class="b-tag"><?= dc_h((string)$it['type']) ?></span></td>
                   <td data-label="Логин"><span class="b-pill"><?= dc_h((string)$it['login']) ?></span></td>
                   <td data-label="Пароль"><span class="b-pill"><?= dc_h((string)$it['password']) ?></span></td>
-                  <td class="b-dim" data-label="Доступ и примечание"><?= $extra ?></td>
+                  <td class="b-dim" data-label="Доступ"><?= dc_h((string)$it['access']) ?></td>
                 </tr>
               <?php endforeach; ?>
             </tbody>
