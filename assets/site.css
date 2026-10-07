@@ -185,7 +185,7 @@ body.nav-open{
 .dd-panel{
   display:none;
   position:absolute;
-  top:calc(100% + 10px);
+  top:calc(100% + 16px);
   left:0;
   min-width:330px;
   background:#1b1b22;
@@ -193,6 +193,15 @@ body.nav-open{
   border-radius:10px;
   box-shadow:0 20px 34px rgba(0,0,0,.34);
   padding:10px 12px;
+}
+
+.dd-panel::before{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  top:-18px;
+  height:18px;
 }
 
 .dd-panel.open{
