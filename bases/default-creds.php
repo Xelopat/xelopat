@@ -71,98 +71,65 @@ function dc_qs(array $over): string {
 }
 $dc_pages = max(1, (int)ceil($dc_total / DC_PER_PAGE));
 ?>
-<style>
-  .dc-note{
-    display:flex; gap:10px; align-items:flex-start;
-    background:rgba(249,201,64,.08); border:1px solid rgba(249,201,64,.3);
-    border-radius:10px; padding:12px 14px; margin:0 0 18px;
-    font-size:13px; line-height:1.55; color:var(--text-2);
-  }
-  .dc-note b{ color:var(--accent); }
-  .dc-tools{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
-  .dc-tools input[type="search"]{
-    flex:1; min-width:220px;
-    background:var(--panel); border:1px solid var(--line); border-radius:9px;
-    padding:10px 13px; color:var(--text); font:inherit; font-size:14px; outline:none;
-  }
-  .dc-tools input:focus{ border-color:var(--green); }
-  .dc-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
-  .dc-chip{
-    padding:6px 12px; border-radius:999px; border:1px solid var(--line);
-    background:var(--panel); color:var(--text-2); font-size:13px; text-decoration:none;
-  }
-  .dc-chip:hover{ color:var(--text); border-color:var(--green); }
-  .dc-chip.on{ background:var(--accent); color:#1b1606; border-color:transparent; font-weight:600; }
-  .dc-chip small{ opacity:.65; margin-left:3px; }
-  .dc-count{ font-family:var(--mono); font-size:11px; color:var(--muted); margin-bottom:10px; }
-  .dc-tablewrap{ overflow-x:auto; }
-  .dc-cred{ font-family:var(--mono); color:var(--accent); }
-  .dc-type{
-    display:inline-block; font-size:11px; font-family:var(--mono);
-    padding:2px 7px; border-radius:5px; background:var(--panel-2); border:1px solid var(--line); color:var(--text-2);
-  }
-  .dc-star{ color:var(--accent); }
-  .dc-note-cell{ color:var(--muted); font-size:12px; }
-  .dc-empty{ padding:30px 0; text-align:center; color:var(--muted); }
-  .data-table td{ vertical-align:top; }
-  .dc-pager{ display:flex; gap:8px; align-items:center; justify-content:center; margin-top:18px; flex-wrap:wrap; }
-  .dc-pager a, .dc-pager span{ padding:7px 12px; border-radius:8px; font-size:13px; }
-  .dc-pager a{ border:1px solid var(--line); background:var(--panel); color:var(--text); text-decoration:none; }
-  .dc-pager a:hover{ border-color:var(--accent); color:var(--accent); }
-  .dc-pager .cur{ color:var(--muted); font-family:var(--mono); }
-  @media (max-width: 680px){
-    .data-table thead{ display:none; }
-    .data-table tbody tr{ display:block; border-bottom:1px solid var(--line); padding:8px 0; }
-    .data-table td{ display:block; padding:3px 8px; border:none; }
-    .data-table td::before{ content:attr(data-label) ": "; color:var(--muted); font-family:var(--mono); font-size:10px; text-transform:uppercase; }
-    .data-table td.dc-td-vendor::before{ content:""; }
-    .dc-td-vendor{ font-weight:700; font-size:15px; padding-top:6px; }
-    .dc-note-cell:empty, td[data-label="Доступ"]:empty, td[data-label="Модель"]:empty{ display:none; }
-  }
-</style>
+<?php $dc_vendors = $dc_error === '' ? (int)$pdo->query('SELECT COUNT(DISTINCT vendor COLLATE NOCASE) FROM creds')->fetchColumn() : 0; ?>
+<link rel="stylesheet" href="/assets/bases.css">
 
-<main class="page">
-  <div class="page-wrap">
-    <div class="page-label">// базы</div>
-    <h1 class="page-title">Пароли по умолчанию</h1>
-    <p class="page-sub">Заводские логины и пароли роутеров, камер, сетевых устройств и ПО из открытых мануалов и списка SecLists.</p>
+<main class="b-shell">
+  <div class="b-wrap">
+    <section class="b-head">
+      <div>
+        <span class="b-kicker">// базы</span>
+        <h1 class="b-title">Пароли по умолчанию</h1>
+        <p class="b-sub">Заводские логины и пароли роутеров, камер, сетевых устройств и ПО из открытых мануалов и списка SecLists.</p>
+      </div>
+      <div class="b-stats" style="--n:3">
+        <div class="b-stat"><strong><?= number_format($dc_all, 0, '.', ' ') ?></strong><span>записей</span></div>
+        <div class="b-stat"><strong><?= number_format($dc_vendors, 0, '.', ' ') ?></strong><span>производителей</span></div>
+        <div class="b-stat"><strong><?= count($dc_types) ?></strong><span>типов</span></div>
+      </div>
+    </section>
 
     <?php if ($dc_error !== ''): ?>
-      <div class="dc-empty" style="color:var(--danger)">База недоступна: <?= dc_h($dc_error) ?></div>
+      <div class="b-alert">База недоступна: <?= dc_h($dc_error) ?></div>
     <?php else: ?>
-      <form class="dc-tools" method="get">
-        <?php if ($dc_type !== ''): ?><input type="hidden" name="type" value="<?= dc_h($dc_type) ?>"><?php endif; ?>
-        <input type="search" name="q" value="<?= dc_h($dc_query) ?>" placeholder="Например: Hikvision, TP-Link, admin, камера" autofocus>
-        <button class="btn" type="submit">Найти</button>
-      </form>
+      <section class="b-panel">
+        <form class="b-form" method="get">
+          <?php if ($dc_type !== ''): ?><input type="hidden" name="type" value="<?= dc_h($dc_type) ?>"><?php endif; ?>
+          <input class="b-input" type="search" name="q" value="<?= dc_h($dc_query) ?>" placeholder="Hikvision, TP-Link, admin, камера" autofocus>
+          <button class="b-btn" type="submit">Найти</button>
+        </form>
+        <p class="b-hint">Ищет по производителю, модели, логину, паролю и примечанию. Слова через пробел сужают поиск. Звёздочкой отмечены проверенные записи.</p>
+      </section>
 
-      <div class="dc-chips">
-        <a class="dc-chip<?= $dc_type === '' ? ' on' : '' ?>" href="<?= dc_h(dc_qs(['type' => '', 'page' => 1])) ?>">Все <small><?= $dc_all ?></small></a>
+      <div class="b-chips">
+        <a class="b-chip<?= $dc_type === '' ? ' on' : '' ?>" href="<?= dc_h(dc_qs(['type' => '', 'page' => 1])) ?>">Все <small><?= $dc_all ?></small></a>
         <?php foreach ($dc_types as $t => $c): ?>
-          <a class="dc-chip<?= $dc_type === $t ? ' on' : '' ?>" href="<?= dc_h(dc_qs(['type' => $t, 'page' => 1])) ?>"><?= dc_h($t) ?> <small><?= $c ?></small></a>
+          <a class="b-chip<?= $dc_type === $t ? ' on' : '' ?>" href="<?= dc_h(dc_qs(['type' => $t, 'page' => 1])) ?>"><?= dc_h($t) ?> <small><?= $c ?></small></a>
         <?php endforeach; ?>
       </div>
 
-      <div class="dc-count">Найдено: <?= number_format($dc_total, 0, '.', ' ') ?><?= $dc_pages > 1 ? ' · страница ' . $dc_page . ' из ' . $dc_pages : '' ?></div>
+      <div class="b-count">Найдено: <?= number_format($dc_total, 0, '.', ' ') ?><?= $dc_pages > 1 ? ', страница ' . $dc_page . ' из ' . $dc_pages : '' ?></div>
 
       <?php if (!$dc_results): ?>
-        <div class="dc-empty">Ничего не найдено. Попробуйте другое название производителя или модели.</div>
+        <div class="b-empty">Ничего не найдено. Попробуйте другое название производителя или модели.</div>
       <?php else: ?>
-        <div class="dc-tablewrap">
-          <table class="data-table">
+        <div class="b-tablewrap">
+          <table class="b-table">
             <thead>
-              <tr><th>Производитель</th><th>Модель</th><th>Тип</th><th>Логин</th><th>Пароль</th><th>Доступ</th><th>Примечание</th></tr>
+              <tr><th>Устройство</th><th>Тип</th><th>Логин</th><th>Пароль</th><th>Доступ и примечание</th></tr>
             </thead>
             <tbody>
               <?php foreach ($dc_results as $it): ?>
+                <?php $extra = trim(dc_h((string)$it['access']) . ((string)$it['access'] !== '' && (string)$it['note'] !== '' ? '. ' : '') . dc_h((string)$it['note'])); ?>
                 <tr>
-                  <td class="dc-td-vendor" data-label="Производитель"><?= $it['featured'] ? '<span class="dc-star" title="Проверенная запись">★</span> ' : '' ?><?= dc_h((string)$it['vendor']) ?></td>
-                  <td data-label="Модель"><?= dc_h((string)$it['model']) ?></td>
-                  <td data-label="Тип"><span class="dc-type"><?= dc_h((string)$it['type']) ?></span></td>
-                  <td data-label="Логин"><span class="dc-cred"><?= dc_h((string)$it['login']) ?></span></td>
-                  <td data-label="Пароль"><span class="dc-cred"><?= dc_h((string)$it['password']) ?></span></td>
-                  <td data-label="Доступ"><?= dc_h((string)$it['access']) ?></td>
-                  <td class="dc-note-cell" data-label="Примечание"><?= dc_h((string)$it['note']) ?></td>
+                  <td class="b-cell-lead" data-label="Устройство">
+                    <?= $it['featured'] ? '<span class="b-star" title="Проверенная запись">★</span> ' : '' ?><?= dc_h((string)$it['vendor']) ?>
+                    <?php if ((string)$it['model'] !== ''): ?><div class="b-dim" style="font-weight:400"><?= dc_h((string)$it['model']) ?></div><?php endif; ?>
+                  </td>
+                  <td data-label="Тип"><span class="b-tag"><?= dc_h((string)$it['type']) ?></span></td>
+                  <td data-label="Логин"><span class="b-pill"><?= dc_h((string)$it['login']) ?></span></td>
+                  <td data-label="Пароль"><span class="b-pill"><?= dc_h((string)$it['password']) ?></span></td>
+                  <td class="b-dim" data-label="Доступ и примечание"><?= $extra ?></td>
                 </tr>
               <?php endforeach; ?>
             </tbody>
@@ -170,7 +137,7 @@ $dc_pages = max(1, (int)ceil($dc_total / DC_PER_PAGE));
         </div>
 
         <?php if ($dc_pages > 1): ?>
-          <div class="dc-pager">
+          <div class="b-pager">
             <?php if ($dc_page > 1): ?><a href="<?= dc_h(dc_qs(['page' => $dc_page - 1])) ?>">← Назад</a><?php endif; ?>
             <span class="cur"><?= $dc_page ?> / <?= $dc_pages ?></span>
             <?php if ($dc_page < $dc_pages): ?><a href="<?= dc_h(dc_qs(['page' => $dc_page + 1])) ?>">Вперёд →</a><?php endif; ?>
