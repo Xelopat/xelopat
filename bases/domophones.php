@@ -293,13 +293,11 @@ if ($db_ready) {
                     e.entrance_number,
                     c.code,
                     c.raw,
-                    src.path AS source_path,
                     ({$relevance}) AS relevance
                 FROM codes c
                 JOIN entrances e ON e.id = c.entrance_id
                 JOIN houses h ON h.id = e.house_id
                 JOIN streets s ON s.id = h.street_id
-                LEFT JOIN sources src ON src.id = c.source_id
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY relevance, s.name, CAST(h.house_number AS INTEGER), h.house_number, h.building, CAST(e.entrance_number AS INTEGER), e.entrance_number, c.code
                 LIMIT :limit OFFSET :offset
@@ -625,7 +623,6 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
               <th>Адрес</th>
               <th>Подъезд</th>
               <th>Код</th>
-              <th>Источник</th>
             </tr>
           </thead>
           <tbody>
@@ -645,7 +642,6 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
                 </td>
                 <td data-label="Подъезд"><?= $entrance !== '' ? dom_h($entrance) : '<span class="muted">не указан</span>' ?></td>
                 <td data-label="Код"><span class="code-pill"><?= dom_h((string)$row['code']) ?></span></td>
-                <td data-label="Источник"><span class="source"><?= dom_h((string)($row['source_path'] ?? '')) ?></span></td>
               </tr>
             <?php endforeach; ?>
           </tbody>

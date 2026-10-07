@@ -5,6 +5,15 @@ require_once __DIR__ . '/auth/lib.php';
 require_once __DIR__ . '/includes/collection_lib.php';
 require_role('admin');
 
+// Если что-то упадёт, админ увидит причину, а не пустую страницу
+register_shutdown_function(function () {
+    $e = error_get_last();
+    if ($e && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        echo '<pre style="margin:20px;padding:14px;border:1px solid #ff8f8f;border-radius:10px;color:#ff8f8f;background:#1e1e25;white-space:pre-wrap">Ошибка админки: '
+            . htmlspecialchars($e['message'] . ' (' . basename($e['file']) . ':' . $e['line'] . ')', ENT_QUOTES, 'UTF-8') . '</pre>';
+    }
+});
+
 $me = auth_current_user();
 $csrf = csrf_token();
 $config_path = __DIR__ . '/data/site_config.json';
@@ -137,7 +146,9 @@ unset($_SESSION['admin_flash']);
 
 /* ---------------- данные для страницы ---------------- */
 
+$load_errors = [];
 $sections = [];
+try {
 foreach (COLLECTIONS as $key => $def) {
     $items = coll_load($key);
     $last = '';
@@ -175,20 +186,27 @@ if (is_file($domPath) && class_exists('PDO')) {
     }
 }
 $sections[] = ['title' => 'Домофоны', 'url' => '/bases/domophones.php', 'add' => '', 'stat' => $domStat, 'last' => 'обновляется вручную'];
+} catch (Throwable $e) {
+    $load_errors[] = 'Разделы: ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')';
+}
 
 $cfg = admin_config($config_path);
 $cfg_json = json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
 $users = users_load()['users'];
 
-$myTokenId = remember_parse_cookie()['id'] ?? '';
 $sessions = [];
+try {
+$myTokenId = remember_parse_cookie()['id'] ?? '';
 $tokensRaw = is_file(REMEMBER_FILE) ? json_decode((string)file_get_contents(REMEMBER_FILE), true) : [];
 foreach ((array)$tokensRaw as $id => $t) {
     if (($t['uid'] ?? '') !== ($me['id'] ?? '') || (int)($t['expires'] ?? 0) < time()) continue;
     $sessions[] = ['id' => (string)$id, 'device' => admin_device((string)($t['ua'] ?? '')), 'created' => (int)($t['created'] ?? 0),
                    'refreshed' => (int)($t['refreshed'] ?? 0), 'expires' => (int)($t['expires'] ?? 0), 'current' => $id === $myTokenId];
 }
-usort($sessions, fn($a, $b) => $b['refreshed'] <=> $a['refreshed']);
+usort($sessions, function ($a, $b) { return $b['refreshed'] <=> $a['refreshed']; });
+} catch (Throwable $e) {
+    $load_errors[] = 'Входы: ' . $e->getMessage();
+}
 
 $site_page_title = 'Админка — xelopat';
 include __DIR__ . '/header.php';
@@ -250,18 +268,21 @@ include __DIR__ . '/header.php';
       <a class="btn" href="/auth/logout.php">Выйти</a>
     </div>
 
+    <?php foreach ($load_errors as $le): ?>
+      <div class="ad-flash err"><?= admin_h($le) ?></div>
+    <?php endforeach; ?>
     <?php if ($flash): ?>
       <div class="ad-flash <?= $flash[0] === 'ok' ? 'ok' : 'err' ?>"><?= admin_h($flash[1]) ?></div>
     <?php endif; ?>
 
     <nav class="ad-tabs" id="adTabs">
-      <a href="#sections" data-tab="sections">Разделы</a>
+      <a href="#sections" data-tab="sections" class="on">Разделы</a>
       <a href="#home" data-tab="home">Главная</a>
       <a href="#users" data-tab="users">Пользователи</a>
       <a href="#sessions" data-tab="sessions">Мои входы</a>
     </nav>
 
-    <section class="ad-pane" id="pane-sections">
+    <section class="ad-pane on" id="pane-sections">
       <div class="ad-grid">
         <?php foreach ($sections as $s): ?>
           <div class="panel ad-tile">
