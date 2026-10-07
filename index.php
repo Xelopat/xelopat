@@ -134,6 +134,8 @@ $terminal_config = cfg($config, 'terminal', []);
 if (!is_array($terminal_config)) {
     $terminal_config = [];
 }
+$client_ip = (string)($_SERVER['REMOTE_ADDR'] ?? '');
+$terminal_config['client_ip'] = filter_var($client_ip, FILTER_VALIDATE_IP) ? $client_ip : '';
 $terminal_json = json_encode($terminal_config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
 if ($terminal_json === false) {
     $terminal_json = '{}';
@@ -308,16 +310,18 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   .term-output::-webkit-scrollbar-thumb:hover{
     background:linear-gradient(180deg, #71e2be, #56c7a2);
   }
-  .term-line{ display:flex; gap:6px; flex-wrap:wrap; line-height:1.5; word-break:break-word; color:#14d977; }
+  .term-line{ display:flex; flex-wrap:wrap; line-height:1.5; word-break:break-word; white-space:pre-wrap; color:#d0d4dc; }
   .term-line a{ color:var(--green); text-decoration:underline; }
   .term-line a:hover{ opacity:.88; }
-  .term-host{ color:#11df7f; }
-  .term-path{ color:#44f0bb; }
-  .term-symbol{ color:#11df7f; }
-  .term-error{ color:var(--danger); }
+  .term-host{ color:#11df7f; font-weight:700; }
+  .term-path{ color:#5aa7ff; font-weight:700; }
+  .term-symbol{ color:#d0d4dc; }
+  .term-dir{ color:#5aa7ff; font-weight:700; }
+  .term-dim{ color:#8b90a0; }
+  .term-error{ color:#d0d4dc; }
+  .term-cmd{ color:#f2f4f8; white-space:pre-wrap; }
   .term-line--prompt{
     align-items:center;
-    gap:0;
     white-space:nowrap;
   }
   .term-inline-input{
@@ -325,11 +329,12 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     min-width:24px;
     background:transparent;
     border:none;
-    color:#14d977;
+    color:#f2f4f8;
     font:inherit;
     outline:none;
-    margin-left:6px;
-    caret-color:#14d977;
+    margin-left:1ch;
+    padding:0;
+    caret-color:#d0d4dc;
   }
 
   .section{ padding:0 0 40px; position:relative; z-index:1; }
@@ -647,11 +652,14 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   let cwd = [];
   const history = [];
   let historyIndex = -1;
-  const COMMANDS = ['help', 'ls', 'cd', 'pwd', 'cat', 'tree', 'whoami', 'echo', 'clear'];
+  const COMMANDS = ['help', 'ls', 'cd', 'pwd', 'cat', 'tree', 'whoami', 'echo', 'clear', 'uname', 'date', 'uptime', 'hostname', 'id', 'history'];
   const COMMANDS_WITH_ARG = new Set(['ls', 'cd', 'cat', 'tree', 'echo']);
   const PATH_COMMANDS = new Set(['ls', 'cd', 'cat', 'tree']);
   const LINK_PATTERN = /\[([^\]]+)\]\((\/[^)\s]+|https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s]+)/g;
   const hostname = String(config.hostname || 'xelopat@site');
+  const userName = hostname.split('@')[0];
+  const hostShort = hostname.split('@')[1] || hostname;
+  const bootTime = new Date();
 
   function appendLinkedText(container, text) {
     const source = String(text ?? '');
@@ -710,7 +718,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
   }
 
   function printError(text) {
-    printLine(['error: ' + String(text ?? '')], 'term-error');
+    printLine([String(text ?? '')], 'term-error');
   }
 
   function getPromptPath() {
@@ -791,7 +799,8 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     row.appendChild(symbol);
 
     const commandText = document.createElement('span');
-    commandText.textContent = raw;
+    commandText.className = 'term-cmd';
+    commandText.textContent = ' ' + raw;
     row.appendChild(commandText);
   }
 
@@ -928,139 +937,206 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
     completePath(cmdToken, arg);
   }
 
-  function listDir(pathParts) {
-    const node = getNode(pathParts);
-    if (!node) {
-      printError('Путь не найден.');
-      return;
-    }
-    if (node.type !== 'dir') {
-      printInfo(pathParts[pathParts.length - 1] || '/');
-      return;
-    }
-    const names = Object.keys(node.children || {});
-    if (!names.length) {
-      printInfo('(пусто)');
-      return;
-    }
-    printInfo(names.join('   '));
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const pad2 = n => String(n).padStart(2, '0');
+
+  function fmtDate(d) {
+    return DAYS[d.getDay()] + ' ' + MONTHS[d.getMonth()] + ' ' + String(d.getDate()).padStart(2, ' ') +
+      ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
   }
 
-  function catFile(pathParts) {
+  function nodeSize(node) {
+    if (node.type === 'dir') return 4096;
+    return new TextEncoder().encode(String(node.content || '') + '\n').length;
+  }
+
+  function sortedEntries(node) {
+    return Object.entries(node.children || {}).sort((a, b) => a[0].localeCompare(b[0], 'en'));
+  }
+
+  function listDir(pathParts, flags) {
+    const node = getNode(pathParts);
+    const label = pathParts[pathParts.length - 1] || '/';
+    if (!node) {
+      printError("ls: cannot access '" + label + "': No such file or directory");
+      return;
+    }
+    const showAll = flags.includes('a');
+    const longFmt = flags.includes('l');
+    let entries;
+    if (node.type !== 'dir') {
+      entries = [[label, node]];
+    } else {
+      entries = sortedEntries(node);
+      if (showAll) entries = [['.', node], ['..', node]].concat(entries);
+    }
+    if (!entries.length) return;
+
+    if (!longFmt) {
+      const parts = [];
+      entries.forEach(([name, child], i) => {
+        if (i) parts.push('  ');
+        parts.push({ text: name, className: child.type === 'dir' ? 'term-dir' : '' });
+      });
+      printLine(parts);
+      return;
+    }
+
+    const sizes = entries.map(([, child]) => String(nodeSize(child)));
+    const width = Math.max(...sizes.map(x => x.length));
+    const stamp = MONTHS[bootTime.getMonth()] + ' ' + String(bootTime.getDate()).padStart(2, ' ') +
+      ' ' + pad2(bootTime.getHours()) + ':' + pad2(bootTime.getMinutes());
+    if (node.type === 'dir') {
+      const total = entries.reduce((sum, [, child]) => sum + Math.max(4, Math.ceil(nodeSize(child) / 4096) * 4), 0);
+      printInfo('total ' + total);
+    }
+    entries.forEach(([name, child], i) => {
+      const isDir = child.type === 'dir';
+      const left = (isDir ? 'drwxr-xr-x ' : '-rw-r--r-- ') + (isDir ? '2' : '1') + ' ' + userName + ' ' + userName + ' ' +
+        sizes[i].padStart(width, ' ') + ' ' + stamp + ' ';
+      printLine([left, { text: name, className: isDir ? 'term-dir' : '' }]);
+    });
+  }
+
+  function catFile(pathParts, rawName) {
     const node = getNode(pathParts);
     if (!node) {
-      printError('Файл не найден.');
+      printError('cat: ' + rawName + ': No such file or directory');
       return;
     }
     if (node.type !== 'file') {
-      printError('Это папка, а не файл.');
+      printError('cat: ' + rawName + ': Is a directory');
       return;
     }
-    const lines = String(node.content || '').split('\n');
-    lines.forEach(line => printInfo(line));
+    String(node.content || '').split('\n').forEach(line => printInfo(line));
   }
 
-  function drawTree(node, prefix, name) {
-    if (!node) return;
-    if (name) {
-      printInfo(prefix + name + (node.type === 'dir' ? '/' : ''));
-    }
-    if (node.type !== 'dir') return;
-    const entries = Object.entries(node.children || {});
-    entries.forEach(([childName, childNode], index) => {
-      const branch = index === entries.length - 1 ? '└─ ' : '├─ ';
-      const nextPrefix = prefix + (index === entries.length - 1 ? '   ' : '│  ');
-      printInfo(prefix + branch + childName + (childNode.type === 'dir' ? '/' : ''));
-      if (childNode.type === 'dir') {
-        Object.entries(childNode.children || {}).forEach(([grandName, grandNode]) => {
-          drawTree(grandNode, nextPrefix, grandName);
-        });
+  function drawTree(node, prefix, counts) {
+    const entries = sortedEntries(node);
+    entries.forEach(([name, child], index) => {
+      const last = index === entries.length - 1;
+      const isDir = child.type === 'dir';
+      printLine([prefix + (last ? '└── ' : '├── '), { text: name, className: isDir ? 'term-dir' : '' }]);
+      if (isDir) {
+        counts.dirs++;
+        drawTree(child, prefix + (last ? '    ' : '│   '), counts);
+      } else {
+        counts.files++;
       }
     });
   }
 
   function handleCommand(command) {
-    const parts = command.split(/\s+/);
-    const cmd = parts[0].toLowerCase();
-    const arg = parts.slice(1).join(' ');
+    const tokens = command.split(/\s+/);
+    const cmd = tokens[0].toLowerCase();
+    const rest = tokens.slice(1);
+    const flags = rest.filter(t => /^-[a-zA-Z]+$/.test(t)).join('').replace(/-/g, '');
+    const args = rest.filter(t => !/^-[a-zA-Z]+$/.test(t));
+    const arg = args.join(' ');
+    const resolve = p => (p === '~' ? [] : p.startsWith('~/') ? normalizePath('/' + p.slice(2)) : normalizePath(p));
 
-    if (cmd === 'help') {
-      printInfo('help, ls [path], cd [path], pwd, cat <file>, tree [path], whoami, echo <text>, clear');
-      return;
-    }
+    switch (cmd) {
+      case 'help':
+        printInfo('Доступные команды:');
+        printInfo('  ls [-la] [path]   cd [path]   pwd   cat <file>   tree [path]');
+        printInfo('  whoami   id   hostname   uname [-a]   date   uptime   history');
+        printInfo('  echo <text>   clear');
+        printInfo('Tab дополняет команды и пути, стрелки вверх и вниз листают историю.');
+        return;
 
-    if (cmd === 'clear') {
-      output.innerHTML = '';
-      return { cleared: true };
-    }
+      case 'clear':
+        output.innerHTML = '';
+        return { cleared: true };
 
-    if (cmd === 'pwd') {
-      printInfo(pwd());
-      return;
-    }
+      case 'pwd':
+        printInfo('/home/' + userName + (cwd.length ? '/' + cwd.join('/') : ''));
+        return;
 
-    if (cmd === 'whoami') {
-      printInfo(config.whoami || 'guest');
-      return;
-    }
+      case 'whoami':
+        printInfo(userName);
+        return;
 
-    if (cmd === 'echo') {
-      printInfo(arg || '');
-      return;
-    }
+      case 'id':
+        printInfo('uid=1000(' + userName + ') gid=1000(' + userName + ') groups=1000(' + userName + ')');
+        return;
 
-    if (cmd === 'ls') {
-      listDir(arg ? normalizePath(arg) : cwd);
-      return;
-    }
+      case 'hostname':
+        printInfo(hostShort);
+        return;
 
-    if (cmd === 'cd') {
-      const target = arg ? normalizePath(arg) : [];
-      const node = getNode(target);
-      if (!node) {
-        printError('Папка не найдена.');
+      case 'uname':
+        printInfo(flags.includes('a')
+          ? 'Linux ' + hostShort + ' 5.15.0-101-generic #111-Ubuntu SMP Tue Mar 5 20:16:58 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux'
+          : 'Linux');
+        return;
+
+      case 'date':
+        printInfo(fmtDate(new Date()) + ' UTC ' + new Date().getFullYear());
+        return;
+
+      case 'uptime': {
+        const now = new Date();
+        printInfo(' ' + pad2(now.getHours()) + ':' + pad2(now.getMinutes()) + ':' + pad2(now.getSeconds()) +
+          ' up 41 days,  3:12,  1 user,  load average: 0.08, 0.03, 0.01');
         return;
       }
-      if (node.type !== 'dir') {
-        printError('Нельзя перейти в файл.');
-        return;
-      }
-      cwd = target;
-      printInfo('Текущая папка: ' + pwd());
-      return;
-    }
 
-    if (cmd === 'cat') {
-      if (!arg) {
-        printError('Укажи файл.');
+      case 'history':
+        history.forEach((h, i) => printInfo(String(i + 1).padStart(5, ' ') + '  ' + h));
         return;
-      }
-      catFile(normalizePath(arg));
-      return;
-    }
 
-    if (cmd === 'tree') {
-      const target = arg ? normalizePath(arg) : cwd;
-      const node = getNode(target);
-      if (!node) {
-        printError('Путь не найден.');
+      case 'echo':
+        printInfo(command.replace(/^\S+\s?/, ''));
         return;
-      }
-      printInfo((target.length ? target[target.length - 1] : '/') + (node.type === 'dir' ? '/' : ''));
-      if (node.type === 'file') return;
-      const entries = Object.entries(node.children || {});
-      entries.forEach(([childName, childNode], index) => {
-        const branch = index === entries.length - 1 ? '└─ ' : '├─ ';
-        printInfo(branch + childName + (childNode.type === 'dir' ? '/' : ''));
-        if (childNode.type === 'dir') {
-          drawTree(childNode, index === entries.length - 1 ? '   ' : '│  ', '');
+
+      case 'ls':
+        listDir(arg ? resolve(arg) : cwd, flags);
+        return;
+
+      case 'cd': {
+        if (args.length > 1) {
+          printError('bash: cd: too many arguments');
+          return;
         }
-      });
-      return;
-    }
+        const target = arg ? resolve(arg) : [];
+        const node = getNode(target);
+        if (!node) {
+          printError('bash: cd: ' + arg + ': No such file or directory');
+          return;
+        }
+        if (node.type !== 'dir') {
+          printError('bash: cd: ' + arg + ': Not a directory');
+          return;
+        }
+        cwd = target;
+        return;
+      }
 
-    printError('Неизвестная команда. Напиши help.');
-    return { cleared: false };
+      case 'cat':
+        if (!arg) return;
+        args.forEach(name => catFile(resolve(name), name));
+        return;
+
+      case 'tree': {
+        const target = arg ? resolve(arg) : cwd;
+        const node = getNode(target);
+        if (!node) {
+          printError(arg + ' [error opening dir]');
+          return;
+        }
+        const counts = { dirs: 0, files: 0 };
+        printLine([{ text: arg || '.', className: 'term-dir' }]);
+        if (node.type === 'dir') drawTree(node, '', counts);
+        printInfo('');
+        printInfo(counts.dirs + ' directories, ' + counts.files + ' files');
+        return;
+      }
+
+      default:
+        printError('bash: ' + tokens[0] + ': command not found');
+        return;
+    }
   }
 
   function runCurrentPrompt(row, inputEl) {
@@ -1146,6 +1222,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat · 2026');
 
   const welcome = Array.isArray(config.welcome) ? config.welcome : [];
   welcome.forEach((line) => printInfo(String(line)));
+  printLine([{ text: 'Last login: ' + fmtDate(new Date(bootTime.getTime() - 5 * 3600 * 1000)) + ' ' + bootTime.getFullYear() + (config.client_ip ? ' from ' + config.client_ip : ''), className: 'term-dim' }]);
   createPromptLine('');
 })();
 </script>

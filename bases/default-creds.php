@@ -51,7 +51,7 @@ try {
     if ($dc_page > $pages) $dc_page = $pages;
     $offset = ($dc_page - 1) * DC_PER_PAGE;
 
-    $st = $pdo->prepare('SELECT vendor, model, type, login, password, access, note, featured FROM creds'
+    $st = $pdo->prepare('SELECT vendor, model, type, login, password, note, featured FROM creds'
         . $sql . ' ORDER BY featured DESC, vendor COLLATE NOCASE, model LIMIT ' . DC_PER_PAGE . ' OFFSET ' . $offset);
     $st->execute($params);
     $dc_results = $st->fetchAll(PDO::FETCH_ASSOC);
@@ -114,7 +114,7 @@ $dc_pages = max(1, (int)ceil($dc_total / DC_PER_PAGE));
         <div class="b-tablewrap">
           <table class="b-table">
             <thead>
-              <tr><th>Устройство</th><th>Тип</th><th>Логин</th><th>Пароль</th><th>Доступ</th></tr>
+              <tr><th>Устройство</th><th>Тип</th><th>Логин</th><th>Пароль</th></tr>
             </thead>
             <tbody>
               <?php foreach ($dc_results as $it): ?>
@@ -126,7 +126,6 @@ $dc_pages = max(1, (int)ceil($dc_total / DC_PER_PAGE));
                   <td data-label="Тип"><span class="b-tag"><?= dc_h((string)$it['type']) ?></span></td>
                   <td data-label="Логин"><span class="b-pill"><?= dc_h((string)$it['login']) ?></span></td>
                   <td data-label="Пароль"><span class="b-pill"><?= dc_h((string)$it['password']) ?></span></td>
-                  <td class="b-dim" data-label="Доступ"><?= dc_h((string)$it['access']) ?></td>
                 </tr>
               <?php endforeach; ?>
             </tbody>

@@ -81,7 +81,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cfg['footer']['text'] = trim((string)($_POST['footer_text'] ?? ''));
         $cfg['terminal']['hostname'] = trim((string)($_POST['term_hostname'] ?? ''));
         $cfg['terminal']['welcome'] = trim((string)($_POST['term_welcome'] ?? ''));
-        $cfg['terminal']['whoami'] = trim((string)($_POST['term_whoami'] ?? ''));
         admin_config_save($config_path, $cfg)
             ? admin_flash('ok', 'Главная сохранена.')
             : admin_flash('err', 'Не удалось записать конфиг.');
@@ -453,7 +452,6 @@ include __DIR__ . '/header.php';
           <h3>Терминал</h3>
           <div class="two">
             <div class="field"><label>Имя хоста</label><input name="term_hostname" value="<?= admin_h((string)($cfg['terminal']['hostname'] ?? '')) ?>"></div>
-            <div class="field"><label>Ответ на whoami</label><input name="term_whoami" value="<?= admin_h((string)($cfg['terminal']['whoami'] ?? '')) ?>"></div>
           </div>
           <div class="field"><label>Приветствие</label><textarea name="term_welcome" rows="2"><?= admin_h((string)($cfg['terminal']['welcome'] ?? '')) ?></textarea></div>
           <h3>Подвал</h3>
