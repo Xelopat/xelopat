@@ -567,7 +567,6 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   // «Месяц» считается с 10-го числа по 9-е следующего. Период называем по месяцу начала.
   const START_DAY = 10;
-  const MONTHS_SHORT = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
   function periodOf(dateIso) {
     const d = parseIso(dateIso);
     let y = d.getFullYear(), m = d.getMonth();
@@ -583,7 +582,8 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   }
   function pLabel(y, m) {
     const a = new Date(y, m, START_DAY), b = new Date(y, m + 1, START_DAY - 1);
-    return `${a.getDate()} ${MONTHS_SHORT[a.getMonth()]} — ${b.getDate()} ${MONTHS_SHORT[b.getMonth()]} ${b.getFullYear()}`;
+    const f = (d) => `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
+    return `${f(a)}-${f(b)}`;
   }
   const curKeyOf = (dateIso) => { const p = periodOf(dateIso); return monthKey(p.y, p.m); };
 
