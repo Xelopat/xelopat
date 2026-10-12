@@ -30,7 +30,7 @@ function la_entries(array $data): array {
 function la_payload(array $entries, array $log): array {
     return [
         'entries' => (object)$entries,
-        'log' => array_slice($log, -LA_LOG_SEND),
+        'log' => user_has_role(auth_current_user(), 'admin') ? array_slice($log, -LA_LOG_SEND) : [],
         'defaultRate' => LA_RATE,
     ];
 }
@@ -536,11 +536,6 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
         <div id="laRecords"></div>
       </section>
     </div>
-
-    <section class="la-card la-log-card<?= $la_off('log') ?>">
-      <h2>История изменений <small>можно вернуть как было</small></h2>
-      <div id="laLog"></div>
-    </section>
   </div>
 </main>
 
@@ -601,8 +596,6 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   }
 
   let entries = {};   // { 'YYYY-MM-DD': { s: квадраты, r: ставка } }
-  let log = [];
-  let showAllLog = false;
   let todayIso = iso(new Date());
   const now = new Date();
   let viewY = periodOf(todayIso).y;
@@ -635,7 +628,6 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   function apply(j) {
     entries = j.entries || {};
-    log = j.log || [];
     if (j.defaultRate) DEFAULT_RATE = j.defaultRate;
   }
 
@@ -962,58 +954,6 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   }
   $('laRecords').addEventListener('click', onPick);
 
-  // ---------- история ----------
-  const fmtTime = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  const sq = (e) => `${num(e.s)} кв.`;
-  // Ставку показываем, только если она поменялась (или запись новая)
-  const withRate = (e, other) => (other && Number(other.r) === Number(e.r) ? '' : ` по ${num(e.r)} ₽`);
-
-  function describe(item) {
-    const day = `<span class="day" data-date="${item.date}">${human(item.date)} ${item.date.slice(0, 4)}</span>`;
-    const { from, to } = item;
-    if (!from) return `${day}: <span class="add">записано <b>${sq(to)}</b>${withRate(to)}</span>`;
-    if (!to) return `${day}: <span class="del">удалено</span> <span class="was">${sq(from)}</span>`;
-    return `${day}: <span class="was">${sq(from)}${withRate(from, to)}</span> → <b>${sq(to)}</b>${withRate(to, from)}`;
-  }
-
-  function renderLog() {
-    if (!log.length) { $('laLog').innerHTML = '<div class="la-empty">Изменений пока нет.</div>'; return; }
-    const items = log.map((it, i) => ({ ...it, i })).reverse();
-    const shown = showAllLog ? items : items.slice(0, 8);
-    $('laLog').innerHTML = `
-      <div class="la-log">
-        ${shown.map((it) => `
-          <div class="la-log-row">
-            <div class="la-log-time">${fmtTime.format(new Date(it.t * 1000))}</div>
-            <div class="la-log-what">${describe(it)}</div>
-            ${CAN_EDIT ? `<button class="la-undo" type="button" data-undo="${it.i}" title="Вернуть значение, которое было до этого изменения">Вернуть</button>` : ''}
-          </div>`).join('')}
-      </div>
-      ${items.length > 8 ? `<button class="la-chip la-log-more" type="button" id="laLogMore">${showAllLog ? 'Свернуть' : `Показать все (${items.length})`}</button>` : ''}`;
-  }
-
-  $('laLog').addEventListener('click', async (e) => {
-    if (e.target.id === 'laLogMore') { showAllLog = !showAllLog; renderLog(); return; }
-    const day = e.target.closest('.day[data-date]');
-    if (day) { selectDate(day.dataset.date, true); return; }
-    const btn = e.target.closest('[data-undo]');
-    if (!btn) return;
-    const it = log[Number(btn.dataset.undo)];
-    if (!it) return;
-    const back = it.from ? `${sq(it.from)} по ${num(it.from.r)} ₽` : 'пусто (запись удалится)';
-    if (!confirm(`Вернуть ${human(it.date)} к значению: ${back}?`)) return;
-    btn.disabled = true;
-    try {
-      await save(it.date, it.from ? it.from.s : 0, it.from ? it.from.r : undefined);
-      if (it.date === selected) selectDate(selected);
-      renderAll();
-      msg(`${human(it.date)}: возвращено`, 'ok');
-    } catch (err) {
-      btn.disabled = false;
-      alert(err.message);
-    }
-  });
-
   function renderAll() {
     todayIso = iso(new Date());
     renderTiles();
@@ -1021,7 +961,6 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     renderMonths();
     renderRecords();
     renderPeriod();
-    renderLog();
     updatePreview();
   }
 

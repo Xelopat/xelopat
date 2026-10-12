@@ -7,7 +7,6 @@ const LA_BLOCKS = [
     'period'  => 'Блок «За период»',
     'months'  => 'Блок «По месяцам»',
     'records' => 'Блок «Рекорды»',
-    'log'     => 'История изменений',
 ];
 
 function la_config(): array {

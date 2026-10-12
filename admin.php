@@ -606,6 +606,179 @@ include __DIR__ . '/header.php';
           <button class="btn cp-save" type="submit">Сохранить</button>
         </form>
       </div>
+
+      <div class="panel" id="laAdmin" data-csrf="<?= admin_h($csrf) ?>" style="margin-top:12px">
+        <h3 class="cp-h3">Записи по дням</h3>
+        <p class="cp-note">Выбери день, впиши квадраты и ставку. Нули или «Удалить» убирают запись. Всё попадает в историю ниже, откуда можно вернуть как было.</p>
+        <form class="cp-form" id="laaForm" autocomplete="off">
+          <div class="two">
+            <div class="field"><label>Дата</label><input type="date" id="laaDate" required></div>
+            <div class="field"><label>Квадратов</label><input type="number" id="laaSq" min="0" step="0.01" inputmode="decimal" placeholder="0"></div>
+          </div>
+          <div class="two">
+            <div class="field"><label>₽ за квадрат</label><input type="number" id="laaRate" min="0" step="0.01" inputmode="decimal"></div>
+            <div class="field"><label>Итого</label><input id="laaSum" readonly tabindex="-1"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn cp-save" type="submit">Сохранить</button>
+            <button class="btn" type="button" id="laaDel">Удалить день</button>
+            <span class="cp-note" id="laaMsg" style="margin:0"></span>
+          </div>
+        </form>
+
+        <h3 class="cp-h3" style="margin-top:20px">Последние дни <span class="cp-note" style="margin:0 0 0 6px">нажми на строку, чтобы поправить</span></h3>
+        <div class="cp-row cp-row-head" style="grid-template-columns:minmax(0,1fr) 80px 70px 90px"><span class="cp-row-k">День</span><span class="cp-row-n">Кв.</span><span class="cp-row-n">Ставка</span><span class="cp-row-n">Сумма</span></div>
+        <div class="cp-scroll" id="laaDays"></div>
+      </div>
+
+      <div class="panel" style="margin-top:12px">
+        <h3 class="cp-h3">История изменений <span class="cp-note" style="margin:0 0 0 6px">видна только админу</span></h3>
+        <div class="cp-scroll" id="laaLog"></div>
+      </div>
+
+      <script>
+      (function () {
+        const root = document.getElementById('laAdmin');
+        if (!root) return;
+        const API = '/lisa-alisa?api=1';
+        const CSRF = root.dataset.csrf;
+        const $ = (id) => document.getElementById(id);
+        const fmt = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
+        const rub = (n) => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.floor(n + 1e-9)) + ' ₽';
+        const fmtTime = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const DOW = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+        const pad = (n) => String(n).padStart(2, '0');
+        const dt = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+        const human = (s) => { const d = dt(s); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + DOW[d.getDay()]; };
+        const todayIso = () => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+
+        let entries = {}, log = [], defRate = 18, loaded = false;
+
+        function msg(text, bad) {
+          const el = $('laaMsg');
+          el.textContent = text;
+          el.style.color = bad ? '#ff8f8f' : '';
+          clearTimeout(msg.t);
+          if (text && !bad) msg.t = setTimeout(() => { el.textContent = ''; }, 2500);
+        }
+
+        function apply(j) {
+          entries = j.entries || {};
+          log = j.log || [];
+          if (j.defaultRate) defRate = j.defaultRate;
+          render();
+        }
+
+        async function load() {
+          const r = await fetch(API, { cache: 'no-store' });
+          apply(await r.json());
+        }
+
+        async function save(date, squares, rate) {
+          const r = await fetch(API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF': CSRF },
+            body: JSON.stringify({ date, squares, rate }),
+          });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(j.error || 'Не удалось сохранить');
+          apply(j);
+        }
+
+        function fillForm(date) {
+          const e = entries[date];
+          $('laaDate').value = date;
+          $('laaSq').value = e ? e.s : '';
+          $('laaRate').value = e ? e.r : lastRate();
+          preview();
+        }
+
+        function lastRate() {
+          const ds = Object.keys(entries).sort();
+          return ds.length ? entries[ds[ds.length - 1]].r : defRate;
+        }
+
+        function preview() {
+          const v = parseFloat(String($('laaSq').value).replace(',', '.'));
+          const r = parseFloat(String($('laaRate').value).replace(',', '.'));
+          $('laaSum').value = v > 0 && r > 0 ? rub(v * r) : '';
+        }
+
+        function render() {
+          const days = Object.keys(entries).sort().reverse().slice(0, 60);
+          $('laaDays').innerHTML = days.length ? days.map((d) => {
+            const e = entries[d];
+            return `<div class="cp-row" data-date="${d}" style="grid-template-columns:minmax(0,1fr) 80px 70px 90px;cursor:pointer">` +
+              `<span class="cp-row-k">${human(d)}</span><span class="cp-row-n on">${fmt.format(e.s)}</span>` +
+              `<span class="cp-row-n">${fmt.format(e.r)}</span><span class="cp-row-n">${rub(e.s * e.r)}</span></div>`;
+          }).join('') : '<p class="cp-note">Записей пока нет.</p>';
+
+          const sq = (e) => fmt.format(e.s) + ' кв.';
+          const rate = (e, other) => (other && Number(other.r) === Number(e.r) ? '' : ' по ' + fmt.format(e.r) + ' ₽');
+          const items = log.map((it, i) => ({ ...it, i })).reverse();
+          $('laaLog').innerHTML = items.length ? items.map((it) => {
+            const { from, to } = it;
+            let what;
+            if (!from) what = `записано <b>${sq(to)}</b>${rate(to)}`;
+            else if (!to) what = `удалено <s>${sq(from)}</s>`;
+            else what = `<s>${sq(from)}${rate(from, to)}</s> → <b>${sq(to)}</b>${rate(to, from)}`;
+            return `<div class="cp-row" style="grid-template-columns:110px minmax(0,1fr) auto">` +
+              `<span class="cp-row-k" style="color:var(--muted)">${fmtTime.format(new Date(it.t * 1000))}</span>` +
+              `<span style="position:relative">${human(it.date)}: ${what}</span>` +
+              `<button class="btn cp-small" type="button" data-undo="${it.i}" style="position:relative">Вернуть</button></div>`;
+          }).join('') : '<p class="cp-note">Изменений пока нет.</p>';
+        }
+
+        $('laaDays').addEventListener('click', (e) => {
+          const row = e.target.closest('[data-date]');
+          if (row) fillForm(row.dataset.date);
+        });
+        $('laaDate').addEventListener('change', () => { if ($('laaDate').value) fillForm($('laaDate').value); });
+        $('laaSq').addEventListener('input', preview);
+        $('laaRate').addEventListener('input', preview);
+
+        $('laaForm').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const date = $('laaDate').value;
+          const sqv = Number(String($('laaSq').value).replace(',', '.').trim() || 0);
+          const rt = Number(String($('laaRate').value).replace(',', '.').trim());
+          if (!date) return msg('Выбери дату', true);
+          if (!Number.isFinite(sqv) || sqv < 0) return msg('Квадраты: неотрицательное число', true);
+          if (!Number.isFinite(rt) || rt <= 0) return msg('Укажи ставку', true);
+          try {
+            await save(date, Math.round(sqv * 100) / 100, Math.round(rt * 100) / 100);
+            msg(sqv > 0 ? 'Сохранено' : 'Запись удалена');
+          } catch (err) { msg(err.message, true); }
+        });
+
+        $('laaDel').addEventListener('click', async () => {
+          const date = $('laaDate').value;
+          if (!date || !entries[date]) return msg('За этот день записи нет', true);
+          if (!confirm('Удалить запись за ' + human(date) + '?')) return;
+          try { await save(date, 0); $('laaSq').value = ''; preview(); msg('Запись удалена'); } catch (err) { msg(err.message, true); }
+        });
+
+        $('laaLog').addEventListener('click', async (e) => {
+          const btn = e.target.closest('[data-undo]');
+          if (!btn) return;
+          const it = log[Number(btn.dataset.undo)];
+          if (!it) return;
+          const back = it.from ? fmt.format(it.from.s) + ' кв. по ' + fmt.format(it.from.r) + ' ₽' : 'пусто (запись удалится)';
+          if (!confirm('Вернуть ' + human(it.date) + ' к значению: ' + back + '?')) return;
+          btn.disabled = true;
+          try { await save(it.date, it.from ? it.from.s : 0, it.from ? it.from.r : undefined); msg('Возвращено'); } catch (err) { btn.disabled = false; msg(err.message, true); }
+        });
+
+        // Данные грузим, когда вкладку открыли
+        function ensure() {
+          if (loaded || !document.getElementById('pane-lisa').classList.contains('on')) return;
+          loaded = true;
+          load().then(() => fillForm(todayIso())).catch(() => msg('Не удалось загрузить данные', true));
+        }
+        document.querySelectorAll('#cpTabs [data-tab]').forEach((t) => t.addEventListener('click', () => setTimeout(ensure, 0)));
+        document.addEventListener('DOMContentLoaded', ensure);
+      })();
+      </script>
     </section>
 
     <section class="cp-pane" id="pane-users">
