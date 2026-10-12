@@ -13,6 +13,9 @@ const PASSWORD_MIN_LEN = 8;
 
 // Публичные урлы (без логина)
 const PUBLIC_PATHS = [
+    '/auth/login',
+    '/auth/register',
+    '/auth/logout',
     '/auth/login.php',
     '/auth/register.php',
     '/auth/logout.php',

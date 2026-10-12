@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $next = safe_next((string)($_POST['next'] ?? '/'), '/');
 
     if (!csrf_check((string)($_POST['csrf'] ?? ''))) {
-        header("Location: /auth/login.php?next=" . urlencode($next) . "&err=csrf");
+        header("Location: /auth/login?next=" . urlencode($next) . "&err=csrf");
         exit;
     }
 
@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    header("Location: /auth/login.php?next=" . urlencode($next) . "&err=bad");
+    header("Location: /auth/login?next=" . urlencode($next) . "&err=bad");
     exit;
 }
 

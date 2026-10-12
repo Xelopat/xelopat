@@ -55,8 +55,11 @@ function la_backup(string $file, string $dir): void {
 }
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/auth/lib.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/lisa_cfg.php';
 // Смотреть могут все, записывать и откатывать — роль «Лиса-Алиса» и админ
 $la_can_edit = auth_can('lisa');
+$la_cfg = la_config();
+$la_off = function (string $k) use ($la_cfg): string { return $la_cfg['blocks'][$k] ? '' : ' la-off'; };
 
 if (isset($_GET['api'])) {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -329,6 +332,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   }
   .la-nav-btn:hover{ border-color:var(--fox); color:var(--fox-2); }
   .la-nav-btn:disabled{ opacity:.35; cursor:default; border-color:var(--line); color:var(--text); }
+  .la-off{ display:none !important; }
   .la-month-name{ min-width:140px; text-align:center; font-weight:700; text-transform:capitalize; }
 
   .la-summary{ display:flex; flex-wrap:wrap; gap:8px 18px; margin-bottom:14px; font-size:13px; color:var(--muted); }
@@ -441,7 +445,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       <img class="la-logo" src="/lisa-alisa/avatar.webp" alt="Лиса-Алиса" width="56" height="56">
       <div>
         <h1 class="la-title">Лиса-Алиса</h1>
-        <p class="la-sub">Лучший работник месяца</p>
+        <p class="la-sub"><?= htmlspecialchars($la_cfg['subtitle'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></p>
       </div>
     </header>
 
@@ -481,7 +485,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       </section>
     </div>
 
-    <section class="la-card la-period">
+    <section class="la-card la-period<?= $la_off('period') ?>">
       <h2>За период</h2>
       <div class="la-seg" id="laSeg">
         <button type="button" data-mode="month">Месяц</button>
@@ -517,23 +521,23 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
         </span>
       </h2>
       <div class="la-summary" id="laSummary"></div>
-      <div class="la-chart" id="laChart"></div>
-      <div class="la-axis" id="laAxis"></div>
+      <div class="la-chart<?= $la_off('chart') ?>" id="laChart"></div>
+      <div class="la-axis<?= $la_off('chart') ?>" id="laAxis"></div>
       <div class="la-tablewrap" id="laDays"></div>
     </section>
 
     <div class="la-grid2">
-      <section class="la-card">
+      <section class="la-card<?= $la_off('months') ?>">
         <h2>По месяцам</h2>
         <div class="la-months" id="laMonths"></div>
       </section>
-      <section class="la-card">
+      <section class="la-card<?= $la_off('records') ?>">
         <h2>Рекорды</h2>
         <div id="laRecords"></div>
       </section>
     </div>
 
-    <section class="la-card la-log-card">
+    <section class="la-card la-log-card<?= $la_off('log') ?>">
       <h2>История изменений <small>можно вернуть как было</small></h2>
       <div id="laLog"></div>
     </section>
@@ -543,7 +547,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 <script>
 (function () {
   let DEFAULT_RATE = <?= LA_RATE ?>;
-  const API = '/lisa-alisa/index.php?api=1';
+  const API = '/lisa-alisa?api=1';
   const CAN_EDIT = <?= $la_can_edit ? 'true' : 'false' ?>;
   const CSRF = <?= json_encode($la_can_edit ? csrf_token() : '') ?>;
 
@@ -565,6 +569,29 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   const monthKey = (y, m) => `${y}-${pad(m + 1)}`;
   const human = (s) => { const d = parseIso(s); return `${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`; };
 
+  // «Месяц» считается с START_DAY-го числа по предыдущее число следующего месяца (1 = обычный месяц). Период называем по месяцу начала.
+  const START_DAY = <?= (int)$la_cfg['start_day'] ?>;
+  function periodOf(dateIso) {
+    const d = parseIso(dateIso);
+    let y = d.getFullYear(), m = d.getMonth();
+    if (d.getDate() < START_DAY) { m--; if (m < 0) { m = 11; y--; } }
+    return { y, m };
+  }
+  const pStart = (y, m) => iso(new Date(y, m, START_DAY));
+  const pEnd = (y, m) => iso(new Date(y, m + 1, START_DAY - 1));
+  function pDates(y, m) {
+    const out = [], end = pEnd(y, m);
+    for (const d = new Date(y, m, START_DAY); iso(d) <= end; d.setDate(d.getDate() + 1)) out.push(iso(d));
+    return out;
+  }
+  function pLabel(y, m) {
+    if (START_DAY === 1) return `${MONTHS[m]} ${y}`;
+    const a = new Date(y, m, START_DAY), b = new Date(y, m + 1, START_DAY - 1);
+    const f = (d) => `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
+    return `${f(a)}-${f(b)}`;
+  }
+  const curKeyOf = (dateIso) => { const p = periodOf(dateIso); return monthKey(p.y, p.m); };
+
   function plural(n, one, few, many) {
     const a = Math.abs(n) % 100, b = a % 10;
     if (a > 10 && a < 20) return many;
@@ -578,8 +605,8 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   let showAllLog = false;
   let todayIso = iso(new Date());
   const now = new Date();
-  let viewY = now.getFullYear();
-  let viewM = now.getMonth();
+  let viewY = periodOf(todayIso).y;
+  let viewM = periodOf(todayIso).m;
   let selected = todayIso;
 
   const get = (date) => Number(entries[date] ? entries[date].s : 0);
@@ -631,10 +658,8 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     $('laSquares').value = v ? v : '';
     $('laRate').value = v ? rateOf(date) : lastRate();
     updatePreview();
-    const d = parseIso(date);
-    if (d.getFullYear() !== viewY || d.getMonth() !== viewM) {
-      viewY = d.getFullYear(); viewM = d.getMonth();
-    }
+    const p = periodOf(date);
+    viewY = p.y; viewM = p.m;
     renderMonth();
     renderMonths();
     if (focus && CAN_EDIT) {
@@ -699,12 +724,12 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     const dow = (t.getDay() + 6) % 7; // 0 = понедельник
     const mon = new Date(t); mon.setDate(t.getDate() - dow);
     const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-    const monthStart = `${monthKey(t.getFullYear(), t.getMonth())}-01`;
+    const cp = periodOf(todayIso);
 
     const day = get(todayIso);
     const dayMoney = earn(todayIso);
     const week = sumRange(iso(mon), iso(sun));
-    const month = sumRange(monthStart, `${monthKey(t.getFullYear(), t.getMonth())}-31`);
+    const month = sumRange(pStart(cp.y, cp.m), pEnd(cp.y, cp.m));
 
     $('laNow').textContent = `${t.getDate()} ${MONTHS_GEN[t.getMonth()]}, ${DOW[t.getDay()]}`;
 
@@ -727,14 +752,14 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       <div class="la-tile">
         <div class="la-tile-k">В среднем за день</div>
         <div class="la-tile-v">${rub(month.days ? month.money / month.days : 0)}</div>
-        <div class="la-tile-s">в этом месяце</div>
+        <div class="la-tile-s">${START_DAY === 1 ? 'в этом месяце' : 'в этом периоде'}</div>
       </div>
     `;
   }
 
   // ---------- за период ----------
   let pMode = 'month';
-  let pY = now.getFullYear(), pM = now.getMonth();
+  let pY = periodOf(todayIso).y, pM = periodOf(todayIso).m;
 
   function rangeLabel(from, to) {
     const a = parseIso(from), b = parseIso(to);
@@ -745,7 +770,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   function periodRange() {
     if (pMode === 'month') {
-      return { from: `${monthKey(pY, pM)}-01`, to: `${monthKey(pY, pM)}-${pad(daysIn(pY, pM))}`, label: '' };
+      return { from: pStart(pY, pM), to: pEnd(pY, pM), label: '' };
     }
     if (pMode === 'all') {
       const dates = Object.keys(entries).sort();
@@ -762,8 +787,8 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     document.querySelectorAll('#laSeg [data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === pMode));
     $('laPMonth').hidden = pMode !== 'month';
     $('laRange').hidden = pMode !== 'custom';
-    $('laPMonthName').textContent = `${MONTHS[pM]} ${pY}`;
-    $('laPNext').disabled = monthKey(pY, pM) >= todayIso.slice(0, 7);
+    $('laPMonthName').textContent = pLabel(pY, pM);
+    $('laPNext').disabled = monthKey(pY, pM) >= curKeyOf(todayIso);
 
     const r = periodRange();
     if (!r) {
@@ -789,7 +814,8 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     pMode = b.dataset.mode;
     // Свои даты по умолчанию — текущий месяц до сегодня
     if (pMode === 'custom' && (!$('laFrom').value || !$('laTo').value)) {
-      $('laFrom').value = `${todayIso.slice(0, 7)}-01`;
+      const cp = periodOf(todayIso);
+      $('laFrom').value = pStart(cp.y, cp.m);
       $('laTo').value = todayIso;
     }
     renderPeriod();
@@ -801,19 +827,18 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   // ---------- месяц ----------
   function renderMonth() {
     const y = viewY, m = viewM;
-    const nDays = daysIn(y, m);
+    const dates = pDates(y, m);
+    const nDays = dates.length;
     const key = monthKey(y, m);
-    const isCurrent = key === todayIso.slice(0, 7);
-    const isFuture = key > todayIso.slice(0, 7);
-    // Для текущего месяца показываем дни с 1-го по сегодня, для прошлых — весь месяц
-    const lastDay = isCurrent ? parseIso(todayIso).getDate() : (isFuture ? 0 : nDays);
+    const curKey = curKeyOf(todayIso);
+    // Для текущего периода показываем дни с начала по сегодня, для прошлых — весь период
+    const shown = dates.filter((d) => d <= todayIso);
 
-    $('laMonthName').textContent = `${MONTHS[m]} ${y}`;
-    $('laNext').disabled = key >= todayIso.slice(0, 7);
+    $('laMonthName').textContent = pLabel(y, m);
+    $('laNext').disabled = key >= curKey;
 
     let max = 0, total = 0, totalMoney = 0, worked = 0;
-    for (let d = 1; d <= nDays; d++) {
-      const date = `${key}-${pad(d)}`;
+    for (const date of dates) {
       const v = get(date);
       if (v > max) max = v;
       if (v > 0) { total += v; totalMoney += earn(date); worked++; }
@@ -830,36 +855,34 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     chart.style.setProperty('--days', nDays);
     axis.style.setProperty('--days', nDays);
     let bars = '', ticks = '';
-    for (let d = 1; d <= nDays; d++) {
-      const date = `${key}-${pad(d)}`;
+    for (const date of dates) {
       const v = get(date);
       const future = date > todayIso;
       const h = max ? Math.max(v / max * 100, v ? 3 : 0) : 0;
       const cls = ['la-bar', v ? '' : 'empty', future ? 'future' : '', date === todayIso ? 'today' : '', date === selected ? 'sel' : ''].join(' ');
       const title = `${human(date)}: ${num(v)} кв. — ${rub(earn(date))}`;
       bars += `<div class="${cls}" data-date="${date}" title="${title}"><i style="height:${v ? h : 1.5}%"></i></div>`;
-      const wd = new Date(y, m, d).getDay();
-      ticks += `<span class="${wd === 0 || wd === 6 ? 'we' : ''}">${d}</span>`;
+      const dt = parseIso(date), wd = dt.getDay();
+      ticks += `<span class="${wd === 0 || wd === 6 ? 'we' : ''}">${dt.getDate()}</span>`;
     }
     chart.innerHTML = bars;
     axis.innerHTML = ticks;
 
-    if (!lastDay) {
-      $('laDays').innerHTML = '<div class="la-empty">Этот месяц ещё не начался.</div>';
+    if (!shown.length) {
+      $('laDays').innerHTML = `<div class="la-empty">${START_DAY === 1 ? 'Этот месяц ещё не начался.' : 'Этот период ещё не начался.'}</div>`;
       return;
     }
 
     const rows = [];
     let cum = 0;
-    for (let d = 1; d <= lastDay; d++) {
-      const date = `${key}-${pad(d)}`;
+    for (const date of shown) {
       const v = get(date);
       cum += earn(date);
-      const wd = new Date(y, m, d).getDay();
+      const dt = parseIso(date);
       const cls = [v ? '' : 'zero', date === todayIso ? 'today' : '', date === selected ? 'sel' : ''].join(' ');
       rows.push(`
         <tr class="${cls}" data-date="${date}">
-          <td>${d} ${MONTHS_GEN[m]}<span class="dow">${DOW[wd]}</span></td>
+          <td>${dt.getDate()} ${MONTHS_GEN[dt.getMonth()]}<span class="dow">${DOW[dt.getDay()]}</span></td>
           <td>${v ? num(v) : '—'}</td>
           <td class="money">${v ? rub(earn(date)) : '—'}</td>
           <td class="cum">${rub(cum)}</td>
@@ -870,7 +893,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
     $('laDays').innerHTML = `
       <table class="la-table">
-        <thead><tr><th>Дата</th><th>Квадраты</th><th>За день</th><th title="Сумма с 1-го числа месяца">Накоплено</th></tr></thead>
+        <thead><tr><th>Дата</th><th>Квадраты</th><th>За день</th><th title="${START_DAY === 1 ? 'Сумма с 1-го числа месяца' : 'Сумма с ' + START_DAY + '-го числа'}">Накоплено</th></tr></thead>
         <tbody>${rowList}</tbody>
         <tfoot><tr><td>Итого</td><td>${num(total)}</td><td class="money">${rub(totalMoney)}</td><td></td></tr></tfoot>
       </table>`;
@@ -887,7 +910,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   function renderMonths() {
     const byMonth = {};
     for (const d of Object.keys(entries)) {
-      const k = d.slice(0, 7);
+      const k = curKeyOf(d);
       byMonth[k] = byMonth[k] || { squares: 0, money: 0, days: 0 };
       byMonth[k].squares += get(d);
       byMonth[k].money += earn(d);
@@ -906,7 +929,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       const w = max ? s.money / max * 100 : 0;
       return `
         <div class="la-mrow ${k === viewKey ? 'sel' : ''}" data-month="${k}">
-          <div class="la-mrow-name">${MONTHS[m - 1]} ${y}<small>${s.days} ${plural(s.days, 'день', 'дня', 'дней')}, ${num(s.squares)} кв.</small></div>
+          <div class="la-mrow-name">${pLabel(y, m - 1)}<small>${s.days} ${plural(s.days, 'день', 'дня', 'дней')}, ${num(s.squares)} кв.</small></div>
           <div class="la-mrow-bar"><i style="width:${w}%"></i><span><em>${rub(s.money)}</em></span></div>
         </div>`;
     }).join('');

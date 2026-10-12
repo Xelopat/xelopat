@@ -314,7 +314,7 @@ function safe_next(string $next, string $fallback = '/'): string {
 function require_login(): void {
     if (auth_is_logged_in()) return;
     $next = urlencode($_SERVER['REQUEST_URI'] ?? '/');
-    header("Location: /auth/login.php?next={$next}");
+    header("Location: /auth/login?next={$next}");
     exit;
 }
 

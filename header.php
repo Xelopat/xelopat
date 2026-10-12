@@ -17,41 +17,42 @@ $univer_sections = [
     'crypto' => [
         'title' => 'Криптография',
         'items' => [
-            ['Треугольник', '/crypto/triangle.php'],
-            ['Построение циклов', '/crypto/hmm_cycles.php'],
-            ['Берлекэмп-Мэсси', '/crypto/messi.php'],
-            ['Проверка подписи', '/crypto/check_signature.php'],
-            ['Создание подписи', '/crypto/get_signature.php'],
-            ['Эллиптические кривые', '/crypto/eleptic_sum.php'],
+            ['Треугольник', '/crypto/triangle'],
+            ['Построение циклов', '/crypto/hmm_cycles'],
+            ['Берлекэмп-Мэсси', '/crypto/messi'],
+            ['Проверка подписи', '/crypto/check_signature'],
+            ['Создание подписи', '/crypto/get_signature'],
+            ['Эллиптические кривые', '/crypto/eleptic_sum'],
         ],
     ],
     'admin' => [
         'title' => 'Администрирование',
         'items' => [
-            ['Апельсин', '/adminis/ip.php'],
+            ['Апельсин', '/adminis/ip'],
         ],
     ],
     'coursework' => [
         'title' => 'Курсовая',
         'items' => [
-            ['Курсовая: Инъекции', '/coursework/injection.php'],
+            ['Курсовая: Инъекции', '/coursework/injection'],
         ],
     ],
 ];
 
 $hobby_items = [
-    ['Путешествия', '/travel/index.php'],
-    ['Фото', '/photo/index.php'],
-    ['Духи', '/perfumes/index.php'],
+    ['Путешествия', '/travel'],
+    ['Фото', '/photo'],
+    ['Духи', '/perfumes'],
 ];
 
 $base_items = [
-    ['Домофоны', '/bases/domophones.php'],
-    ['Пароли по умолчанию', '/bases/default-creds.php'],
-    ['Производитель по MAC', '/bases/mac.php'],
+    ['Домофоны', '/bases/domophones'],
+    ['Пароли по умолчанию', '/bases/default-creds'],
+    ['Производитель по MAC', '/bases/mac'],
 ];
 
 $uri = strtok((string)($_SERVER['REQUEST_URI'] ?? '/'), '?');
+$uri_s = rtrim($uri, '/') . '/'; // для проверок вида «внутри раздела», адреса без слэша на конце
 
 function site_h(string $s): string {
     return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -126,10 +127,10 @@ if (isset($site_page_title)):
 
     <nav class="nav" id="navRoot" aria-label="Навигация">
       <a class="nav-link<?= $uri === '/' ? ' active' : '' ?>" href="/">Главная</a>
-      <a class="nav-link<?= strpos($uri, '/projects/') === 0 ? ' active' : '' ?>" href="/projects/index.php">Проекты</a>
+      <a class="nav-link<?= strpos($uri_s, '/projects/') === 0 ? ' active' : '' ?>" href="/projects">Проекты</a>
 
       <div class="dd" id="dd-univer-wrap">
-        <button type="button" class="nav-btn<?= strpos($uri, '/crypto/') === 0 || strpos($uri, '/adminis/') === 0 || strpos($uri, '/coursework/') === 0 ? ' active' : '' ?>" data-dd-btn="univer" aria-expanded="false">МЭИ</button>
+        <button type="button" class="nav-btn<?= strpos($uri_s, '/crypto/') === 0 || strpos($uri_s, '/adminis/') === 0 || strpos($uri_s, '/coursework/') === 0 ? ' active' : '' ?>" data-dd-btn="univer" aria-expanded="false">МЭИ</button>
         <div class="dd-panel" id="dd-univer" role="dialog" aria-label="МЭИ">
           <?php foreach ($univer_sections as $section): ?>
             <section class="dd-group">
@@ -148,7 +149,7 @@ if (isset($site_page_title)):
       <?php // Хобби видно только после входа; сами страницы открываются и по прямой ссылке ?>
       <?php if ($auth_user): ?>
       <div class="dd" id="dd-hobby-wrap">
-        <button type="button" class="nav-btn<?= strpos($uri, '/perfumes/') === 0 || strpos($uri, '/photo/') === 0 || strpos($uri, '/travel/') === 0 ? ' active' : '' ?>" data-dd-btn="hobby" aria-expanded="false">Хобби</button>
+        <button type="button" class="nav-btn<?= strpos($uri_s, '/perfumes/') === 0 || strpos($uri_s, '/photo/') === 0 || strpos($uri_s, '/travel/') === 0 ? ' active' : '' ?>" data-dd-btn="hobby" aria-expanded="false">Хобби</button>
         <div class="dd-panel" id="dd-hobby" role="dialog" aria-label="Хобби">
           <ul class="menu-root">
             <?php foreach ($hobby_items as $it): ?>
@@ -161,7 +162,7 @@ if (isset($site_page_title)):
       <?php endif; ?>
 
       <div class="dd" id="dd-bases-wrap">
-        <button type="button" class="nav-btn<?= strpos($uri, '/bases/') === 0 ? ' active' : '' ?>" data-dd-btn="bases" aria-expanded="false">Базы</button>
+        <button type="button" class="nav-btn<?= strpos($uri_s, '/bases/') === 0 ? ' active' : '' ?>" data-dd-btn="bases" aria-expanded="false">Базы</button>
         <div class="dd-panel" id="dd-bases" role="dialog" aria-label="Базы">
           <ul class="menu-root">
             <?php foreach ($base_items as $it): ?>
@@ -177,9 +178,9 @@ if (isset($site_page_title)):
       <?php if ($auth_user): ?>
         <span class="auth-user"><?= site_h((string)$auth_user['username']) ?></span>
         <?php if ($auth_is_admin): ?>
-          <a class="auth-action" href="/admin.php">Админка</a>
+          <a class="auth-action" href="/admin">Админка</a>
         <?php endif; ?>
-        <a class="auth-action" href="/auth/logout.php">Выйти</a>
+        <a class="auth-action" href="/auth/logout">Выйти</a>
       <?php else: ?>
         <button type="button" class="auth-action" id="authOpenBtn">Войти</button>
       <?php endif; ?>
@@ -204,7 +205,7 @@ if (isset($site_page_title)):
 
     <div id="authErr" class="auth-err" style="display:none;"></div>
 
-    <form id="authLoginForm" method="post" action="/auth/login.php">
+    <form id="authLoginForm" method="post" action="/auth/login">
       <input type="hidden" name="csrf" value="<?= site_h($auth_csrf) ?>">
       <input type="hidden" name="next" value="<?= site_h($auth_next) ?>">
       <div class="auth-row">
@@ -220,7 +221,7 @@ if (isset($site_page_title)):
       </div>
     </form>
 
-    <form id="authRegisterForm" method="post" action="/auth/register.php" style="display:none;">
+    <form id="authRegisterForm" method="post" action="/auth/register" style="display:none;">
       <input type="hidden" name="csrf" value="<?= site_h($auth_csrf) ?>">
       <input type="hidden" name="next" value="<?= site_h($auth_next) ?>">
       <div class="auth-row">

@@ -47,11 +47,11 @@
     </style>
 </head>
 <div class="header">
-    <a href="injection.php" class="back-link">&larr; Назад</a>
+    <a href="injection" class="back-link">&larr; Назад</a>
     <nav class="nav-links">
-        <a href="unsafe_sql.php">SQL</a>
-        <a href="unsafe_script.php">XSS</a>
-        <a href="unsafe_file.php">LFI</a>
+        <a href="unsafe_sql">SQL</a>
+        <a href="unsafe_script">XSS</a>
+        <a href="unsafe_file">LFI</a>
     </nav>
 </div>
 <body>

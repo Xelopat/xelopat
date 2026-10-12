@@ -136,8 +136,8 @@ function tags_to_str(array $tags): string {
 
 function safe_return_url(string $u): string {
     $u = trim($u);
-    if ($u === "") return "/perfumes/index.php";
-    if (strpos($u, "/perfumes/index.php") !== 0) return "/perfumes/index.php";
+    if ($u === "") return "/perfumes";
+    if (!preg_match('~^/perfumes(?:\?|$)~', $u)) return "/perfumes";
     return $u;
 }
 
@@ -151,7 +151,7 @@ function build_page_url(int $page): string {
     }
 
     $qs = http_build_query($params);
-    return "/perfumes/index.php" . ($qs ? ("?" . $qs) : "");
+    return "/perfumes" . ($qs ? ("?" . $qs) : "");
 }
 
 function item_str(array $it, string $k): string {
@@ -430,7 +430,10 @@ if ($has_price_params) {
 
 /* ---------------- POST (admin only) ---------------- */
 
-$current_url = "/perfumes/index.php" . (($_SERVER["QUERY_STRING"] ?? "") ? ("?" . $_SERVER["QUERY_STRING"]) : "");
+$current_params = $_GET;
+unset($current_params["add"]); // ?add=1 из админки только открывает форму, возвращаться с ним не нужно
+$current_qs = http_build_query($current_params);
+$current_url = "/perfumes" . ($current_qs !== "" ? ("?" . $current_qs) : "");
 $return_url = safe_return_url((string)($_POST["return"] ?? $current_url));
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -911,7 +914,7 @@ $has_any_filters =
       <span class="pill"><?= esc((string)$page) ?>/<?= esc((string)$total_pages) ?> стр</span>
       <?php if ($total_count > 0 && $match_count === 0 && $has_any_filters): ?>
         <span class="pill warn">Фильтры скрыли все записи</span>
-        <a class="btn" href="/perfumes/index.php">Сбросить</a>
+        <a class="btn" href="/perfumes">Сбросить</a>
       <?php endif; ?>
 
       <?php if ($is_admin): ?>
@@ -1016,7 +1019,7 @@ $has_any_filters =
 
           <div class="filters-actions">
             <button class="btn primary" type="submit">Применить</button>
-            <a class="btn" href="/perfumes/index.php">Сбросить</a>
+            <a class="btn" href="/perfumes">Сбросить</a>
           </div>
         </form>
       </details>
@@ -1715,6 +1718,15 @@ $has_any_filters =
         setAddMode();
         openModal(formModal);
       });
+    }
+
+    // Кнопка «+ Добавить» из админки ведёт сюда с ?add=1 и сразу открывает форму
+    if (openAddBtn && new URLSearchParams(location.search).has("add")) {
+      const clean = new URLSearchParams(location.search);
+      clean.delete("add");
+      const qs = clean.toString();
+      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
+      openAddBtn.click();
     }
 
     document.querySelectorAll(".js-edit").forEach((btn) => {

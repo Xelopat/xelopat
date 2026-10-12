@@ -71,11 +71,19 @@ function stats_browser(string $ua): string {
     return 'Другой';
 }
 
-// /travel/index.php?item=x -> /travel/ ; запросы не учитываем, чтобы страницы не дробились
+// Ключ страницы в базе. Он остался прежним (папки со слэшем, файлы с .php), чтобы история не потерялась
+// после перехода на чистые адреса: /travel, /travel/index.php и /travel/ -> /travel/ ; /bases/mac и /bases/mac.php -> /bases/mac.php.
+// Запросы не учитываем, чтобы страницы не дробились.
 function stats_norm_path(string $uri): string {
     $p = (string)(parse_url($uri, PHP_URL_PATH) ?: '/');
     $p = preg_replace('~/index\.php$~', '/', $p);
-    return $p === '' ? '/' : $p;
+    if ($p === '' || $p === '/') return '/';
+    if (substr($p, -4) === '.php') return $p;
+    $trim = rtrim($p, '/');
+    $root = stats_root();
+    if (is_file($root . $trim . '.php')) return $trim . '.php';
+    if (is_dir($root . $trim)) return $trim . '/';
+    return $p;
 }
 
 function stats_ref_host(string $ref, string $ownHost): string {
@@ -137,7 +145,7 @@ function stats_log_dirs_checked(): array {
 function stats_skip_path(string $path, string $query): bool {
     if (preg_match('~\.(css|js|map|png|jpe?g|gif|webp|svg|ico|woff2?|ttf|mp4|webm|mov|json|txt|xml|sqlite|docx?|pptx?|pdf|zip)$~i', $path)) return true;
     if (preg_match('~^/(assets|uploads|img|auth|data|\.private|perfumes/uploads)/~', $path)) return true;
-    if ($path === '/admin.php' || $path === '/favicon.ico') return true;
+    if ($path === '/admin.php' || $path === '/admin' || $path === '/favicon.ico') return true;
     if (strpos($query, 'api=') !== false) return true;
     return false;
 }
@@ -214,5 +222,38 @@ function stats_report(int $days): array {
         'all_views' => (int)$all['v'],
         'first_day' => (string)($all['first'] ?? ''),
         'log_rows' => (int)$all['logs'],
+    ];
+}
+
+/* ---------------- подробности по одной странице ---------------- */
+
+function stats_page_report(string $path, int $days): array {
+    $db = stats_db();
+    if (!$db) return ['ok' => false];
+    $from = date('Y-m-d', strtotime('-' . ($days - 1) . ' days'));
+    $q = function (string $sql, array $p = []) use ($db) { $st = $db->prepare($sql); $st->execute($p); return $st; };
+
+    $byDay = [];
+    foreach ($q('SELECT day, COUNT(*) v, COUNT(DISTINCT visitor) u FROM visits WHERE path = ? AND day >= ? GROUP BY day', [$path, $from]) as $r) $byDay[$r['day']] = $r;
+    $series = [];
+    for ($i = $days - 1; $i >= 0; $i--) {
+        $d = date('Y-m-d', strtotime("-$i days"));
+        $series[] = ['day' => $d, 'views' => (int)($byDay[$d]['v'] ?? 0), 'uniques' => (int)($byDay[$d]['u'] ?? 0)];
+    }
+    $tot = $q('SELECT COUNT(*) v, COUNT(DISTINCT visitor) u FROM visits WHERE path = ? AND day >= ?', [$path, $from])->fetch();
+    $first = $q('SELECT MIN(day) FROM visits WHERE path = ?', [$path])->fetchColumn();
+    $top = function (string $col, string $extra = '') use ($q, $path, $from) {
+        return $q("SELECT $col k, COUNT(*) v FROM visits WHERE path = ? AND day >= ? $extra GROUP BY $col ORDER BY v DESC LIMIT 8", [$path, $from])->fetchAll();
+    };
+    return [
+        'ok' => true,
+        'path' => $path,
+        'series' => $series,
+        'views' => (int)$tot['v'],
+        'uniques' => (int)$tot['u'],
+        'first_day' => (string)($first ?: ''),
+        'refs' => $top('ref', "AND ref <> ''"),
+        'devices' => $top('device'),
+        'browsers' => $top('browser'),
     ];
 }

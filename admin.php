@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/auth/lib.php';
 require_once __DIR__ . '/includes/collection_lib.php';
 require_once __DIR__ . '/includes/stats.php';
+require_once __DIR__ . '/includes/lisa_cfg.php';
 require_role('admin');
 
 // Если что-то упадёт, админ увидит причину, а не пустую страницу
@@ -28,7 +29,7 @@ function admin_flash(string $kind, string $text): void {
 }
 
 function admin_back(string $tab): void {
-    header('Location: /admin.php#' . $tab);
+    header('Location: /admin#' . $tab);
     exit;
 }
 
@@ -85,6 +86,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ? admin_flash('ok', 'Главная сохранена.')
             : admin_flash('err', 'Не удалось записать конфиг.');
         admin_back('home');
+    }
+
+    if ($action === 'save_lisa') {
+        $cfg = admin_config($config_path);
+        $blocks = [];
+        foreach (LA_BLOCKS as $k => $_) $blocks[$k] = !empty($_POST['la_block'][$k]);
+        $cfg['lisa'] = [
+            'subtitle' => trim((string)($_POST['la_subtitle'] ?? '')),
+            'start_day' => max(1, min(28, (int)($_POST['la_start_day'] ?? 1))),
+            'blocks' => $blocks,
+        ];
+        admin_config_save($config_path, $cfg)
+            ? admin_flash('ok', 'Лиса-Алиса сохранена.')
+            : admin_flash('err', 'Не удалось записать конфиг.');
+        admin_back('lisa');
     }
 
     if ($action === 'save_json') {
@@ -171,17 +187,22 @@ foreach (COLLECTIONS as $key => $def) {
 }
 
 $perf = is_file(__DIR__ . '/perfumes/data.json') ? json_decode((string)file_get_contents(__DIR__ . '/perfumes/data.json'), true) : [];
-$sections[] = ['title' => 'Духи', 'url' => '/perfumes/index.php', 'add' => '', 'stat' => count((array)($perf['items'] ?? [])) . ' шт.', 'last' => 'редактируются на странице'];
+$sections[] = ['title' => 'Духи', 'url' => '/perfumes', 'add' => '/perfumes?add=1', 'stat' => count((array)($perf['items'] ?? [])) . ' шт.', 'last' => 'редактируются на странице'];
 
 $la = is_file(__DIR__ . '/data/lisa_alisa.json') ? json_decode((string)file_get_contents(__DIR__ . '/data/lisa_alisa.json'), true) : [];
 $laMonth = 0.0; $laDays = 0;
+$laStart = la_config()['start_day'];
+$laFrom = new DateTime('today', new DateTimeZone('Europe/Moscow'));
+if ((int)$laFrom->format('j') < $laStart) $laFrom->modify('first day of previous month');
+$laFrom->setDate((int)$laFrom->format('Y'), (int)$laFrom->format('n'), $laStart);
+$laTo = (clone $laFrom)->modify('+1 month')->modify('-1 day');
 foreach ((array)($la['entries'] ?? []) as $d => $e) {
-    if (strpos((string)$d, date('Y-m')) !== 0) continue;
+    if ((string)$d < $laFrom->format('Y-m-d') || (string)$d > $laTo->format('Y-m-d')) continue;
     $s = is_array($e) ? (float)($e['s'] ?? 0) : (float)$e;
     $r = is_array($e) ? (float)($e['r'] ?? 18) : 18.0;
     $laMonth += $s * $r; $laDays++;
 }
-$sections[] = ['title' => 'Лиса-Алиса', 'url' => '/lisa-alisa/', 'add' => '', 'stat' => 'В этом месяце ' . number_format(floor($laMonth), 0, ',', ' ') . ' ₽', 'last' => 'рабочих дней: ' . $laDays];
+$sections[] = ['title' => 'Лиса-Алиса', 'url' => '/lisa-alisa', 'add' => '', 'stat' => ($laStart === 1 ? 'В этом месяце ' : 'В этом периоде ') . number_format(floor($laMonth), 0, ',', ' ') . ' ₽', 'last' => 'рабочих дней: ' . $laDays];
 
 $domStat = 'база не найдена';
 $domPath = __DIR__ . '/data/domophones.sqlite';
@@ -193,7 +214,7 @@ if (is_file($domPath) && class_exists('PDO')) {
         $domStat = 'ошибка чтения базы';
     }
 }
-$sections[] = ['title' => 'Домофоны', 'url' => '/bases/domophones.php', 'add' => '', 'stat' => $domStat, 'last' => 'обновляется вручную'];
+$sections[] = ['title' => 'Домофоны', 'url' => '/bases/domophones', 'add' => '', 'stat' => $domStat, 'last' => 'обновляется вручную'];
 } catch (Throwable $e) {
     $load_errors[] = 'Разделы: ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')';
 }
@@ -201,9 +222,13 @@ $sections[] = ['title' => 'Домофоны', 'url' => '/bases/domophones.php', 
 $stats_days = in_array((int)($_GET['days'] ?? 30), [7, 30, 90, 365], true) ? (int)($_GET['days'] ?? 30) : 30;
 $stats = ['ok' => false];
 $stats_logs = [];
+$stats_page = (string)($_GET['page'] ?? '');
+$stats_page = ($stats_page !== '' && $stats_page[0] === '/' && strlen($stats_page) <= 200) ? $stats_page : '';
+$page_stats = ['ok' => false];
 try {
     $stats = stats_report($stats_days);
     $stats_logs = stats_log_files();
+    if ($stats_page !== '') $page_stats = stats_page_report($stats_page, $stats_days);
 } catch (Throwable $e) {
     $load_errors[] = 'Статистика: ' . $e->getMessage();
 }
@@ -294,6 +319,13 @@ include __DIR__ . '/header.php';
   .cp-row-bar{ position:absolute; inset:0 auto 0 0; background:rgba(249,201,64,.12); border-radius:6px; }
   .cp-row-k{ position:relative; }
   .cp-row-k{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  a.cp-row{ color:inherit; text-decoration:none; }
+  a.cp-row:hover{ background:rgba(255,255,255,.05); }
+  .cp-row.cur{ box-shadow:inset 0 0 0 1px var(--accent); }
+  .cp-row.zero .cp-row-k{ color:var(--muted); }
+  .cp-detail-grid{ display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:20px; margin-top:16px; }
+  .cp-scroll{ max-height:380px; overflow:auto; }
+  @media (max-width: 760px){ .cp-detail-grid{ grid-template-columns:1fr; } }
 
   .cp-roles{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0; }
   .cp-check{ display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border:1px solid var(--line); border-radius:999px; font-size:13px; cursor:pointer; user-select:none; color:var(--text-2); }
@@ -318,7 +350,7 @@ include __DIR__ . '/header.php';
         <div class="page-label">// admin</div>
         <h1 class="page-title">Админка</h1>
       </div>
-      <a class="btn" href="/auth/logout.php">Выйти</a>
+      <a class="btn" href="/auth/logout">Выйти</a>
     </div>
 
     <?php foreach ($load_errors as $le): ?>
@@ -332,6 +364,7 @@ include __DIR__ . '/header.php';
       <a href="#sections" data-tab="sections" class="on">Разделы</a>
       <a href="#stats" data-tab="stats">Статистика</a>
       <a href="#home" data-tab="home">Главная</a>
+      <a href="#lisa" data-tab="lisa">Лиса-Алиса</a>
       <a href="#users" data-tab="users">Пользователи</a>
       <a href="#sessions" data-tab="sessions">Мои входы</a>
     </nav>
@@ -367,7 +400,7 @@ include __DIR__ . '/header.php';
         ?>
         <div class="cp-range">
           <?php foreach ([7 => '7 дней', 30 => '30 дней', 90 => '90 дней', 365 => 'Год'] as $d => $lbl): ?>
-            <a class="<?= $d === $stats_days ? 'on' : '' ?>" href="/admin.php?days=<?= $d ?>#stats"><?= $lbl ?></a>
+            <a class="<?= $d === $stats_days ? 'on' : '' ?>" href="/admin?days=<?= $d ?><?= $stats_page !== '' ? '&page=' . rawurlencode($stats_page) : '' ?>#stats"><?= $lbl ?></a>
           <?php endforeach; ?>
         </div>
 
@@ -396,6 +429,82 @@ include __DIR__ . '/header.php';
           </div>
         </div>
 
+
+        <?php if ($stats_page !== '' && $page_stats['ok']): ?>
+          <?php
+            $ps = $page_stats;
+            $pname = $page_names[$stats_page] ?? $stats_page;
+            $pMax = max(1, max(array_column($ps['series'], 'views')));
+            $pDays = max(1, count($ps['series']));
+            $pAvg = $ps['views'] / $pDays;
+            $best = $ps['series'][0];
+            foreach ($ps['series'] as $row) if ($row['views'] > $best['views']) $best = $row;
+            $wdn = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+            $pDesc = array_reverse($ps['series']);
+          ?>
+          <div class="panel cp-detail" style="margin-top:12px">
+            <div class="cp-pages-head">
+              <h3 class="cp-h3" style="margin:0"><?= admin_h($pname) ?> <span class="cp-note" style="margin:0 0 0 6px"><?= admin_h($stats_page) ?></span></h3>
+              <a class="btn cp-small" href="/admin?days=<?= $stats_days ?>#stats">Закрыть</a>
+            </div>
+            <div class="cp-kpis" style="margin-top:12px">
+              <div class="panel"><div class="k">Просмотры</div><div class="v"><?= number_format($ps['views'], 0, ',', ' ') ?></div></div>
+              <div class="panel"><div class="k">Посетители</div><div class="v"><?= number_format($ps['uniques'], 0, ',', ' ') ?></div></div>
+              <div class="panel"><div class="k">В среднем в день</div><div class="v"><?= number_format($pAvg, $pAvg < 10 ? 1 : 0, ',', ' ') ?></div></div>
+              <div class="panel"><div class="k">Лучший день</div><div class="v"><?= $best['views'] ? (int)$best['views'] : '—' ?></div><div class="cp-note" style="margin:2px 0 0"><?= $best['views'] ? admin_h(date('d.m.Y', strtotime($best['day']))) : '' ?></div></div>
+            </div>
+            <div class="cp-chart" style="--n:<?= count($ps['series']) ?>;margin-top:14px">
+              <?php foreach ($ps['series'] as $p): ?>
+                <div class="cp-bar<?= $p['views'] ? '' : ' empty' ?>" data-tip="<?= admin_h(date('d.m.Y', strtotime($p['day'])) . ', ' . $wdn[(int)date('w', strtotime($p['day']))] . "\nпросмотры: " . $p['views'] . "\nпосетители: " . $p['uniques']) ?>">
+                  <i style="height:<?= $p['views'] ? max(2, round($p['views'] / $pMax * 100, 1)) : 0 ?>%"></i>
+                </div>
+              <?php endforeach; ?>
+              <div class="cp-tip" hidden></div>
+            </div>
+            <div class="cp-axis">
+              <span><?= admin_h(date('d.m', strtotime($ps['series'][0]['day']))) ?></span>
+              <span>макс. <?= $pMax ?> в день</span>
+              <span>сегодня</span>
+            </div>
+            <div class="cp-detail-grid">
+              <div>
+                <h3 class="cp-h3">По дням</h3>
+                <div class="cp-row cp-row-head"><span class="cp-row-k">День</span><span class="cp-row-n">Просмотры</span><span class="cp-row-n">Посетители</span></div>
+                <div class="cp-scroll">
+                  <?php foreach ($pDesc as $p): ?>
+                    <?php $ts = strtotime($p['day']); $we = in_array((int)date('w', $ts), [0, 6], true); ?>
+                    <div class="cp-row<?= $p['views'] ? '' : ' zero' ?>">
+                      <span class="cp-row-bar" style="width:<?= round($p['views'] / $pMax * 100, 1) ?>%"></span>
+                      <span class="cp-row-k"><?= admin_h(date('d.m.Y', $ts)) ?> <span class="cp-note" style="margin:0;<?= $we ? 'color:var(--accent)' : '' ?>"><?= $wdn[(int)date('w', $ts)] ?></span></span>
+                      <span class="cp-row-n on"><?= $p['views'] ? number_format($p['views'], 0, ',', ' ') : '—' ?></span>
+                      <span class="cp-row-n"><?= $p['uniques'] ? number_format($p['uniques'], 0, ',', ' ') : '—' ?></span>
+                    </div>
+                  <?php endforeach; ?>
+                </div>
+              </div>
+              <div>
+                <?php foreach (['refs' => 'Откуда пришли', 'devices' => 'Устройства', 'browsers' => 'Браузеры'] as $key => $ttl): ?>
+                  <h3 class="cp-h3"<?= $key !== 'refs' ? ' style="margin-top:16px"' : '' ?>><?= $ttl ?></h3>
+                  <?php if (!$ps[$key]): ?>
+                    <p class="cp-note"><?= $key === 'refs' ? 'Только прямые заходы.' : 'Нет данных.' ?></p>
+                  <?php else: ?>
+                    <?php foreach ($ps[$key] as $r): ?>
+                      <div class="cp-row">
+                        <span class="cp-row-bar" style="width:<?= $ps['views'] ? round($r['v'] / $ps['views'] * 100, 1) : 0 ?>%"></span>
+                        <span class="cp-row-k"><?= admin_h((string)$r['k']) ?></span>
+                        <span class="cp-row-n on"><?= number_format((int)$r['v'], 0, ',', ' ') ?></span>
+                        <span class="cp-row-n"><?= $ps['views'] ? round($r['v'] / $ps['views'] * 100) : 0 ?>%</span>
+                      </div>
+                    <?php endforeach; ?>
+                  <?php endif; ?>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          </div>
+        <?php elseif ($stats_page !== ''): ?>
+          <div class="panel" style="margin-top:12px"><p class="cp-note" style="margin:0">Нет данных по этой странице.</p></div>
+        <?php endif; ?>
+
         <div class="panel cp-pages" style="margin-top:12px">
           <div class="cp-pages-head">
             <h3 class="cp-h3" style="margin:0">Страницы</h3>
@@ -410,14 +519,15 @@ include __DIR__ . '/header.php';
             <div class="cp-row cp-row-head"><span class="cp-row-k">Страница</span><span class="cp-row-n">Просмотры</span><span class="cp-row-n">Посетители</span></div>
             <div id="cpPages">
               <?php foreach ($stats['pages'] as $r): ?>
-                <div class="cp-row" title="<?= admin_h($r['k']) ?>" data-v="<?= (int)$r['v'] ?>" data-u="<?= (int)$r['u'] ?>">
+                <a class="cp-row<?= $r['k'] === $stats_page ? ' cur' : '' ?>" href="/admin?days=<?= $stats_days ?>&page=<?= admin_h(rawurlencode($r['k'])) ?>#stats" title="<?= admin_h($r['k']) ?> — подробнее по дням" data-v="<?= (int)$r['v'] ?>" data-u="<?= (int)$r['u'] ?>">
                   <span class="cp-row-bar"></span>
                   <span class="cp-row-k"><?= admin_h($page_names[$r['k']] ?? $r['k']) ?></span>
                   <span class="cp-row-n"><?= number_format((int)$r['v'], 0, ',', ' ') ?></span>
                   <span class="cp-row-n"><?= number_format((int)$r['u'], 0, ',', ' ') ?></span>
-                </div>
+                </a>
               <?php endforeach; ?>
             </div>
+            <p class="cp-note" style="margin:10px 0 0">Нажми на страницу, чтобы увидеть просмотры и посетителей по дням.</p>
           <?php endif; ?>
         </div>
 
@@ -468,6 +578,33 @@ include __DIR__ . '/header.php';
             <button class="btn cp-save" type="submit">Сохранить JSON</button>
           </form>
         </details>
+      </div>
+    </section>
+
+    <?php $laSet = la_config(); ?>
+    <section class="cp-pane" id="pane-lisa">
+      <div class="panel">
+        <form class="cp-form" method="post">
+          <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
+          <input type="hidden" name="action" value="save_lisa">
+          <h3>Страница «Лиса-Алиса»</h3>
+          <div class="field"><label>Подзаголовок под названием</label><input name="la_subtitle" maxlength="120" value="<?= admin_h($laSet['subtitle']) ?>"></div>
+          <div class="field">
+            <label>С какого числа начинается месяц</label>
+            <input name="la_start_day" type="number" min="1" max="28" value="<?= (int)$laSet['start_day'] ?>" style="max-width:120px">
+            <p class="cp-note" style="margin:6px 0 0">1 = обычный календарный месяц. Например, 10: месяц идёт с 10-го по 9-е следующего, и все суммы, график и список по месяцам считаются так же. Записи не меняются, пересчёт идёт при показе.</p>
+          </div>
+          <h3>Что показывать на странице</h3>
+          <div class="field">
+            <?php foreach (LA_BLOCKS as $k => $label): ?>
+              <label style="display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:14px;color:var(--text)">
+                <input type="checkbox" name="la_block[<?= admin_h($k) ?>]" value="1"<?= $laSet['blocks'][$k] ? ' checked' : '' ?>> <?= admin_h($label) ?>
+              </label>
+            <?php endforeach; ?>
+            <p class="cp-note" style="margin:6px 0 0">Плитки «Сегодня, неделя, месяц» и таблица «По дням» показываются всегда.</p>
+          </div>
+          <button class="btn cp-save" type="submit">Сохранить</button>
+        </form>
       </div>
     </section>
 
@@ -560,8 +697,9 @@ include __DIR__ . '/header.php';
   }));
   show(location.hash.slice(1));
 
-  const chart = document.getElementById('cpChart'), tip = document.getElementById('cpTip');
-  if (chart && tip) {
+  document.querySelectorAll('.cp-chart').forEach((chart) => {
+    const tip = chart.querySelector('.cp-tip');
+    if (!tip) return;
     chart.addEventListener('mousemove', (e) => {
       const bar = e.target.closest('.cp-bar');
       if (!bar) { tip.hidden = true; return; }
@@ -573,7 +711,7 @@ include __DIR__ . '/header.php';
       tip.style.top = '-6px';
     });
     chart.addEventListener('mouseleave', () => { tip.hidden = true; });
-  }
+  });
 
   // Страницы: сортировка и полоска по выбранной метрике
   const pages = document.getElementById('cpPages');

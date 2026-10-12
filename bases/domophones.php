@@ -319,7 +319,7 @@ if ($db_ready) {
 }
 
 $result_count = count($results);
-$base_url = '/bases/domophones.php?q=' . rawurlencode($query);
+$base_url = '/bases/domophones?q=' . rawurlencode($query);
 ?>
 
 <link rel="stylesheet" href="/assets/bases.css">
@@ -341,7 +341,7 @@ $base_url = '/bases/domophones.php?q=' . rawurlencode($query);
     </section>
 
     <section class="b-panel">
-      <form class="b-form" method="get" action="/bases/domophones.php">
+      <form class="b-form" method="get" action="/bases/domophones">
         <input class="b-input" type="search" name="q" value="<?= dom_h($query) ?>" placeholder="Уральская 11 к1, дом 11 корпус 1" autofocus>
         <button class="b-btn" type="submit">Найти</button>
       </form>

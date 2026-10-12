@@ -112,15 +112,15 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     <section class="cw-group">
       <h2 class="cw-group-title cw-group-title--unsafe">Уязвимые реализации</h2>
       <div class="cw-grid">
-        <a class="cw-item" href="unsafe_sql.php">
+        <a class="cw-item" href="unsafe_sql">
           <p class="cw-item-title">SQL-инъекция</p>
           <p class="cw-item-desc">Поиск книг с небезопасной сборкой SQL-запроса.</p>
         </a>
-        <a class="cw-item" href="unsafe_script.php">
+        <a class="cw-item" href="unsafe_script">
           <p class="cw-item-title">XSS</p>
           <p class="cw-item-desc">Отзыв без экранирования пользовательского ввода.</p>
         </a>
-        <a class="cw-item" href="unsafe_file.php">
+        <a class="cw-item" href="unsafe_file">
           <p class="cw-item-title">LFI</p>
           <p class="cw-item-desc">Чтение файлов с уязвимой логикой выбора пути.</p>
         </a>
@@ -130,15 +130,15 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     <section class="cw-group">
       <h2 class="cw-group-title cw-group-title--safe">Защищённые реализации</h2>
       <div class="cw-grid">
-        <a class="cw-item" href="safe_sql.php">
+        <a class="cw-item" href="safe_sql">
           <p class="cw-item-title">SQL-инъекция</p>
           <p class="cw-item-desc">Подготовленные выражения и безопасная обработка ввода.</p>
         </a>
-        <a class="cw-item" href="safe_script.php">
+        <a class="cw-item" href="safe_script">
           <p class="cw-item-title">XSS</p>
           <p class="cw-item-desc">Экранирование данных перед выводом в HTML.</p>
         </a>
-        <a class="cw-item" href="safe_file.php">
+        <a class="cw-item" href="safe_file">
           <p class="cw-item-title">LFI</p>
           <p class="cw-item-desc">Проверка пути и ограничение доступа к файлам.</p>
         </a>

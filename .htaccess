@@ -1,0 +1,27 @@
+# Чистые адреса: /perfumes вместо /perfumes/index.php, /bases/mac вместо /bases/mac.php
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# 1) Старые адреса ведут на новые (только GET/HEAD, чтобы не ломать POST-формы)
+RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+RewriteCond %{THE_REQUEST} \s/(?:[^\s?]*/)?index\.php[\s?]
+RewriteRule ^(.*?)/?index\.php$ /$1 [R=301,L]
+
+RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+RewriteCond %{THE_REQUEST} \s/[^\s?]*\.php[\s?]
+RewriteRule ^(.+)\.php$ /$1 [R=301,L]
+
+# 2) Лишний слэш в конце у папок со страницей: /perfumes/ -> /perfumes
+RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+RewriteCond %{DOCUMENT_ROOT}/$1/index.php -f
+RewriteRule ^(.+)/$ /$1 [R=301,L]
+
+# 3) Внутри сервера: /dir -> /dir/index.php, /page -> /page.php
+RewriteCond %{DOCUMENT_ROOT}/$1/index.php -f
+RewriteRule ^([^.]+?)/?$ $1/index.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^(.+)$ $1.php [L]
+</IfModule>

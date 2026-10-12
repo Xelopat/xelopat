@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $next = safe_next((string)($_POST['next'] ?? '/'), '/');
 
     if (!csrf_check((string)($_POST['csrf'] ?? ''))) {
-        header("Location: /auth/register.php?next=" . urlencode($next) . "&err=csrf");
+        header("Location: /auth/register?next=" . urlencode($next) . "&err=csrf");
         exit;
     }
 
@@ -19,21 +19,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password2 = (string)($_POST['password2'] ?? '');
 
     if (!preg_match(USERNAME_RE, $username)) {
-        header("Location: /auth/register.php?next=" . urlencode($next) . "&err=username");
+        header("Location: /auth/register?next=" . urlencode($next) . "&err=username");
         exit;
     }
     if (strlen($password) < PASSWORD_MIN_LEN) {
-        header("Location: /auth/register.php?next=" . urlencode($next) . "&err=pass");
+        header("Location: /auth/register?next=" . urlencode($next) . "&err=pass");
         exit;
     }
     if ($password !== $password2) {
-        header("Location: /auth/register.php?next=" . urlencode($next) . "&err=pass2");
+        header("Location: /auth/register?next=" . urlencode($next) . "&err=pass2");
         exit;
     }
 
     $data = users_load();
     if (user_find_by_username($data, $username)) {
-        header("Location: /auth/register.php?next=" . urlencode($next) . "&err=exists");
+        header("Location: /auth/register?next=" . urlencode($next) . "&err=exists");
         exit;
     }
 
