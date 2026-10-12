@@ -320,6 +320,11 @@ include __DIR__ . '/header.php';
   .cp-row-k{ position:relative; }
   .cp-row-k{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   [hidden]{ display:none !important; }
+  .cp-modal{ position:fixed; inset:0; z-index:4000; display:grid; place-items:center; padding:16px; }
+  .cp-modal-backdrop{ position:absolute; inset:0; background:rgba(0,0,0,.62); }
+  .cp-modal-box{ position:relative; width:min(780px,100%); max-height:calc(100vh - 32px); overflow:auto; background:var(--bg,#151518); border:1px solid var(--line,#333340); border-radius:14px; padding:20px; box-shadow:0 24px 60px rgba(0,0,0,.5); }
+  .cp-modal-x{ position:absolute; top:10px; right:12px; border:0; background:transparent; color:var(--muted,#a4a8bb); font-size:24px; line-height:1; cursor:pointer; }
+  .cp-modal-x:hover{ color:var(--text,#efeff1); }
   a.cp-row{ color:inherit; text-decoration:none; }
   a.cp-row:hover{ background:rgba(255,255,255,.05); }
   .cp-row.cur{ box-shadow:inset 0 0 0 1px var(--accent); }
@@ -385,8 +390,11 @@ include __DIR__ . '/header.php';
         <?php endforeach; ?>
       </div>
       <?php $laSet = la_config(); ?>
-      <div id="lisaManage" hidden style="margin-top:12px">
-        <h3 class="cp-h3" style="margin:0 0 10px">Лиса-Алиса</h3>
+      <div id="lisaManage" class="cp-modal" hidden>
+        <div class="cp-modal-backdrop" data-close></div>
+        <div class="cp-modal-box" role="dialog" aria-label="Лиса-Алиса">
+        <button type="button" class="cp-modal-x" data-close aria-label="Закрыть">×</button>
+        <h3 class="cp-h3" style="margin:0 0 12px">Лиса-Алиса</h3>
       <div class="panel">
         <form class="cp-form" method="post">
           <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
@@ -582,6 +590,7 @@ include __DIR__ . '/header.php';
         document.addEventListener('lisa-open', ensure);
       })();
       </script>
+        </div>
       </div>
     </section>
 
@@ -862,17 +871,19 @@ include __DIR__ . '/header.php';
     const m = document.getElementById('lisaManage');
     if (!m) return;
     m.hidden = !on;
-    if (on) {
-      document.dispatchEvent(new Event('lisa-open'));
-      m.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    document.body.style.overflow = on ? 'hidden' : '';
+    if (on) document.dispatchEvent(new Event('lisa-open'));
+    else if (location.hash === '#lisa') history.replaceState(null, '', '#sections');
   }
   document.querySelectorAll('[data-manage="lisa"]').forEach((b) => b.addEventListener('click', () => {
-    const m = document.getElementById('lisaManage');
-    const open = m.hidden;
-    history.replaceState(null, '', open ? '#lisa' : '#sections');
-    openManage(open);
+    history.replaceState(null, '', '#lisa');
+    openManage(true);
   }));
+  document.querySelectorAll('#lisaManage [data-close]').forEach((b) => b.addEventListener('click', () => openManage(false)));
+  document.addEventListener('keydown', (e) => {
+    const m = document.getElementById('lisaManage');
+    if (e.key === 'Escape' && m && !m.hidden) openManage(false);
+  });
 
   function show(name) {
     if (name === 'lisa') { name = 'sections'; openManage(true); }
