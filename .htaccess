@@ -2,6 +2,9 @@
 <IfModule mod_rewrite.c>
 RewriteEngine On
 
+# Не добавлять слэш к папкам: иначе Apache шлёт /dir -> /dir/, а правила ниже обратно, и выходит петля
+DirectorySlash Off
+
 # 1) Старые адреса ведут на новые (только GET/HEAD, чтобы не ломать POST-формы)
 RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
 RewriteCond %{THE_REQUEST} \s/(?:[^\s?]*/)?index\.php[\s?]
@@ -11,12 +14,7 @@ RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
 RewriteCond %{THE_REQUEST} \s/[^\s?]*\.php[\s?]
 RewriteRule ^(.+)\.php$ /$1 [R=301,L]
 
-# 2) Лишний слэш в конце у папок со страницей: /perfumes/ -> /perfumes
-RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
-RewriteCond %{DOCUMENT_ROOT}/$1/index.php -f
-RewriteRule ^(.+)/$ /$1 [R=301,L]
-
-# 3) Внутри сервера: /dir -> /dir/index.php, /page -> /page.php
+# 2) Внутри сервера: /dir -> /dir/index.php, /page -> /page.php
 RewriteCond %{DOCUMENT_ROOT}/$1/index.php -f
 RewriteRule ^([^.]+?)/?$ $1/index.php [L]
 
