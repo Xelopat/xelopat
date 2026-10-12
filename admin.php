@@ -202,7 +202,7 @@ foreach ((array)($la['entries'] ?? []) as $d => $e) {
     $r = is_array($e) ? (float)($e['r'] ?? 18) : 18.0;
     $laMonth += $s * $r; $laDays++;
 }
-$sections[] = ['title' => 'Лиса-Алиса', 'url' => '/lisa-alisa', 'add' => '', 'stat' => ($laStart === 1 ? 'В этом месяце ' : 'В этом периоде ') . number_format(floor($laMonth), 0, ',', ' ') . ' ₽', 'last' => 'рабочих дней: ' . $laDays];
+$sections[] = ['title' => 'Лиса-Алиса', 'url' => '/lisa-alisa', 'add' => '', 'manage' => 'lisa', 'stat' => ($laStart === 1 ? 'В этом месяце ' : 'В этом периоде ') . number_format(floor($laMonth), 0, ',', ' ') . ' ₽', 'last' => 'рабочих дней: ' . $laDays];
 
 $domStat = 'база не найдена';
 $domPath = __DIR__ . '/data/domophones.sqlite';
@@ -319,6 +319,7 @@ include __DIR__ . '/header.php';
   .cp-row-bar{ position:absolute; inset:0 auto 0 0; background:rgba(249,201,64,.12); border-radius:6px; }
   .cp-row-k{ position:relative; }
   .cp-row-k{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  [hidden]{ display:none !important; }
   a.cp-row{ color:inherit; text-decoration:none; }
   a.cp-row:hover{ background:rgba(255,255,255,.05); }
   .cp-row.cur{ box-shadow:inset 0 0 0 1px var(--accent); }
@@ -364,7 +365,6 @@ include __DIR__ . '/header.php';
       <a href="#sections" data-tab="sections" class="on">Разделы</a>
       <a href="#stats" data-tab="stats">Статистика</a>
       <a href="#home" data-tab="home">Главная</a>
-      <a href="#lisa" data-tab="lisa">Лиса-Алиса</a>
       <a href="#users" data-tab="users">Пользователи</a>
       <a href="#sessions" data-tab="sessions">Мои входы</a>
     </nav>
@@ -379,9 +379,209 @@ include __DIR__ . '/header.php';
             <div class="row">
               <a class="btn cp-small" href="<?= admin_h($s['url']) ?>">Открыть</a>
               <?php if ($s['add']): ?><a class="btn cp-small cp-add" href="<?= admin_h($s['add']) ?>">+ Добавить</a><?php endif; ?>
+              <?php if (!empty($s['manage'])): ?><button type="button" class="btn cp-small" data-manage="<?= admin_h($s['manage']) ?>">Настроить</button><?php endif; ?>
             </div>
           </div>
         <?php endforeach; ?>
+      </div>
+      <?php $laSet = la_config(); ?>
+      <div id="lisaManage" hidden style="margin-top:12px">
+        <h3 class="cp-h3" style="margin:0 0 10px">Лиса-Алиса</h3>
+      <div class="panel">
+        <form class="cp-form" method="post">
+          <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
+          <input type="hidden" name="action" value="save_lisa">
+          <h3>Страница «Лиса-Алиса»</h3>
+          <div class="field"><label>Подзаголовок под названием</label><input name="la_subtitle" maxlength="120" value="<?= admin_h($laSet['subtitle']) ?>"></div>
+          <div class="field">
+            <label>С какого числа начинается месяц</label>
+            <input name="la_start_day" type="number" min="1" max="28" value="<?= (int)$laSet['start_day'] ?>" style="max-width:120px">
+            <p class="cp-note" style="margin:6px 0 0">1 = обычный календарный месяц. Например, 10: месяц идёт с 10-го по 9-е следующего, и все суммы, график и список по месяцам считаются так же. Записи не меняются, пересчёт идёт при показе.</p>
+          </div>
+          <h3>Что показывать на странице</h3>
+          <div class="field">
+            <?php foreach (LA_BLOCKS as $k => $label): ?>
+              <label style="display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:14px;color:var(--text)">
+                <input type="checkbox" name="la_block[<?= admin_h($k) ?>]" value="1"<?= $laSet['blocks'][$k] ? ' checked' : '' ?>> <?= admin_h($label) ?>
+              </label>
+            <?php endforeach; ?>
+            <p class="cp-note" style="margin:6px 0 0">Плитки «Сегодня, неделя, месяц» и таблица «По дням» показываются всегда.</p>
+          </div>
+          <button class="btn cp-save" type="submit">Сохранить</button>
+        </form>
+      </div>
+
+      <div class="panel" id="laAdmin" data-csrf="<?= admin_h($csrf) ?>" style="margin-top:12px">
+        <h3 class="cp-h3">Записи по дням</h3>
+        <p class="cp-note">Выбери день, впиши квадраты и ставку. Нули или «Удалить» убирают запись. Всё попадает в историю ниже, откуда можно вернуть как было.</p>
+        <form class="cp-form" id="laaForm" autocomplete="off">
+          <div class="two">
+            <div class="field"><label>Дата</label><input type="date" id="laaDate" required></div>
+            <div class="field"><label>Квадратов</label><input type="number" id="laaSq" min="0" step="0.01" inputmode="decimal" placeholder="0"></div>
+          </div>
+          <div class="two">
+            <div class="field"><label>₽ за квадрат</label><input type="number" id="laaRate" min="0" step="0.01" inputmode="decimal"></div>
+            <div class="field"><label>Итого</label><input id="laaSum" readonly tabindex="-1"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn cp-save" type="submit">Сохранить</button>
+            <button class="btn" type="button" id="laaDel">Удалить день</button>
+            <span class="cp-note" id="laaMsg" style="margin:0"></span>
+          </div>
+        </form>
+
+        <h3 class="cp-h3" style="margin-top:20px">Последние дни <span class="cp-note" style="margin:0 0 0 6px">нажми на строку, чтобы поправить</span></h3>
+        <div class="cp-row cp-row-head" style="grid-template-columns:minmax(0,1fr) 80px 70px 90px"><span class="cp-row-k">День</span><span class="cp-row-n">Кв.</span><span class="cp-row-n">Ставка</span><span class="cp-row-n">Сумма</span></div>
+        <div class="cp-scroll" id="laaDays"></div>
+      </div>
+
+      <div class="panel" style="margin-top:12px">
+        <h3 class="cp-h3">История изменений <span class="cp-note" style="margin:0 0 0 6px">видна только админу</span></h3>
+        <div class="cp-scroll" id="laaLog"></div>
+      </div>
+
+      <script>
+      (function () {
+        const root = document.getElementById('laAdmin');
+        if (!root) return;
+        const API = '/lisa-alisa?api=1';
+        const CSRF = root.dataset.csrf;
+        const $ = (id) => document.getElementById(id);
+        const fmt = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
+        const rub = (n) => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.floor(n + 1e-9)) + ' ₽';
+        const fmtTime = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const DOW = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+        const pad = (n) => String(n).padStart(2, '0');
+        const dt = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+        const human = (s) => { const d = dt(s); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + DOW[d.getDay()]; };
+        const todayIso = () => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+
+        let entries = {}, log = [], defRate = 18, loaded = false;
+
+        function msg(text, bad) {
+          const el = $('laaMsg');
+          el.textContent = text;
+          el.style.color = bad ? '#ff8f8f' : '';
+          clearTimeout(msg.t);
+          if (text && !bad) msg.t = setTimeout(() => { el.textContent = ''; }, 2500);
+        }
+
+        function apply(j) {
+          entries = j.entries || {};
+          log = j.log || [];
+          if (j.defaultRate) defRate = j.defaultRate;
+          render();
+        }
+
+        async function load() {
+          const r = await fetch(API, { cache: 'no-store' });
+          apply(await r.json());
+        }
+
+        async function save(date, squares, rate) {
+          const r = await fetch(API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF': CSRF },
+            body: JSON.stringify({ date, squares, rate }),
+          });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(j.error || 'Не удалось сохранить');
+          apply(j);
+        }
+
+        function fillForm(date) {
+          const e = entries[date];
+          $('laaDate').value = date;
+          $('laaSq').value = e ? e.s : '';
+          $('laaRate').value = e ? e.r : lastRate();
+          preview();
+        }
+
+        function lastRate() {
+          const ds = Object.keys(entries).sort();
+          return ds.length ? entries[ds[ds.length - 1]].r : defRate;
+        }
+
+        function preview() {
+          const v = parseFloat(String($('laaSq').value).replace(',', '.'));
+          const r = parseFloat(String($('laaRate').value).replace(',', '.'));
+          $('laaSum').value = v > 0 && r > 0 ? rub(v * r) : '';
+        }
+
+        function render() {
+          const days = Object.keys(entries).sort().reverse().slice(0, 60);
+          $('laaDays').innerHTML = days.length ? days.map((d) => {
+            const e = entries[d];
+            return `<div class="cp-row" data-date="${d}" style="grid-template-columns:minmax(0,1fr) 80px 70px 90px;cursor:pointer">` +
+              `<span class="cp-row-k">${human(d)}</span><span class="cp-row-n on">${fmt.format(e.s)}</span>` +
+              `<span class="cp-row-n">${fmt.format(e.r)}</span><span class="cp-row-n">${rub(e.s * e.r)}</span></div>`;
+          }).join('') : '<p class="cp-note">Записей пока нет.</p>';
+
+          const sq = (e) => fmt.format(e.s) + ' кв.';
+          const rate = (e, other) => (other && Number(other.r) === Number(e.r) ? '' : ' по ' + fmt.format(e.r) + ' ₽');
+          const items = log.map((it, i) => ({ ...it, i })).reverse();
+          $('laaLog').innerHTML = items.length ? items.map((it) => {
+            const { from, to } = it;
+            let what;
+            if (!from) what = `записано <b>${sq(to)}</b>${rate(to)}`;
+            else if (!to) what = `удалено <s>${sq(from)}</s>`;
+            else what = `<s>${sq(from)}${rate(from, to)}</s> → <b>${sq(to)}</b>${rate(to, from)}`;
+            return `<div class="cp-row" style="grid-template-columns:110px minmax(0,1fr) auto">` +
+              `<span class="cp-row-k" style="color:var(--muted)">${fmtTime.format(new Date(it.t * 1000))}</span>` +
+              `<span style="position:relative">${human(it.date)}: ${what}</span>` +
+              `<button class="btn cp-small" type="button" data-undo="${it.i}" style="position:relative">Вернуть</button></div>`;
+          }).join('') : '<p class="cp-note">Изменений пока нет.</p>';
+        }
+
+        $('laaDays').addEventListener('click', (e) => {
+          const row = e.target.closest('[data-date]');
+          if (row) fillForm(row.dataset.date);
+        });
+        $('laaDate').addEventListener('change', () => { if ($('laaDate').value) fillForm($('laaDate').value); });
+        $('laaSq').addEventListener('input', preview);
+        $('laaRate').addEventListener('input', preview);
+
+        $('laaForm').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const date = $('laaDate').value;
+          const sqv = Number(String($('laaSq').value).replace(',', '.').trim() || 0);
+          const rt = Number(String($('laaRate').value).replace(',', '.').trim());
+          if (!date) return msg('Выбери дату', true);
+          if (!Number.isFinite(sqv) || sqv < 0) return msg('Квадраты: неотрицательное число', true);
+          if (!Number.isFinite(rt) || rt <= 0) return msg('Укажи ставку', true);
+          try {
+            await save(date, Math.round(sqv * 100) / 100, Math.round(rt * 100) / 100);
+            msg(sqv > 0 ? 'Сохранено' : 'Запись удалена');
+          } catch (err) { msg(err.message, true); }
+        });
+
+        $('laaDel').addEventListener('click', async () => {
+          const date = $('laaDate').value;
+          if (!date || !entries[date]) return msg('За этот день записи нет', true);
+          if (!confirm('Удалить запись за ' + human(date) + '?')) return;
+          try { await save(date, 0); $('laaSq').value = ''; preview(); msg('Запись удалена'); } catch (err) { msg(err.message, true); }
+        });
+
+        $('laaLog').addEventListener('click', async (e) => {
+          const btn = e.target.closest('[data-undo]');
+          if (!btn) return;
+          const it = log[Number(btn.dataset.undo)];
+          if (!it) return;
+          const back = it.from ? fmt.format(it.from.s) + ' кв. по ' + fmt.format(it.from.r) + ' ₽' : 'пусто (запись удалится)';
+          if (!confirm('Вернуть ' + human(it.date) + ' к значению: ' + back + '?')) return;
+          btn.disabled = true;
+          try { await save(it.date, it.from ? it.from.s : 0, it.from ? it.from.r : undefined); msg('Возвращено'); } catch (err) { btn.disabled = false; msg(err.message, true); }
+        });
+
+        // Данные грузим, когда вкладку открыли
+        function ensure() {
+          if (loaded || document.getElementById('lisaManage').hidden) return;
+          loaded = true;
+          load().then(() => fillForm(todayIso())).catch(() => msg('Не удалось загрузить данные', true));
+        }
+        document.addEventListener('lisa-open', ensure);
+      })();
+      </script>
       </div>
     </section>
 
@@ -581,206 +781,6 @@ include __DIR__ . '/header.php';
       </div>
     </section>
 
-    <?php $laSet = la_config(); ?>
-    <section class="cp-pane" id="pane-lisa">
-      <div class="panel">
-        <form class="cp-form" method="post">
-          <input type="hidden" name="csrf" value="<?= admin_h($csrf) ?>">
-          <input type="hidden" name="action" value="save_lisa">
-          <h3>Страница «Лиса-Алиса»</h3>
-          <div class="field"><label>Подзаголовок под названием</label><input name="la_subtitle" maxlength="120" value="<?= admin_h($laSet['subtitle']) ?>"></div>
-          <div class="field">
-            <label>С какого числа начинается месяц</label>
-            <input name="la_start_day" type="number" min="1" max="28" value="<?= (int)$laSet['start_day'] ?>" style="max-width:120px">
-            <p class="cp-note" style="margin:6px 0 0">1 = обычный календарный месяц. Например, 10: месяц идёт с 10-го по 9-е следующего, и все суммы, график и список по месяцам считаются так же. Записи не меняются, пересчёт идёт при показе.</p>
-          </div>
-          <h3>Что показывать на странице</h3>
-          <div class="field">
-            <?php foreach (LA_BLOCKS as $k => $label): ?>
-              <label style="display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:14px;color:var(--text)">
-                <input type="checkbox" name="la_block[<?= admin_h($k) ?>]" value="1"<?= $laSet['blocks'][$k] ? ' checked' : '' ?>> <?= admin_h($label) ?>
-              </label>
-            <?php endforeach; ?>
-            <p class="cp-note" style="margin:6px 0 0">Плитки «Сегодня, неделя, месяц» и таблица «По дням» показываются всегда.</p>
-          </div>
-          <button class="btn cp-save" type="submit">Сохранить</button>
-        </form>
-      </div>
-
-      <div class="panel" id="laAdmin" data-csrf="<?= admin_h($csrf) ?>" style="margin-top:12px">
-        <h3 class="cp-h3">Записи по дням</h3>
-        <p class="cp-note">Выбери день, впиши квадраты и ставку. Нули или «Удалить» убирают запись. Всё попадает в историю ниже, откуда можно вернуть как было.</p>
-        <form class="cp-form" id="laaForm" autocomplete="off">
-          <div class="two">
-            <div class="field"><label>Дата</label><input type="date" id="laaDate" required></div>
-            <div class="field"><label>Квадратов</label><input type="number" id="laaSq" min="0" step="0.01" inputmode="decimal" placeholder="0"></div>
-          </div>
-          <div class="two">
-            <div class="field"><label>₽ за квадрат</label><input type="number" id="laaRate" min="0" step="0.01" inputmode="decimal"></div>
-            <div class="field"><label>Итого</label><input id="laaSum" readonly tabindex="-1"></div>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <button class="btn cp-save" type="submit">Сохранить</button>
-            <button class="btn" type="button" id="laaDel">Удалить день</button>
-            <span class="cp-note" id="laaMsg" style="margin:0"></span>
-          </div>
-        </form>
-
-        <h3 class="cp-h3" style="margin-top:20px">Последние дни <span class="cp-note" style="margin:0 0 0 6px">нажми на строку, чтобы поправить</span></h3>
-        <div class="cp-row cp-row-head" style="grid-template-columns:minmax(0,1fr) 80px 70px 90px"><span class="cp-row-k">День</span><span class="cp-row-n">Кв.</span><span class="cp-row-n">Ставка</span><span class="cp-row-n">Сумма</span></div>
-        <div class="cp-scroll" id="laaDays"></div>
-      </div>
-
-      <div class="panel" style="margin-top:12px">
-        <h3 class="cp-h3">История изменений <span class="cp-note" style="margin:0 0 0 6px">видна только админу</span></h3>
-        <div class="cp-scroll" id="laaLog"></div>
-      </div>
-
-      <script>
-      (function () {
-        const root = document.getElementById('laAdmin');
-        if (!root) return;
-        const API = '/lisa-alisa?api=1';
-        const CSRF = root.dataset.csrf;
-        const $ = (id) => document.getElementById(id);
-        const fmt = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
-        const rub = (n) => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.floor(n + 1e-9)) + ' ₽';
-        const fmtTime = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-        const DOW = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
-        const pad = (n) => String(n).padStart(2, '0');
-        const dt = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
-        const human = (s) => { const d = dt(s); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + DOW[d.getDay()]; };
-        const todayIso = () => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
-
-        let entries = {}, log = [], defRate = 18, loaded = false;
-
-        function msg(text, bad) {
-          const el = $('laaMsg');
-          el.textContent = text;
-          el.style.color = bad ? '#ff8f8f' : '';
-          clearTimeout(msg.t);
-          if (text && !bad) msg.t = setTimeout(() => { el.textContent = ''; }, 2500);
-        }
-
-        function apply(j) {
-          entries = j.entries || {};
-          log = j.log || [];
-          if (j.defaultRate) defRate = j.defaultRate;
-          render();
-        }
-
-        async function load() {
-          const r = await fetch(API, { cache: 'no-store' });
-          apply(await r.json());
-        }
-
-        async function save(date, squares, rate) {
-          const r = await fetch(API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF': CSRF },
-            body: JSON.stringify({ date, squares, rate }),
-          });
-          const j = await r.json().catch(() => ({}));
-          if (!r.ok) throw new Error(j.error || 'Не удалось сохранить');
-          apply(j);
-        }
-
-        function fillForm(date) {
-          const e = entries[date];
-          $('laaDate').value = date;
-          $('laaSq').value = e ? e.s : '';
-          $('laaRate').value = e ? e.r : lastRate();
-          preview();
-        }
-
-        function lastRate() {
-          const ds = Object.keys(entries).sort();
-          return ds.length ? entries[ds[ds.length - 1]].r : defRate;
-        }
-
-        function preview() {
-          const v = parseFloat(String($('laaSq').value).replace(',', '.'));
-          const r = parseFloat(String($('laaRate').value).replace(',', '.'));
-          $('laaSum').value = v > 0 && r > 0 ? rub(v * r) : '';
-        }
-
-        function render() {
-          const days = Object.keys(entries).sort().reverse().slice(0, 60);
-          $('laaDays').innerHTML = days.length ? days.map((d) => {
-            const e = entries[d];
-            return `<div class="cp-row" data-date="${d}" style="grid-template-columns:minmax(0,1fr) 80px 70px 90px;cursor:pointer">` +
-              `<span class="cp-row-k">${human(d)}</span><span class="cp-row-n on">${fmt.format(e.s)}</span>` +
-              `<span class="cp-row-n">${fmt.format(e.r)}</span><span class="cp-row-n">${rub(e.s * e.r)}</span></div>`;
-          }).join('') : '<p class="cp-note">Записей пока нет.</p>';
-
-          const sq = (e) => fmt.format(e.s) + ' кв.';
-          const rate = (e, other) => (other && Number(other.r) === Number(e.r) ? '' : ' по ' + fmt.format(e.r) + ' ₽');
-          const items = log.map((it, i) => ({ ...it, i })).reverse();
-          $('laaLog').innerHTML = items.length ? items.map((it) => {
-            const { from, to } = it;
-            let what;
-            if (!from) what = `записано <b>${sq(to)}</b>${rate(to)}`;
-            else if (!to) what = `удалено <s>${sq(from)}</s>`;
-            else what = `<s>${sq(from)}${rate(from, to)}</s> → <b>${sq(to)}</b>${rate(to, from)}`;
-            return `<div class="cp-row" style="grid-template-columns:110px minmax(0,1fr) auto">` +
-              `<span class="cp-row-k" style="color:var(--muted)">${fmtTime.format(new Date(it.t * 1000))}</span>` +
-              `<span style="position:relative">${human(it.date)}: ${what}</span>` +
-              `<button class="btn cp-small" type="button" data-undo="${it.i}" style="position:relative">Вернуть</button></div>`;
-          }).join('') : '<p class="cp-note">Изменений пока нет.</p>';
-        }
-
-        $('laaDays').addEventListener('click', (e) => {
-          const row = e.target.closest('[data-date]');
-          if (row) fillForm(row.dataset.date);
-        });
-        $('laaDate').addEventListener('change', () => { if ($('laaDate').value) fillForm($('laaDate').value); });
-        $('laaSq').addEventListener('input', preview);
-        $('laaRate').addEventListener('input', preview);
-
-        $('laaForm').addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const date = $('laaDate').value;
-          const sqv = Number(String($('laaSq').value).replace(',', '.').trim() || 0);
-          const rt = Number(String($('laaRate').value).replace(',', '.').trim());
-          if (!date) return msg('Выбери дату', true);
-          if (!Number.isFinite(sqv) || sqv < 0) return msg('Квадраты: неотрицательное число', true);
-          if (!Number.isFinite(rt) || rt <= 0) return msg('Укажи ставку', true);
-          try {
-            await save(date, Math.round(sqv * 100) / 100, Math.round(rt * 100) / 100);
-            msg(sqv > 0 ? 'Сохранено' : 'Запись удалена');
-          } catch (err) { msg(err.message, true); }
-        });
-
-        $('laaDel').addEventListener('click', async () => {
-          const date = $('laaDate').value;
-          if (!date || !entries[date]) return msg('За этот день записи нет', true);
-          if (!confirm('Удалить запись за ' + human(date) + '?')) return;
-          try { await save(date, 0); $('laaSq').value = ''; preview(); msg('Запись удалена'); } catch (err) { msg(err.message, true); }
-        });
-
-        $('laaLog').addEventListener('click', async (e) => {
-          const btn = e.target.closest('[data-undo]');
-          if (!btn) return;
-          const it = log[Number(btn.dataset.undo)];
-          if (!it) return;
-          const back = it.from ? fmt.format(it.from.s) + ' кв. по ' + fmt.format(it.from.r) + ' ₽' : 'пусто (запись удалится)';
-          if (!confirm('Вернуть ' + human(it.date) + ' к значению: ' + back + '?')) return;
-          btn.disabled = true;
-          try { await save(it.date, it.from ? it.from.s : 0, it.from ? it.from.r : undefined); msg('Возвращено'); } catch (err) { btn.disabled = false; msg(err.message, true); }
-        });
-
-        // Данные грузим, когда вкладку открыли
-        function ensure() {
-          if (loaded || !document.getElementById('pane-lisa').classList.contains('on')) return;
-          loaded = true;
-          load().then(() => fillForm(todayIso())).catch(() => msg('Не удалось загрузить данные', true));
-        }
-        document.querySelectorAll('#cpTabs [data-tab]').forEach((t) => t.addEventListener('click', () => setTimeout(ensure, 0)));
-        document.addEventListener('DOMContentLoaded', ensure);
-      })();
-      </script>
-    </section>
-
     <section class="cp-pane" id="pane-users">
       <div class="panel" style="overflow-x:auto">
         <p class="cp-note">Админ может всё. <?php foreach (ROLES as $rk => $rd): if ($rk === 'admin') continue; ?><?= admin_h($rd['label']) ?>: <?= admin_h($rd['hint']) ?>. <?php endforeach; ?></p>
@@ -858,7 +858,24 @@ include __DIR__ . '/header.php';
 <script>
 (function () {
   const tabs = document.querySelectorAll('#cpTabs [data-tab]');
+  function openManage(on) {
+    const m = document.getElementById('lisaManage');
+    if (!m) return;
+    m.hidden = !on;
+    if (on) {
+      document.dispatchEvent(new Event('lisa-open'));
+      m.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+  document.querySelectorAll('[data-manage="lisa"]').forEach((b) => b.addEventListener('click', () => {
+    const m = document.getElementById('lisaManage');
+    const open = m.hidden;
+    history.replaceState(null, '', open ? '#lisa' : '#sections');
+    openManage(open);
+  }));
+
   function show(name) {
+    if (name === 'lisa') { name = 'sections'; openManage(true); }
     if (!document.getElementById('pane-' + name)) name = 'sections';
     tabs.forEach((t) => t.classList.toggle('on', t.dataset.tab === name));
     document.querySelectorAll('.cp-pane').forEach((p) => p.classList.toggle('on', p.id === 'pane-' + name));
