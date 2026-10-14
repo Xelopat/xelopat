@@ -1,0 +1,21 @@
+# Поддомен cybersecurity.xelopat.ru смотрит в эту папку.
+# Чистые адреса: /osi вместо /osi/index.php. Пути считаем от файловой системы (REQUEST_FILENAME),
+# а не от DOCUMENT_ROOT, чтобы правила работали и на поддомене, и как xelopat.ru/cybersecurity
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+DirectorySlash Off
+
+# Служебные папки наружу не отдаём
+RewriteRule ^includes(/|$) - [F,L]
+
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteCond %{REQUEST_FILENAME}/index.php -f
+RewriteRule ^(.+?)/?$ $1/index.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^(.+)$ $1.php [L]
+</IfModule>

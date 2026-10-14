@@ -173,6 +173,8 @@ if (isset($site_page_title)):
           </ul>
         </div>
       </div>
+
+      <a class="nav-link" href="https://cybersecurity.xelopat.ru" title="Кибербезопасность">КБ</a>
     </nav>
 
     <div class="auth-area">
