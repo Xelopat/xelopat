@@ -377,6 +377,11 @@
       h('div', null, h('b', null, 'Проводное подключение ' + itf.name), h('small', null, state + ', MAC ' + itf.mac)),
       toggle(!itf.down, (on) => { itf.down = !on; ui.changed(); }, 'вкл.')));
 
+    const nameIn = inp(dev.name);
+    nameIn.addEventListener('change', () => { const v = nameIn.value.trim(); if (v) { dev.name = v.slice(0, 24); ui.refreshed(); } });
+    nameIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') nameIn.blur(); });
+    box.append(field('Имя устройства', nameIn));
+
     const mode = h('div', { class: 'wseg' },
       h('button', { type: 'button', class: dev.dhcp ? 'active' : '', onClick: () => { if (!dev.dhcp) { dev.dhcp = true; ui.changed(); } } }, 'Автоматически (DHCP)'),
       h('button', { type: 'button', class: dev.dhcp ? '' : 'active', onClick: () => { if (dev.dhcp) { dev.dhcp = false; ui.changed(); } } }, 'Вручную'));

@@ -133,8 +133,10 @@
         });
       });
       json.links.forEach((l) => {
+        net.reindex();
         if (net.dev(l.a.dev) && net.dev(l.b.dev)) net.links.push({ id: String(l.id), a: { dev: l.a.dev, i: Number(l.a.i) }, b: { dev: l.b.dev, i: Number(l.b.i) } });
       });
+      net.reindex();
       net.devices.forEach((d) => d.ifaces.forEach((i) => { if (i.link && !net.link(i.link)) i.link = null; }));
       return net;
     }
@@ -143,8 +145,16 @@
       return { v: 2, seq: this.seq, devices: this.devices, links: this.links };
     }
 
-    dev(id) { return this.devices.find((d) => d.id === id) || null; }
-    link(id) { return this.links.find((l) => l.id === id) || null; }
+    // Индексы по id: на больших схемах (тысячи устройств) поиск перебором тормозит
+    reindex() { this._dm = null; this._lm = null; }
+    dev(id) {
+      if (!this._dm) this._dm = new Map(this.devices.map((d) => [d.id, d]));
+      return this._dm.get(id) || null;
+    }
+    link(id) {
+      if (!this._lm) this._lm = new Map(this.links.map((l) => [l.id, l]));
+      return this._lm.get(id) || null;
+    }
     byName(name) { return this.devices.find((d) => d.name.toLowerCase() === String(name).toLowerCase()) || null; }
     type(dev) { return LAB.types[dev.type]; }
     byIp(addr) { return this.devices.find((d) => d.ifaces.some((i) => i.ip === addr)) || null; }
@@ -163,12 +173,14 @@
         ifaces: t.ports.map((name) => ({ name, mac: randMac(), ip: '', prefix: 24, vlan: 1, down: false, helper: '', link: null })),
       };
       this.devices.push(dev);
+      this.reindex();
       return dev;
     }
 
     remove(id) {
       this.links.filter((l) => l.a.dev === id || l.b.dev === id).forEach((l) => this.disconnect(l.id));
       this.devices = this.devices.filter((d) => d.id !== id);
+      this.reindex();
     }
 
     // Соединить два устройства: порт можно указать по имени, иначе берётся первый свободный
@@ -184,6 +196,7 @@
       a.ifaces[ai].link = link.id;
       b.ifaces[bi].link = link.id;
       this.links.push(link);
+      this.reindex();
       return { link };
     }
 
@@ -192,6 +205,7 @@
       if (!l) return;
       [l.a, l.b].forEach((end) => { const d = this.dev(end.dev); if (d && d.ifaces[end.i]) d.ifaces[end.i].link = null; });
       this.links = this.links.filter((x) => x.id !== linkId);
+      this.reindex();
     }
 
     // Что на другом конце кабеля (any: вернуть даже если интерфейс выключен)

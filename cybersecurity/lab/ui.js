@@ -1,12 +1,16 @@
-// Сетевая лаборатория: холст, карточка устройства, симуляция с анимацией пакетов.
-// Логика сети живёт в net.js, окна устройств (веб-интерфейс, терминал, браузер) в windows.js.
+// Сетевая лаборатория: холст, меню, журнал и анимация пакетов.
+// Логика сети живёт в net.js, окна устройств в windows.js, сохранение карт на сервере в maps.js.
+//
+// Управление: левая кнопка двигает устройство или холст, двойной щелчок открывает настройки,
+// правой кнопкой протяни от устройства к устройству, чтобы соединить их кабелем,
+// щелчок правой кнопкой открывает меню. На телефоне кабель тянется после долгого нажатия.
 (function () {
-  const ip = LAB.ip;
   const NS = 'http://www.w3.org/2000/svg';
   const STORE = 'cs-lab:v2';
   const TICK_MS = 950;
+  const LONG_PRESS_MS = 450;
+  const MAX_DEVICES = 5000;
   const LC = { 7: '#ff8f8f', 6: '#f5a964', 5: '#f9c940', 4: '#61d1ad', 3: '#5aa7ff', 2: '#9d8ff0', 1: '#d68fe0' };
-  const LN = { 7: 'Прикладной', 6: 'Представления', 5: 'Сеансовый', 4: 'Транспортный', 3: 'Сетевой', 2: 'Канальный', 1: 'Физический' };
   // Приглушённые цвета: сеть различима, но не кричит
   const DOMAIN_COLORS = ['#5f9e8a', '#6f8fb8', '#b39a5a', '#a87878', '#8a80b0', '#7fa3a8', '#9c8a6c', '#8e7f9c', '#7f9c78'];
   // Четыре цвета на все пакеты: ARP (L2), ICMP, ошибка, прикладные службы
@@ -14,25 +18,20 @@
   const KIND_TEXT = { arp: 'ARP', req: 'ICMP', rep: 'ICMP', err: 'ICMP', dhcp: 'DHCP', dns: 'DNS', tcp: 'TCP', http: 'HTTP' };
   const VIEWS = {
     l1: { label: 'L1', title: 'Физический вид: кабели и порты' },
-    l2: { label: 'L2', title: 'Канальный вид: широковещательные домены, MAC и VLAN' },
+    l2: { label: 'L2', title: 'Канальный вид: широковещательные домены и VLAN' },
     l3: { label: 'L3', title: 'Сетевой вид: подсети и IP-адреса' },
-  };
-  const TOOLS = {
-    select: { label: 'Выбор', key: 'V', hint: 'Перетаскивай устройства, щёлкни, чтобы увидеть карточку. Двойной щелчок открывает настройки. Пустое место двигает холст, колесо масштабирует.' },
-    link: { label: 'Кабель', key: 'C', hint: 'Щёлкни первое устройство, потом второе: кабель займёт первые свободные порты.' },
-    delete: { label: 'Удалить', key: 'D', hint: 'Щёлкни устройство или кабель, чтобы удалить.' },
   };
 
   const S = {
     net: null, sim: null,
-    tool: 'select', view: 'l2',
+    view: 'l2',
     sel: null,          // id устройства или 'link:<id>'
-    linkFrom: null,
     cam: { x: 0, y: 0, k: 1 },
     speed: 1,
     anim: null,
     terms: {},
     preset: null,
+    map: null,          // { id, name } карты на сервере, если она открыта
   };
   const E = {};
 
@@ -106,9 +105,9 @@
     return s('svg', { viewBox: '-30 -26 60 52', width: w || 22, height: Math.round((w || 22) * 0.86), 'aria-hidden': 'true' }, iconFor(type));
   }
 
-  /* ===== Хранение ===== */
+  /* ===== Хранение в браузере ===== */
   function save() {
-    try { localStorage.setItem(STORE, JSON.stringify({ net: S.net, preset: S.preset, view: S.view })); } catch (e) { /* без хранилища просто не запоминаем */ }
+    try { localStorage.setItem(STORE, JSON.stringify({ net: S.net, preset: S.preset, view: S.view, map: S.map })); } catch (e) { /* без хранилища просто не запоминаем */ }
   }
   function load() {
     try {
@@ -117,6 +116,7 @@
       const data = JSON.parse(raw);
       S.net = LAB.Net.from(data.net);
       S.preset = data.preset || null;
+      S.map = data.map && data.map.id ? data.map : null;
       if (VIEWS[data.view]) S.view = data.view;
       return true;
     } catch (e) {
@@ -124,15 +124,16 @@
     }
   }
 
-  function setNet(net, presetId) {
+  function setNet(net, presetId, map) {
     stopAnim();
+    closeMenus();
     if (LAB.Win) LAB.Win.closeAll();
     S.net = net;
     S.sim = new LAB.Sim(net);
     S.sel = null;
-    S.linkFrom = null;
     S.terms = {};
     S.preset = presetId || null;
+    S.map = map || null;
     clearLog();
     save();
     renderAll();
@@ -175,16 +176,16 @@
     if (!r.width) return;
     const ds = S.net.devices;
     if (!ds.length) { S.cam = { x: 0, y: 0, k: 1 }; applyCam(); return; }
-    const xs = ds.map((d) => d.x), ys = ds.map((d) => d.y);
-    const minX = Math.min(...xs) - 90, maxX = Math.max(...xs) + 90;
-    const minY = Math.min(...ys) - 80, maxY = Math.max(...ys) + 100;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    ds.forEach((d) => { minX = Math.min(minX, d.x); maxX = Math.max(maxX, d.x); minY = Math.min(minY, d.y); maxY = Math.max(maxY, d.y); });
+    minX -= 90; maxX += 90; minY -= 80; maxY += 100;
     const k = Math.min(r.width / (maxX - minX), r.height / (maxY - minY), 1.3);
-    S.cam = { x: (minX + maxX) / 2, y: (minY + maxY) / 2, k: Math.max(0.3, k) };
+    S.cam = { x: (minX + maxX) / 2, y: (minY + maxY) / 2, k: Math.max(0.05, k) };
     applyCam();
   }
   function zoom(f, around) {
     const r = E.svg.getBoundingClientRect();
-    const k2 = Math.min(3, Math.max(0.25, S.cam.k * f));
+    const k2 = Math.min(3, Math.max(0.05, S.cam.k * f));
     if (around) {
       const w = toWorld(around);
       S.cam.x = w.x - (around.clientX - r.left - r.width / 2) / k2;
@@ -197,77 +198,135 @@
   /* ===== Граф ===== */
   function domainColor(n) { return DOMAIN_COLORS[n % DOMAIN_COLORS.length]; }
 
+  // Подпись порта: в L1 видны все, в L2 и L3 только важные (VLAN, адрес маршрутизатора),
+  // остальные появляются при наведении на кабель или выделении устройства
+  function portLabel(d, itf) {
+    const kind = kindOf(d);
+    if (S.view === 'l1') return { text: itf.name, key: true };
+    if (S.view === 'l2' && kind === 'switch' && (itf.vlan || 1) !== 1) return { text: itf.name + ' v' + itf.vlan, key: true };
+    if (S.view === 'l3' && kind === 'router') return { text: itf.ip ? '.' + itf.ip.split('.').pop() : 'без IP', key: true };
+    return { text: itf.name, key: false };
+  }
+
+  function linkGeom(l) {
+    const a = S.net.dev(l.a.dev), b = S.net.dev(l.b.dev);
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const t = Math.min(0.42, 44 / len);
+    return {
+      x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+      pa: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t + 3 },
+      pb: { x: b.x + (a.x - b.x) * t, y: b.y + (a.y - b.y) * t + 3 },
+    };
+  }
+
   function renderGraph() {
     const net = S.net;
     const dom = S.view === 'l1' ? null : net.domains();
     E.gLinks.replaceChildren();
     E.gNodes.replaceChildren();
+    E.nodeEls = new Map();
+    E.linkEls = new Map();
+    E.stage.dataset.view = S.view;
 
+    const linksFrag = document.createDocumentFragment();
     net.links.forEach((l) => {
       const a = net.dev(l.a.dev), b = net.dev(l.b.dev);
       const down = net.linkDown(l);
-      const color = down ? '#55394a' : dom ? domainColor(dom.linkDomain[l.id]) : '#5a5a6e';
-      const selected = S.sel === 'link:' + l.id;
-      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-      const g = s('g', { class: 'lab-link' + (selected ? ' is-sel' : '') + (down ? ' is-down' : ''), 'data-link': l.id },
-        s('line', { class: 'lab-link__hit', x1: a.x, y1: a.y, x2: b.x, y2: b.y }),
-        s('line', { class: 'lab-link__line', x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: color }));
-      [[a, l.a.i, b], [b, l.b.i, a]].forEach(([d, i, other]) => {
-        const t = Math.min(0.42, 50 / len);
-        const x = d.x + (other.x - d.x) * t, y = d.y + (other.y - d.y) * t;
-        const itf = d.ifaces[i];
-        let text = itf.name;
-        if (S.view === 'l2' && kindOf(d) === 'switch' && (itf.vlan || 1) !== 1) text += ' v' + itf.vlan;
-        if (S.view === 'l3' && kindOf(d) === 'router') text = itf.ip ? itf.name + ' .' + itf.ip.split('.').pop() : itf.name + ' без IP';
-        g.append(s('text', { class: 'lab-port' + (itf.down ? ' is-down' : ''), x, y: y + 3, 'text-anchor': 'middle' }, itf.down ? text + ' ✕' : text));
-      });
-      E.gLinks.append(g);
+      const color = down ? '#55394a' : dom ? domainColor(dom.linkDomain[l.id]) : '#6a6c80';
+      const gm = linkGeom(l);
+      const hit = s('line', { class: 'lab-link__hit', x1: gm.x1, y1: gm.y1, x2: gm.x2, y2: gm.y2 });
+      const line = s('line', { class: 'lab-link__line', x1: gm.x1, y1: gm.y1, x2: gm.x2, y2: gm.y2, stroke: color });
+      const la = portLabel(a, a.ifaces[l.a.i]), lb = portLabel(b, b.ifaces[l.b.i]);
+      const ta = s('text', { class: 'lab-port' + (la.key ? ' is-key' : '') + (a.ifaces[l.a.i].down ? ' is-down' : ''), x: gm.pa.x, y: gm.pa.y, 'text-anchor': 'middle' }, la.text);
+      const tb = s('text', { class: 'lab-port' + (lb.key ? ' is-key' : '') + (b.ifaces[l.b.i].down ? ' is-down' : ''), x: gm.pb.x, y: gm.pb.y, 'text-anchor': 'middle' }, lb.text);
+      const g = s('g', { class: 'lab-link' + (S.sel === 'link:' + l.id ? ' is-sel' : '') + (down ? ' is-down' : ''), 'data-link': l.id }, hit, line, ta, tb);
+      E.linkEls.set(l.id, { g, hit, line, ta, tb });
+      linksFrag.append(g);
     });
+    E.gLinks.append(linksFrag);
 
+    const nodesFrag = document.createDocumentFragment();
     net.devices.forEach((d) => {
       const t = typeOf(d);
-      const sel = S.sel === d.id;
       const g = s('g', {
-        class: 'lab-node' + (sel ? ' is-sel' : '') + (S.linkFrom === d.id ? ' is-from' : ''),
+        class: 'lab-node' + (S.sel === d.id ? ' is-sel' : ''),
         'data-node': d.id,
         transform: 'translate(' + d.x + ' ' + d.y + ')',
       });
-      g.append(s('title', null, t.title + ': ' + t.hint));
-      g.append(s('rect', { class: 'lab-node__halo', x: -38, y: -32, width: 84, height: 96, rx: 4 }));
+      g.append(s('title', null, d.name + ', ' + t.title.toLowerCase() + '. Двойной щелчок: настройки'));
+      g.append(s('rect', { class: 'lab-node__halo', x: -36, y: -30, width: 80, height: S.view === 'l1' ? 80 : 92, rx: 4 }));
       g.append(iconFor(d.type));
-      const bar = s('g', { class: 'lab-bar', transform: 'translate(33 -25)' });
+      const bar = s('g', { class: 'lab-bar', transform: 'translate(31 -24)' });
       for (let n = 7; n >= 1; n--) {
         const on = n >= t.layers[0] && n <= t.layers[1];
         bar.append(s('rect', { class: 'lab-seg' + (on ? ' is-in' : ''), 'data-l': n, x: 0, y: (7 - n) * 7, width: 5, height: 5, rx: 0.5, fill: on ? LC[n] : '#2c2c38' }));
       }
       g.append(bar);
       const svc = d.services ? ['dns', 'dhcp', 'http'].filter((k) => d.services[k].on) : [];
-      if (svc.length && S.view !== 'l1') {
-        g.append(s('text', { class: 'lab-node__svc', x: -36, y: -24 }, svc.map((k) => k.toUpperCase()).join(' ')));
-      }
-      g.append(s('text', { class: 'lab-node__name', y: 40, 'text-anchor': 'middle' }, d.name));
+      if (svc.length && S.view !== 'l1') g.append(s('text', { class: 'lab-node__svc', x: -34, y: -22 }, svc.map((k) => k.toUpperCase()).join(' ')));
+      g.append(s('text', { class: 'lab-node__name', y: 38, 'text-anchor': 'middle' }, d.name));
       const sub = nodeSub(d);
-      if (sub) g.append(s('text', { class: 'lab-node__sub' + (sub.err ? ' is-err' : ''), y: 54, 'text-anchor': 'middle' }, sub.text));
-      E.gNodes.append(g);
+      if (sub) g.append(s('text', { class: 'lab-node__sub' + (sub.err ? ' is-err' : ''), y: 51, 'text-anchor': 'middle' }, sub.text));
+      E.nodeEls.set(d.id, g);
+      nodesFrag.append(g);
     });
+    E.gNodes.append(nodesFrag);
+    markNear();
+  }
+
+  // Подсветить подписи портов у выделенного устройства
+  function markNear() {
+    E.gLinks.querySelectorAll('.is-near').forEach((x) => x.classList.remove('is-near'));
+    if (!S.sel || S.sel.startsWith('link:')) return;
+    S.net.links.forEach((l) => {
+      if (l.a.dev === S.sel || l.b.dev === S.sel) {
+        const el = E.linkEls.get(l.id);
+        if (el) el.g.classList.add('is-near');
+      }
+    });
+  }
+
+  // Сдвинуть одно устройство и его кабели, не перерисовывая всю схему
+  function moveNode(d, links) {
+    const g = E.nodeEls.get(d.id);
+    if (g) g.setAttribute('transform', 'translate(' + d.x + ' ' + d.y + ')');
+    links.forEach((l) => {
+      const el = E.linkEls.get(l.id);
+      if (!el) return;
+      const gm = linkGeom(l);
+      [el.hit, el.line].forEach((ln) => { ln.setAttribute('x1', gm.x1); ln.setAttribute('y1', gm.y1); ln.setAttribute('x2', gm.x2); ln.setAttribute('y2', gm.y2); });
+      el.ta.setAttribute('x', gm.pa.x); el.ta.setAttribute('y', gm.pa.y);
+      el.tb.setAttribute('x', gm.pb.x); el.tb.setAttribute('y', gm.pb.y);
+    });
+  }
+
+  function select(id) {
+    if (S.sel === id) return;
+    const prev = S.sel;
+    S.sel = id;
+    [prev, id].forEach((x) => {
+      if (!x) return;
+      const el = x.startsWith('link:') ? (E.linkEls.get(x.slice(5)) || {}).g : E.nodeEls.get(x);
+      if (el) el.classList.toggle('is-sel', x === id);
+    });
+    markNear();
   }
 
   function nodeSub(d) {
     const kind = kindOf(d);
     const i0 = d.ifaces[0];
-    if (S.view === 'l1') return { text: typeOf(d).title };
+    if (S.view === 'l1') return null;
     if (S.view === 'l2') {
       if (kind === 'host') return { text: i0.mac };
       if (kind === 'switch') {
         const vl = [...new Set(d.ifaces.filter((i) => i.link).map((i) => i.vlan || 1))].sort((a, b) => a - b);
         return { text: 'VLAN ' + (vl.length ? vl.join(', ') : '1') };
       }
-      if (kind === 'router') return { text: 'граница домена' };
-      return { text: 'один домен на все порты' };
+      return null;
     }
     if (kind === 'host') {
       if (!i0.ip) return { text: d.dhcp ? 'ждёт DHCP' : 'нет IP', err: !d.dhcp };
-      return { text: i0.ip + '/' + i0.prefix + (d.dhcp ? ' dhcp' : '') };
+      return { text: i0.ip + '/' + i0.prefix };
     }
     if (kind === 'router') {
       const n = d.ifaces.filter((i) => i.ip && LAB.ifUp(i)).length;
@@ -277,72 +336,55 @@
   }
 
   function renderLegend() {
-    const net = S.net;
     E.legend.replaceChildren();
-    E.legend.append(h('div', { class: 'lab-legend__title' }, VIEWS[S.view].title));
-    if (S.view === 'l1') {
-      E.legend.append(h('div', null, 'Устройств: ' + net.devices.length + ', кабелей: ' + net.links.length));
-      E.legend.append(h('div', { class: 'lab-legend__note' }, 'Полоска справа от устройства показывает его уровни OSI.'));
-      return;
-    }
-    const dom = net.domains();
-    if (!dom.info.length) { E.legend.append(h('div', null, 'Пока нет кабелей')); return; }
-    dom.info.forEach((inf, n) => {
+    if (S.view === 'l1') { E.legend.hidden = true; return; }
+    const dom = S.net.domains();
+    if (!dom.info.length) { E.legend.hidden = true; return; }
+    E.legend.hidden = false;
+    const rows = dom.info.slice(0, 12).map((inf, n) => {
       let text;
       if (S.view === 'l2') {
         const v = [...inf.vlans];
-        text = 'Домен ' + (n + 1) + (v.length ? ', VLAN ' + v.join(', ') : '');
+        text = 'домен ' + (n + 1) + (v.length ? ', VLAN ' + v.join(', ') : '');
       } else {
         const nets = [...inf.nets];
-        text = nets.length ? nets.join(', ') : 'нет IP-адресов';
-        if (nets.length > 1) text += '  (разные подсети в одном домене!)';
+        text = nets.length ? nets.join(', ') : 'без IP';
+        if (nets.length > 1) text += ' (разные подсети!)';
       }
-      E.legend.append(h('div', { class: 'lab-legend__row' }, h('i', { style: { background: domainColor(n) } }), text));
+      return h('div', { class: 'lab-legend__row' }, h('i', { style: { background: domainColor(n) } }), text);
     });
-    E.legend.append(h('div', { class: 'lab-legend__note' }, S.view === 'l2'
-      ? 'Цвет кабеля: широковещательный домен, докуда дойдёт ARP или DHCP DISCOVER. Границы: маршрутизаторы и VLAN.'
-      : 'Цвет кабеля: сеть. Внутри одной сети узлы общаются напрямую, между сетями только через маршрутизатор.'));
+    if (dom.info.length > 12) rows.push(h('div', { class: 'lab-legend__row' }, 'и ещё ' + (dom.info.length - 12)));
+    E.legend.append(rows);
   }
 
   /* ===== Тулбар ===== */
   function buildToolbar() {
     const palette = h('div', { class: 'lab-group' },
       Object.values(LAB.types).map((t) => h('button', {
-        type: 'button', class: 'lab-add', title: 'Добавить: ' + t.hint, style: { '--tc': t.color },
+        type: 'button', class: 'lab-add', title: 'Добавить ' + t.title.toLowerCase() + ': ' + t.hint, 'aria-label': 'Добавить: ' + t.title,
         onClick: () => addDevice(t.type),
-      }, miniIcon(t.type), t.title)));
-
-    E.toolBtns = {};
-    const tools = h('div', { class: 'lab-group lab-seg-ctl' }, Object.entries(TOOLS).map(([id, t]) =>
-      (E.toolBtns[id] = h('button', { type: 'button', title: t.hint + ' (клавиша ' + t.key + ')', onClick: () => setTool(id) }, t.label))));
+      }, miniIcon(t.type), h('span', { class: 'lab-add__t' }, t.title))));
 
     E.viewBtns = {};
-    const views = h('div', { class: 'lab-group lab-seg-ctl' }, h('span', { class: 'lab-group__label' }, 'Вид'),
+    const views = h('div', { class: 'lab-group lab-seg-ctl' },
       Object.entries(VIEWS).map(([id, v]) => (E.viewBtns[id] = h('button', { type: 'button', title: v.title, onClick: () => setView(id) }, v.label))));
 
     E.presetSel = h('select', { class: 'lab-select', 'aria-label': 'Готовые схемы', onChange: (e) => { if (e.target.value) loadPreset(e.target.value); e.target.value = ''; } },
       h('option', { value: '' }, 'Готовые схемы'),
       LAB.presets.map((p) => h('option', { value: p.id }, (p.task ? 'Задача: ' : '') + p.title.replace(/^Задача: /, ''))));
     const file = h('input', { type: 'file', accept: '.json,application/json', hidden: true, onChange: importFile });
-    E.fullBtn = h('button', { type: 'button', class: 'lab-btn lab-btn--full', onClick: toggleFull, title: 'Развернуть лабораторию на весь экран (Esc чтобы выйти)' }, '⛶ На весь экран');
+    E.mapsBtn = h('button', { type: 'button', class: 'lab-btn', 'data-pop-toggle': '', onClick: (e) => { e.stopPropagation(); if (LAB.Maps) LAB.Maps.toggle(); }, title: 'Сохранённые карты в аккаунте' }, 'Мои карты');
+    E.fullBtn = h('button', { type: 'button', class: 'lab-btn', onClick: toggleFull, title: 'Развернуть на весь экран (Esc чтобы выйти)' }, '⛶ На весь экран');
     const files = h('div', { class: 'lab-group lab-group--end' },
       E.presetSel,
+      E.mapsBtn,
       h('button', { type: 'button', class: 'lab-btn', onClick: exportFile, title: 'Скачать схему в JSON' }, 'Экспорт'),
       h('button', { type: 'button', class: 'lab-btn', onClick: () => file.click(), title: 'Загрузить схему из JSON' }, 'Импорт'),
       h('button', { type: 'button', class: 'lab-btn', onClick: () => { if (confirm('Очистить холст?')) setNet(new LAB.Net(), null); } }, 'Очистить'),
       E.fullBtn,
       file);
 
-    E.toolbar.append(palette, tools, views, files);
-  }
-
-  function setTool(id) {
-    S.tool = id;
-    S.linkFrom = null;
-    Object.entries(E.toolBtns).forEach(([k, b]) => b.classList.toggle('active', k === id));
-    E.stage.dataset.tool = id;
-    hint(TOOLS[id].hint);
-    renderGraph();
+    E.toolbar.append(palette, views, files);
   }
 
   function setView(id) {
@@ -353,12 +395,14 @@
     renderLegend();
   }
 
+  // Короткое сообщение в углу холста; без текста скрывается
   let hintTimer = null;
   function hint(text, level) {
-    E.hint.textContent = text;
-    E.hint.className = 'lab-hint' + (level ? ' is-' + level : '');
     clearTimeout(hintTimer);
-    if (level) hintTimer = setTimeout(() => hint(TOOLS[S.tool].hint), 3500);
+    E.hint.textContent = text || '';
+    E.hint.className = 'lab-hint' + (level ? ' is-' + level : '');
+    E.hint.hidden = !text;
+    if (text) hintTimer = setTimeout(() => { E.hint.hidden = true; }, 3500);
   }
 
   /* ===== Полный экран ===== */
@@ -370,8 +414,7 @@
     requestAnimationFrame(() => { applyCam(); if (LAB.Win) LAB.Win.clamp(); });
   }
   function toggleFull() {
-    const on = !isFull();
-    if (on) {
+    if (!isFull()) {
       setFullClass(true);
       if (E.root.requestFullscreen) E.root.requestFullscreen().catch(() => { /* остаёмся в развёрнутом окне */ });
     } else {
@@ -384,12 +427,14 @@
   });
 
   /* ===== Действия со схемой ===== */
-  function addDevice(type) {
+  function addDevice(type, at) {
+    if (S.net.devices.length >= MAX_DEVICES) { hint('На карте уже ' + MAX_DEVICES + ' устройств, это предел', 'err'); return; }
     const n = S.net.devices.length;
-    const d = S.net.add(type, S.cam.x + ((n * 37) % 120) - 60, S.cam.y + ((n * 53) % 100) - 50);
+    const p = at || { x: S.cam.x + ((n * 37) % 120) - 60, y: S.cam.y + ((n * 53) % 100) - 50 };
+    const d = S.net.add(type, Math.round(p.x / 10) * 10, Math.round(p.y / 10) * 10);
     S.sel = d.id;
     changed();
-    hint(d.name + ' добавлен. ' + (typeOf(d).web && typeOf(d).web.length ? 'Двойной щелчок по нему откроет настройки.' : 'Соедини его кабелем.'), 'ok');
+    hint(d.name + ' добавлен. Протяни правой кнопкой к другому устройству, чтобы соединить', 'ok');
   }
 
   function removeDevice(id) {
@@ -410,61 +455,85 @@
     hint('Кабель удалён', 'ok');
   }
 
+  function connect(aId, bId) {
+    const r = S.net.connect(aId, bId);
+    if (r.error) { hint(r.error, 'err'); return; }
+    changed();
+    const a = S.net.dev(r.link.a.dev), b = S.net.dev(r.link.b.dev);
+    hint('Кабель: ' + a.name + ' ' + a.ifaces[r.link.a.i].name + ' ↔ ' + b.name + ' ' + b.ifaces[r.link.b.i].name, 'ok');
+  }
+
   /* ===== Мышь и касания на холсте ===== */
   function bindStage() {
-    let drag = null, pan = null;
+    let drag = null, pan = null, wire = null, press = null;
+
+    const startWire = (id, e) => {
+      wire = { from: id, moved: false, x: e.clientX, y: e.clientY };
+      E.stage.classList.add('is-wiring');
+    };
+    const endWire = () => {
+      wire = null;
+      E.gPreview.replaceChildren();
+      E.stage.classList.remove('is-wiring');
+    };
+    const nodeAt = (e) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const n = el && el.closest ? el.closest('[data-node]') : null;
+      return n && E.svg.contains(n) ? n.dataset.node : null;
+    };
+
+    E.svg.addEventListener('contextmenu', (e) => e.preventDefault());
 
     E.svg.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
+      closeMenus();
       const nodeEl = e.target.closest('[data-node]');
       const linkEl = e.target.closest('[data-link]');
-      const w = toWorld(e);
       try { E.svg.setPointerCapture(e.pointerId); } catch (err) { /* без захвата тоже работает */ }
+
+      if (e.button === 2) {
+        if (nodeEl) startWire(nodeEl.dataset.node, e);
+        else press = { x: e.clientX, y: e.clientY, link: linkEl ? linkEl.dataset.link : null, right: true };
+        return;
+      }
+      if (e.button !== 0) return;
 
       if (nodeEl) {
         const id = nodeEl.dataset.node;
-        if (S.tool === 'delete') { removeDevice(id); return; }
-        if (S.tool === 'link') {
-          if (!S.linkFrom) {
-            S.linkFrom = id;
-            hint('Теперь щёлкни второе устройство');
-            renderGraph();
-          } else {
-            const r = S.net.connect(S.linkFrom, id);
-            S.linkFrom = null;
-            E.gPreview.replaceChildren();
-            if (r.error) { hint(r.error, 'err'); renderGraph(); return; }
-            changed();
-            const a = S.net.dev(r.link.a.dev), b = S.net.dev(r.link.b.dev);
-            hint('Кабель: ' + a.name + ' ' + a.ifaces[r.link.a.i].name + ' ↔ ' + b.name + ' ' + b.ifaces[r.link.b.i].name, 'ok');
-          }
-          return;
-        }
         const d = S.net.dev(id);
-        drag = { id, dx: d.x - w.x, dy: d.y - w.y, moved: false };
-        if (S.sel !== id) { S.sel = id; renderGraph(); renderSide(); }
+        const w = toWorld(e);
+        drag = { id, dx: d.x - w.x, dy: d.y - w.y, moved: false, x: e.clientX, y: e.clientY, links: S.net.links.filter((l) => l.a.dev === id || l.b.dev === id) };
+        select(id);
+        // Долгое нажатие на сенсорном экране: тянуть кабель
+        if (e.pointerType === 'touch') {
+          drag.timer = setTimeout(() => {
+            if (drag && !drag.moved) { const from = drag.id; drag = null; startWire(from, e); hint('Тяни к другому устройству', 'ok'); }
+          }, LONG_PRESS_MS);
+        }
         return;
       }
-      if (linkEl) {
-        const id = linkEl.dataset.link;
-        if (S.tool === 'delete') { removeLink(id); return; }
-        S.sel = 'link:' + id;
-        renderGraph();
-        renderSide();
-        return;
-      }
+      if (linkEl) { select('link:' + linkEl.dataset.link); return; }
       pan = { x: e.clientX, y: e.clientY, cx: S.cam.x, cy: S.cam.y, moved: false };
     });
 
     E.svg.addEventListener('pointermove', (e) => {
-      if (drag) {
+      if (wire) {
+        if (Math.abs(e.clientX - wire.x) + Math.abs(e.clientY - wire.y) > 4) wire.moved = true;
+        const a = S.net.dev(wire.from);
         const w = toWorld(e);
+        const over = nodeAt(e);
+        E.gPreview.replaceChildren(s('line', { class: 'lab-preview' + (over && over !== wire.from ? ' is-ok' : ''), x1: a.x, y1: a.y, x2: w.x, y2: w.y }));
+        return;
+      }
+      if (drag) {
+        if (!drag.moved && Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) < 4) return;
+        drag.moved = true;
+        clearTimeout(drag.timer);
         const d = S.net.dev(drag.id);
         if (!d) return;
+        const w = toWorld(e);
         d.x = Math.round((w.x + drag.dx) / 10) * 10;
         d.y = Math.round((w.y + drag.dy) / 10) * 10;
-        drag.moved = true;
-        renderGraph();
+        moveNode(d, drag.links);
         return;
       }
       if (pan) {
@@ -473,33 +542,48 @@
         S.cam.x = pan.cx - dx / S.cam.k;
         S.cam.y = pan.cy - dy / S.cam.k;
         applyCam();
-        return;
-      }
-      if (S.linkFrom) {
-        const a = S.net.dev(S.linkFrom);
-        const w = toWorld(e);
-        E.gPreview.replaceChildren(s('line', { class: 'lab-preview', x1: a.x, y1: a.y, x2: w.x, y2: w.y }));
       }
     });
 
-    const up = () => {
-      if (drag && drag.moved) save();
-      if (pan && !pan.moved) {
-        if (S.linkFrom) { S.linkFrom = null; E.gPreview.replaceChildren(); hint(TOOLS[S.tool].hint); }
-        if (S.sel) { S.sel = null; renderSide(); }
-        renderGraph();
+    const up = (e) => {
+      if (wire) {
+        const target = e.type === 'pointerup' ? nodeAt(e) : null;
+        const from = wire.from;
+        const moved = wire.moved;
+        endWire();
+        if (target && target !== from) connect(from, target);
+        else if (!moved && e.type === 'pointerup') { select(from); openMenu(e, { node: from }); }
+        return;
       }
-      drag = null;
-      pan = null;
+      if (drag) {
+        clearTimeout(drag.timer);
+        if (drag.moved) save();
+        drag = null;
+        return;
+      }
+      if (press) {
+        if (Math.abs(e.clientX - press.x) + Math.abs(e.clientY - press.y) < 5) {
+          if (press.link) { select('link:' + press.link); openMenu(e, { link: press.link }); }
+          else openMenu(e, { at: toWorld(e) });
+        }
+        press = null;
+        return;
+      }
+      if (pan) {
+        if (!pan.moved) select(null);
+        pan = null;
+      }
     };
     E.svg.addEventListener('pointerup', up);
     E.svg.addEventListener('pointercancel', up);
 
     E.svg.addEventListener('dblclick', (e) => {
       const nodeEl = e.target.closest('[data-node]');
-      if (!nodeEl || S.tool !== 'select') return;
+      if (!nodeEl) return;
       const d = S.net.dev(nodeEl.dataset.node);
-      if (d && LAB.Win) LAB.Win.open(d.id);
+      if (!d || !LAB.Win) return;
+      if (!LAB.Win.tabsFor(d).length) { hint(d.name + ': неуправляемое устройство, настроек нет', 'err'); return; }
+      LAB.Win.open(d.id);
     });
 
     E.svg.addEventListener('wheel', (e) => {
@@ -510,146 +594,101 @@
     if (window.ResizeObserver) new ResizeObserver(() => { applyCam(); if (LAB.Win) LAB.Win.clamp(); }).observe(E.svg);
     else window.addEventListener('resize', applyCam);
 
+    document.addEventListener('pointerdown', (e) => {
+      if (!e.target.closest('.lab-menu, .lab-pop, [data-pop-toggle]')) closeMenus();
+    });
+
     document.addEventListener('keydown', (e) => {
       if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const k = e.key.toLowerCase();
       if (k === 'escape') {
-        if (isFull() && !document.fullscreenElement) { setFullClass(false); return; }
-        setTool('select');
-        E.gPreview.replaceChildren();
+        if (E.menu.childElementCount || !E.info.hidden || document.querySelector('.lab-pop:not([hidden])')) { closeMenus(); return; }
+        if (wire) { endWire(); return; }
+        if (isFull() && !document.fullscreenElement) setFullClass(false);
         return;
       }
       if ((k === 'delete' || k === 'backspace') && S.sel) {
         e.preventDefault();
         if (S.sel.startsWith('link:')) removeLink(S.sel.slice(5)); else removeDevice(S.sel);
-        return;
       }
-      const tool = Object.entries(TOOLS).find(([, t]) => t.key.toLowerCase() === k);
-      if (tool) setTool(tool[0]);
     });
   }
 
-  /* ===== Карточка справа ===== */
-  function peerText(d, i) {
-    const p = S.net.peer(d.id, i, true);
-    return p ? p.dev.name + ' ' + p.dev.ifaces[p.ifIdx].name : 'не подключён';
+  /* ===== Контекстное меню ===== */
+  function menuItem(text, fn, cls) {
+    return h('button', { type: 'button', class: 'lab-menu__item' + (cls ? ' ' + cls : ''), onClick: () => { closeMenus(); fn(); } }, text);
   }
 
-  function fact(k, v, cls) {
-    return h('div', { class: 'lab-fact' + (cls ? ' ' + cls : '') }, h('span', null, k), h('b', null, v));
-  }
-
-  // Кнопки открытия окон: подписи берёт windows.js, чтобы они совпадали с вкладками окна
-  function windowButtons(d) {
-    if (!LAB.Win) return null;
-    const tabs = LAB.Win.tabsFor(d);
-    if (!tabs.length) return null;
-    return h('div', { class: 'lab-open' }, tabs.map((t) => h('button', {
-      type: 'button', class: 'lab-open__btn', onClick: () => LAB.Win.open(d.id, t.id),
-    }, h('span', { class: 'lab-open__ico', 'aria-hidden': 'true' }, t.icon), h('span', null, h('b', null, t.label), h('small', null, t.sub)))));
-  }
-
-  function renderSide() {
-    const side = E.side;
-    side.replaceChildren();
-    if (!S.sel) return renderHelp();
-
-    if (S.sel.startsWith('link:')) {
-      const l = S.net.link(S.sel.slice(5));
-      if (!l) { S.sel = null; return renderHelp(); }
+  function openMenu(e, what) {
+    const items = [];
+    if (what.node) {
+      const d = S.net.dev(what.node);
+      if (!d) return;
+      items.push(h('div', { class: 'lab-menu__title' }, d.name));
+      const tabs = LAB.Win ? LAB.Win.tabsFor(d) : [];
+      tabs.forEach((t) => items.push(menuItem(t.label, () => LAB.Win.open(d.id, t.id))));
+      if (!tabs.length) items.push(h('div', { class: 'lab-menu__note' }, 'неуправляемое устройство'));
+      items.push(h('div', { class: 'lab-menu__sep' }));
+      items.push(menuItem('Переименовать', () => {
+        const v = prompt('Новое имя для ' + d.name, d.name);
+        if (v && v.trim()) { d.name = v.trim().slice(0, 24); refreshed(); }
+      }));
+      items.push(menuItem('Удалить', () => removeDevice(d.id), 'is-danger'));
+    } else if (what.link) {
+      const l = S.net.link(what.link);
+      if (!l) return;
       const a = S.net.dev(l.a.dev), b = S.net.dev(l.b.dev);
-      side.append(
-        h('div', { class: 'lab-card__head' }, h('div', null, h('div', { class: 'lab-card__type' }, 'L1, кабель'), h('div', { class: 'lab-card__name' }, a.name + ' ↔ ' + b.name))),
-        h('div', { class: 'lab-facts' },
-          fact(a.name, a.ifaces[l.a.i].name + (a.ifaces[l.a.i].down ? ' (выкл.)' : '')),
-          fact(b.name, b.ifaces[l.b.i].name + (b.ifaces[l.b.i].down ? ' (выкл.)' : ''))),
-        h('button', { type: 'button', class: 'btn lab-danger', onClick: () => removeLink(l.id) }, 'Удалить кабель'));
-      return;
-    }
-
-    const d = S.net.dev(S.sel);
-    if (!d) { S.sel = null; return renderHelp(); }
-    const t = typeOf(d);
-    const kind = t.kind;
-
-    const layers = h('div', { class: 'lab-card__layers' });
-    for (let n = 7; n >= 1; n--) {
-      const on = n >= t.layers[0] && n <= t.layers[1];
-      layers.append(h('span', { class: on ? 'is-in' : '', style: { '--lc': LC[n] }, title: 'L' + n + ' ' + LN[n] }));
-    }
-
-    side.append(h('div', { class: 'lab-card__head', style: { '--tc': t.color } },
-      h('span', { class: 'lab-card__icon' }, miniIcon(d.type, 32)),
-      h('div', { class: 'lab-card__title' },
-        h('div', { class: 'lab-card__type' }, t.title + ', L' + t.layers[0] + (t.layers[1] !== t.layers[0] ? '–L' + t.layers[1] : '')),
-        h('input', {
-          class: 'lab-card__name lab-card__name-input', value: d.name, 'aria-label': 'Имя устройства', spellcheck: 'false',
-          onChange: (e) => { const v = e.target.value.trim(); if (v) { d.name = v.slice(0, 24); refreshed(); } else e.target.value = d.name; },
-          onKeydown: (e) => { if (e.key === 'Enter') e.target.blur(); },
-        })),
-      layers),
-    h('p', { class: 'lab-card__hint' }, t.hint));
-
-    const facts = h('div', { class: 'lab-facts' });
-    if (kind === 'host') {
-      const i0 = d.ifaces[0];
-      facts.append(
-        fact('Адрес', i0.ip ? i0.ip + '/' + i0.prefix : (d.dhcp ? 'ждёт DHCP' : 'не задан'), i0.ip ? '' : 'is-warn'),
-        fact('Режим', d.dhcp ? 'DHCP' : 'вручную'),
-        fact('Шлюз', d.gateway || 'не задан'),
-        fact('DNS', d.dns || 'не задан'),
-        fact('MAC', i0.mac),
-        fact('Порт', i0.name + ' → ' + peerText(d, 0) + (i0.down ? ' (выкл.)' : '')));
-      const on = ['dns', 'dhcp', 'http'].filter((k) => d.services[k].on);
-      if (on.length) facts.append(fact('Службы', on.map((k) => ({ dns: 'DNS', dhcp: 'DHCP', http: 'веб' })[k]).join(', '), 'is-ok'));
-    } else if (kind === 'router') {
-      d.ifaces.forEach((itf, i) => facts.append(fact(itf.name, (itf.ip ? itf.ip + '/' + itf.prefix : 'без IP') + (itf.down ? ', выкл.' : itf.link ? '' : ', нет кабеля') + (itf.helper ? ', relay → ' + itf.helper : ''), LAB.ifUp(itf) && itf.ip ? '' : 'is-dim')));
-      facts.append(fact('Маршрутов', String(d.routes.length)));
+      items.push(h('div', { class: 'lab-menu__title' }, a.name + ' ' + a.ifaces[l.a.i].name + ' ↔ ' + b.name + ' ' + b.ifaces[l.b.i].name));
+      items.push(menuItem('Удалить кабель', () => removeLink(l.id), 'is-danger'));
     } else {
-      const used = d.ifaces.filter((i) => i.link);
-      facts.append(fact('Портов занято', used.length + ' из ' + d.ifaces.length));
-      if (kind === 'switch') facts.append(fact('VLAN', [...new Set(d.ifaces.map((i) => i.vlan || 1))].sort((a, b) => a - b).join(', ')));
-      used.forEach((itf) => facts.append(fact(itf.name, peerText(d, d.ifaces.indexOf(itf)), 'is-dim')));
+      items.push(h('div', { class: 'lab-menu__title' }, 'Добавить сюда'));
+      Object.values(LAB.types).forEach((t) => items.push(menuItem(t.title, () => addDevice(t.type, what.at))));
     }
-    side.append(facts);
-
-    const btns = windowButtons(d);
-    if (btns) side.append(h('div', { class: 'lab-sec__title' }, 'Настроить'), btns);
-    else side.append(h('p', { class: 'lab-empty' }, 'Неуправляемое устройство: настроек и консоли нет, оно просто повторяет сигнал.'));
-    side.append(h('button', { type: 'button', class: 'btn lab-danger', onClick: () => removeDevice(d.id) }, 'Удалить ' + d.name));
+    E.menu.replaceChildren(...items);
+    const st = E.stage.getBoundingClientRect();
+    E.menu.hidden = false;
+    const mw = E.menu.offsetWidth, mh = E.menu.offsetHeight;
+    E.menu.style.left = Math.min(e.clientX - st.left, st.width - mw - 6) + 'px';
+    E.menu.style.top = Math.min(e.clientY - st.top, st.height - mh - 6) + 'px';
   }
 
-  function renderHelp() {
+  function closeMenus() {
+    if (E.menu) { E.menu.hidden = true; E.menu.replaceChildren(); }
+    if (E.info) E.info.hidden = true;
+    document.querySelectorAll('.lab-pop').forEach((p) => { p.hidden = true; });
+  }
+
+  /* ===== Инфо ===== */
+  function renderInfo() {
     const p = LAB.presets.find((x) => x.id === S.preset);
+    E.info.replaceChildren();
     if (p) {
       const op = p.try && (p.try[2] || 'ping');
       const label = !p.try ? '' : op === 'dhcp' ? 'dhclient на ' + p.try[0] : op === 'http' ? 'открыть ' + p.try[1] + ' с ' + p.try[0] : 'ping ' + p.try[1] + ' с ' + p.try[0];
-      E.side.append(h('div', { class: 'lab-preset' + (p.task ? ' is-task' : '') },
-        h('div', { class: 'lab-sec__title' }, p.task ? 'Задача' : 'Схема'),
-        h('div', { class: 'lab-card__name' }, p.title),
+      E.info.append(h('div', { class: 'lab-info__sec' },
+        h('div', { class: 'lab-info__label' }, p.task ? 'Задача' : 'Схема'),
+        h('b', null, p.title),
         h('p', null, p.desc),
-        p.try ? h('button', { type: 'button', class: 'btn btn--primary', onClick: () => tryPreset(p) }, label) : null));
+        p.try ? h('button', { type: 'button', class: 'btn btn--primary', onClick: () => { closeMenus(); tryPreset(p); } }, label) : null));
     }
-    E.side.append(h('div', { class: 'lab-sec__title' }, 'Как пользоваться'), h('ul', { class: 'lab-help' },
-      h('li', null, 'Добавь устройства кнопками сверху и соедини их инструментом ', h('b', null, 'Кабель'), '.'),
-      h('li', null, h('b', null, 'Двойной щелчок'), ' по устройству открывает его окно: веб-интерфейс или терминал. У маршрутизатора SSH с командами как в Cisco, у ПК и сервера Linux.'),
-      h('li', null, 'На сервере можно запустить DNS, DHCP и веб-сервер, а на ПК открыть сайт во встроенном браузере.'),
-      h('li', null, 'Пакеты бегут по кабелям, полоска уровней на устройствах показывает, до какого уровня OSI каждое разобрало кадр. Строка журнала раскрывает кадр по слоям.'),
-      h('li', null, 'Виды L1, L2, L3: кабели, широковещательные домены, подсети.'),
-      h('li', null, 'Клавиши: V выбор, C кабель, D удаление, Delete удалить выделенное, Esc отмена.')));
+    if (S.map) E.info.append(h('div', { class: 'lab-info__sec' }, h('div', { class: 'lab-info__label' }, 'Карта'), h('b', null, S.map.name)));
+    E.info.append(h('div', { class: 'lab-info__sec' },
+      h('div', { class: 'lab-info__label' }, 'Управление'),
+      h('ul', { class: 'lab-help' },
+        h('li', null, h('b', null, 'Двойной щелчок'), ' по устройству: настройки (веб-интерфейс, SSH или терминал, браузер).'),
+        h('li', null, h('b', null, 'Правой кнопкой протянуть'), ' от устройства к устройству: кабель. На телефоне: долгое нажатие и тянуть.'),
+        h('li', null, h('b', null, 'Щелчок правой кнопкой'), ': меню устройства, кабеля или пустого места.'),
+        h('li', null, 'Левой кнопкой двигать устройства и холст, колесо масштабирует, Delete удаляет выделенное.'),
+        h('li', null, 'Виды L1, L2, L3: кабели, широковещательные домены, подсети. Полоска у устройства: его уровни OSI, при обработке кадра она подсвечивается.'),
+        h('li', null, h('b', null, 'Журнал'), ' внизу справа: ping с любого узла и разбор каждого кадра по уровням.'))),
+    h('div', { class: 'lab-info__sec lab-info__stat' }, 'Устройств: ' + S.net.devices.length + ' из ' + MAX_DEVICES + ', кабелей: ' + S.net.links.length));
   }
 
   function tryPreset(p) {
     const d = S.net.byName(p.try[0]);
-    if (!d) return;
+    if (!d || !LAB.Win) return;
     const op = p.try[2] || 'ping';
-    if (op === 'dhcp' || op === 'http') {
-      if (LAB.Win) LAB.Win.runInTerm(d.id, op === 'dhcp' ? 'dhclient' : 'curl ' + p.try[1]);
-      return;
-    }
-    E.src.value = d.id;
-    E.dst.value = p.try[1];
-    startFromBar(op);
+    LAB.Win.runInTerm(d.id, op === 'dhcp' ? 'dhclient' : op === 'http' ? 'curl ' + p.try[1] : (op === 'tracert' ? 'traceroute ' : 'ping ') + p.try[1]);
   }
 
   function fillTry() {
@@ -659,55 +698,70 @@
     if (d) { E.src.value = d.id; E.dst.value = p.try[1]; }
   }
 
-  /* ===== Панель симуляции ===== */
-  function buildSimBar() {
+  /* ===== Журнал (выезжает снизу) ===== */
+  function buildDock() {
     E.src = h('select', { class: 'lab-select', 'aria-label': 'Откуда' });
-    E.dst = h('input', { class: 'input lab-input lab-dst', placeholder: 'IP, имя или http://адрес', list: 'labIps', spellcheck: 'false', 'aria-label': 'Куда',
-      onKeydown: (e) => { if (e.key === 'Enter') startFromBar('ping'); } });
+    E.dst = h('input', { class: 'input lab-dst', placeholder: 'IP, имя или http://адрес', list: 'labIps', spellcheck: 'false', 'aria-label': 'Куда',
+      onKeydown: (e) => { if (e.key === 'Enter') startFromDock('ping'); } });
     E.ips = h('datalist', { id: 'labIps' });
-    E.speedSel = h('select', { class: 'lab-select', 'aria-label': 'Скорость', onChange: (e) => { S.speed = Number(e.target.value); } },
+    E.speedSel = h('select', { class: 'lab-select', 'aria-label': 'Скорость анимации', title: 'Скорость анимации', onChange: (e) => { S.speed = Number(e.target.value); } },
       [['0.5', '0.5×'], ['1', '1×'], ['2', '2×'], ['4', '4×'], ['8', '8×']].map(([v, l]) => h('option', { value: v, selected: v === '1' }, l)));
-    E.skipBtn = h('button', { type: 'button', class: 'btn', hidden: true, onClick: () => stopAnim() }, 'Пропустить анимацию');
-    E.status = h('span', { class: 'lab-status' });
-    E.simToggle = h('button', { type: 'button', class: 'lab-btn lab-sim__toggle', onClick: () => E.simbar.classList.toggle('is-collapsed'), title: 'Свернуть или развернуть журнал' }, 'Журнал');
-    E.simbar.append(
-      h('div', { class: 'lab-sim__ctl' },
-        h('span', { class: 'lab-group__label' }, 'Откуда'), E.src,
-        h('span', { class: 'lab-group__label' }, 'Куда'), E.dst, E.ips,
-        h('button', { type: 'button', class: 'btn btn--primary', onClick: () => startFromBar('ping') }, 'Ping'),
-        h('button', { type: 'button', class: 'btn', onClick: () => startFromBar('tracert') }, 'Tracert'),
-        h('button', { type: 'button', class: 'btn', onClick: () => startFromBar('http'), title: 'Открыть адрес как сайт: DNS, TCP, HTTP' }, 'HTTP'),
-        h('span', { class: 'lab-group__label' }, 'Скорость'), E.speedSel,
-        E.skipBtn,
-        h('button', { type: 'button', class: 'btn lab-btn--quiet', title: 'Очистить ARP- и MAC-таблицы и аренды DHCP на всех устройствах', onClick: () => { S.sim.reset(); renderSide(); if (LAB.Win) LAB.Win.refresh(); hint('Таблицы ARP, MAC и аренды DHCP очищены', 'ok'); } }, 'Сбросить таблицы'),
-        E.status,
-        E.simToggle),
-      h('div', { class: 'lab-sim__body' },
-        h('div', { class: 'lab-log-wrap' }, h('div', { class: 'lab-sec__title' }, 'Журнал'), E.log = h('div', { class: 'lab-log', 'aria-live': 'polite' })),
-        h('div', { class: 'lab-pdu-wrap' }, h('div', { class: 'lab-sec__title' }, 'Кадр по уровням'), E.pdu = h('div', { class: 'lab-pdu' }))));
+    E.log = h('div', { class: 'lab-log', 'aria-live': 'polite' });
+    E.pdu = h('div', { class: 'lab-pdu' });
+    const grip = h('div', { class: 'lab-dock__grip', title: 'Потяни, чтобы изменить высоту' });
+    E.dock = h('div', { class: 'lab-dock', hidden: true },
+      grip,
+      h('div', { class: 'lab-dock__head' },
+        h('b', null, 'Журнал'),
+        E.src, E.dst, E.ips,
+        h('button', { type: 'button', class: 'lab-btn', onClick: () => startFromDock('ping') }, 'Ping'),
+        h('button', { type: 'button', class: 'lab-btn', onClick: () => startFromDock('tracert') }, 'Tracert'),
+        h('button', { type: 'button', class: 'lab-btn', onClick: () => startFromDock('http'), title: 'Открыть адрес как сайт: DNS, TCP, HTTP' }, 'HTTP'),
+        E.speedSel,
+        h('button', { type: 'button', class: 'lab-btn lab-btn--quiet', title: 'Очистить ARP- и MAC-таблицы и аренды DHCP на всех устройствах', onClick: () => { S.sim.reset(); if (LAB.Win) LAB.Win.refresh(); hint('Таблицы ARP, MAC и аренды DHCP очищены', 'ok'); } }, 'Сбросить таблицы'),
+        h('button', { type: 'button', class: 'lab-dock__close', title: 'Скрыть журнал', onClick: () => toggleDock(false) }, '✕')),
+      h('div', { class: 'lab-dock__body' }, E.log, E.pdu));
+
+    // Высота журнала тянется за верхнюю кромку
+    let rs = null;
+    grip.addEventListener('pointerdown', (e) => { rs = { y: e.clientY, h: E.dock.offsetHeight }; grip.setPointerCapture(e.pointerId); });
+    grip.addEventListener('pointermove', (e) => {
+      if (!rs) return;
+      const max = E.stage.clientHeight - 60;
+      E.dock.style.height = Math.max(140, Math.min(max, rs.h + rs.y - e.clientY)) + 'px';
+    });
+    grip.addEventListener('pointerup', () => { rs = null; });
+
+    E.chip = h('div', { class: 'lab-chip', hidden: true });
     clearLog();
+  }
+
+  function toggleDock(on) {
+    const show = on == null ? E.dock.hidden : on;
+    E.dock.hidden = !show;
+    E.dockBtn.classList.toggle('active', show);
+    if (show) E.chip.hidden = true;
   }
 
   function renderSimControls() {
     const prev = E.src.value;
     const sources = S.net.devices.filter((d) => ['host', 'router'].includes(kindOf(d)));
-    E.src.replaceChildren(...sources.map((d) => h('option', { value: d.id }, d.name)));
+    E.src.replaceChildren(...sources.slice(0, 500).map((d) => h('option', { value: d.id }, d.name)));
     if (sources.some((d) => d.id === prev)) E.src.value = prev;
     const opts = [];
-    S.net.devices.forEach((d) => d.ifaces.forEach((i) => { if (i.ip) opts.push([i.ip, d.name]); }));
+    S.net.devices.forEach((d) => d.ifaces.forEach((i) => { if (i.ip && opts.length < 500) opts.push([i.ip, d.name]); }));
     S.net.devices.forEach((d) => d.services && d.services.dns.on && d.services.dns.records.forEach((r) => opts.push([r.name, 'DNS: ' + r.ip])));
     E.ips.replaceChildren(...opts.map(([a, n]) => h('option', { value: a }, n)));
   }
 
-  // Запуск из нижней панели идёт через терминал устройства, чтобы там остался вывод команды
-  function startFromBar(op) {
+  // Запуск из журнала идёт через терминал устройства, чтобы там остался вывод команды
+  function startFromDock(op) {
     const src = E.src.value;
     const dst = E.dst.value.trim();
     if (!src) { hint('Добавь узел или маршрутизатор, с которого отправлять', 'err'); return; }
     if (!dst) { hint('Укажи, куда: IP-адрес или имя', 'err'); E.dst.focus(); return; }
     const d = S.net.dev(src);
-    const linux = typeOf(d).shell === 'linux';
-    if (op === 'http' && !linux) { hint('HTTP-запрос можно отправить только с ПК или сервера', 'err'); return; }
+    if (op === 'http' && typeOf(d).shell !== 'linux') { hint('HTTP-запрос можно отправить только с ПК или сервера', 'err'); return; }
     const cmd = op === 'ping' ? 'ping ' + dst : op === 'tracert' ? 'traceroute ' + dst : 'curl ' + dst;
     if (LAB.Win) LAB.Win.runInTerm(src, cmd);
   }
@@ -728,15 +782,34 @@
     E.log.append(h('div', { class: 'lab-log__row is-head' }, title + ' с ' + (d ? d.name : '?')));
     // DHCP уже записал адрес в настройки узла: сохраняем сразу, а показываем после анимации
     if (op === 'dhcp') save();
+    chip('run');
     return animate(r).then(() => {
       if (op === 'dhcp') renderGraph();
-      E.log.append(h('div', { class: 'lab-log__row is-sum is-' + summary(op, r).cls }, summary(op, r).text));
+      const sm = summary(op, r);
+      E.log.append(h('div', { class: 'lab-log__row is-sum is-' + sm.cls }, sm.text));
       E.log.scrollTop = E.log.scrollHeight;
-      E.status.textContent = '';
-      renderSide();
+      chip('done', sm);
       if (LAB.Win) LAB.Win.refresh();
       return r;
     });
+  }
+
+  // Плашка внизу холста: идёт симуляция или итог; журнал открывается по щелчку
+  let chipTimer = null;
+  function chip(state, sm) {
+    clearTimeout(chipTimer);
+    if (!E.dock.hidden) { E.chip.hidden = true; return; }
+    E.chip.hidden = false;
+    if (state === 'run') {
+      E.chip.className = 'lab-chip';
+      E.chip.replaceChildren(h('span', { class: 'lab-chip__dot' }), 'идёт симуляция',
+        h('button', { type: 'button', onClick: () => stopAnim() }, 'пропустить'),
+        h('button', { type: 'button', onClick: () => toggleDock(true) }, 'журнал'));
+      return;
+    }
+    E.chip.className = 'lab-chip is-' + sm.cls;
+    E.chip.replaceChildren(sm.text.replace(/^Итог: /, ''), h('button', { type: 'button', onClick: () => toggleDock(true) }, 'журнал'));
+    chipTimer = setTimeout(() => { E.chip.hidden = true; }, 7000);
   }
 
   function summary(op, r) {
@@ -768,7 +841,7 @@
   /* ===== Журнал и разбор кадра ===== */
   function clearLog(keepPdu) {
     if (E.log) E.log.replaceChildren();
-    if (E.pdu && !keepPdu) E.pdu.replaceChildren(h('p', { class: 'lab-empty' }, 'Щёлкни строку журнала с цветной меткой, чтобы разобрать кадр по уровням.'));
+    if (E.pdu && !keepPdu) E.pdu.replaceChildren(h('p', { class: 'lab-empty' }, 'Щёлкни строку журнала, чтобы разобрать кадр по уровням.'));
   }
 
   function logRow(ev) {
@@ -793,8 +866,8 @@
     renderPdu(ev);
     E.gLinks.querySelectorAll('.is-flash').forEach((x) => x.classList.remove('is-flash'));
     if (ev.type === 'hop') {
-      const l = E.gLinks.querySelector('[data-link="' + ev.link + '"]');
-      if (l) l.classList.add('is-flash');
+      const el = E.linkEls.get(ev.link);
+      if (el) el.g.classList.add('is-flash');
     }
   }
 
@@ -858,10 +931,7 @@
           p.app ? null : 'Служебный сегмент без данных: ' + ({ SYN: 'просьба открыть соединение', 'SYN, ACK': 'согласие открыть соединение', ACK: 'подтверждение', 'FIN, ACK': 'закрытие соединения' }[p.tcp.flags] || 'управление соединением') + '.');
       } else {
         const icmpNames = { 'echo-request': '8, эхо-запрос', 'echo-reply': '0, эхо-ответ', 'time-exceeded': '11, время жизни истекло', unreachable: '3, назначение недоступно' };
-        l4 = h('div', { class: 'lab-pdu__box', style: { '--lc': LC[3] } },
-          h('div', { class: 'lab-pdu__head' }, h('span', null, 'L3'), 'ICMP'),
-          h('table', { class: 'lab-pdu__fields' }, h('tbody', null, h('tr', null, h('th', null, 'Тип'), h('td', null, icmpNames[p.icmp.type] || p.icmp.type)))),
-          h('p', { class: 'lab-pdu__note' }, 'Выше L3 у ping ничего нет: ICMP живёт на сетевом уровне, без портов.'));
+        l4 = box(3, 'ICMP', [['Тип', icmpNames[p.icmp.type] || p.icmp.type]], null, 'Выше L3 у ping ничего нет: ICMP живёт на сетевом уровне, без портов.');
       }
       inner = box(3, 'IPv4-пакет', [
         ['IP отправителя', p.src + (p.src === '0.0.0.0' ? ' (адреса ещё нет)' : '')], ['IP получателя', p.dst + (p.dst === '255.255.255.255' ? ' (всем)' : '')],
@@ -883,15 +953,12 @@
     }
     E.pdu.replaceChildren(
       h('div', { class: 'lab-pdu__where' }, 'Такт ' + ev.tick + ', ' + where),
-      h('div', { class: 'lab-pdu__box lab-pdu__box--l1', style: { '--lc': LC[1] } },
-        h('div', { class: 'lab-pdu__head' }, h('span', null, 'L1'), 'биты в кабеле'),
-        frameBox,
-        h('div', { class: 'lab-pdu__bits' }, '10101010 … преамбула, затем кадр побитно, в конце FCS (контрольная сумма)')));
+      box(1, 'биты в кабеле', null, frameBox, 'Преамбула 10101010…, затем кадр побитно, в конце FCS (контрольная сумма).'));
   }
 
   /* ===== Анимация ===== */
   function flashLayers(devId, layer, level) {
-    const g = E.gNodes.querySelector('[data-node="' + devId + '"]');
+    const g = E.nodeEls.get(devId);
     const dev = S.net.dev(devId);
     if (!g || !dev) return;
     const t = typeOf(dev);
@@ -921,8 +988,6 @@
     let i = 0, t = 0, last = performance.now();
     let rows = 0;
     const pills = [];
-    E.skipBtn.hidden = false;
-    E.status.textContent = 'идёт симуляция';
 
     return new Promise((resolve) => {
       const reveal = (ev, quiet) => {
@@ -931,14 +996,13 @@
         if (quiet) return;
         if (ev.type === 'log' && ev.dev) flashLayers(ev.dev, ev.layer, ev.level);
         if (ev.type === 'hop' && pills.length < maxPills) {
-          const color = KIND_COLOR[ev.kind];
           const el = s('g', { class: 'lab-pill' },
-            s('rect', { x: -19, y: -8, width: 38, height: 16, rx: 2, fill: color }),
+            s('rect', { x: -19, y: -8, width: 38, height: 16, rx: 2, fill: KIND_COLOR[ev.kind] }),
             s('text', { y: 4, 'text-anchor': 'middle' }, KIND_TEXT[ev.kind]));
           E.gPk.append(el);
           pills.push({ ev, el });
-          const l = E.gLinks.querySelector('[data-link="' + ev.link + '"]');
-          if (l) l.classList.add('is-busy');
+          const l = E.linkEls.get(ev.link);
+          if (l) l.g.classList.add('is-busy');
         }
       };
 
@@ -946,7 +1010,6 @@
         while (i < events.length) reveal(events[i++], true);
         pills.forEach((p) => p.el.remove());
         E.gLinks.querySelectorAll('.is-busy').forEach((x) => x.classList.remove('is-busy'));
-        E.skipBtn.hidden = true;
         S.anim = null;
         E.log.scrollTop = E.log.scrollHeight;
         resolve();
@@ -969,8 +1032,8 @@
             p.el.remove();
             pills.splice(k, 1);
             if (!pills.some((q) => q.ev.link === p.ev.link)) {
-              const l = E.gLinks.querySelector('[data-link="' + p.ev.link + '"]');
-              if (l) l.classList.remove('is-busy');
+              const l = E.linkEls.get(p.ev.link);
+              if (l) l.g.classList.remove('is-busy');
             }
             continue;
           }
@@ -993,7 +1056,7 @@
   /* ===== Экспорт и импорт ===== */
   function exportFile() {
     const blob = new Blob([JSON.stringify(S.net, null, 2)], { type: 'application/json' });
-    const a = h('a', { href: URL.createObjectURL(blob), download: 'network.json' });
+    const a = h('a', { href: URL.createObjectURL(blob), download: (S.map ? S.map.name : 'network') + '.json' });
     document.body.append(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
@@ -1005,7 +1068,9 @@
     if (!f) return;
     f.text().then((txt) => {
       try {
-        setNet(LAB.Net.from(JSON.parse(txt)), null);
+        const net = LAB.Net.from(JSON.parse(txt));
+        if (net.devices.length > MAX_DEVICES) throw new Error('больше ' + MAX_DEVICES + ' устройств');
+        setNet(net, null);
         hint('Схема загружена', 'ok');
       } catch (err) {
         hint('Не удалось прочитать файл: ' + err.message, 'err');
@@ -1017,16 +1082,15 @@
   function renderAll() {
     renderGraph();
     renderLegend();
-    renderSide();
     renderSimControls();
     if (LAB.Win) LAB.Win.refresh();
   }
 
-  // Общий доступ для windows.js
+  // Общий доступ для windows.js и maps.js
   LAB.ui = {
-    S, E, h, s, LC, typeOf, kindOf, miniIcon,
-    changed, refreshed, save, hint, runOp, renderAll,
-    select(id) { S.sel = id; renderGraph(); renderSide(); },
+    S, E, h, s, LC, typeOf, kindOf, miniIcon, MAX_DEVICES,
+    changed, refreshed, save, hint, runOp, renderAll, setNet, closeMenus,
+    select(id) { select(id); },
   };
 
   function boot() {
@@ -1036,24 +1100,29 @@
     E.toolbar = h('div', { class: 'lab-toolbar panel' });
     E.svg = s('svg', { class: 'lab-svg', role: 'img', 'aria-label': 'Схема сети' },
       s('defs', null, s('pattern', { id: 'labGrid', width: 40, height: 40, patternUnits: 'userSpaceOnUse' },
-        s('circle', { cx: 1, cy: 1, r: 1, fill: '#2e2e3a' }))),
-      s('rect', { x: -5000, y: -5000, width: 10000, height: 10000, fill: 'url(#labGrid)' }),
+        s('circle', { cx: 1, cy: 1, r: 1, fill: '#2a2a35' }))),
+      s('rect', { x: -100000, y: -100000, width: 200000, height: 200000, fill: 'url(#labGrid)' }),
       E.gLinks = s('g'), E.gPreview = s('g'), E.gNodes = s('g'), E.gPk = s('g', { class: 'lab-pk' }));
-    E.hint = h('div', { class: 'lab-hint' });
+    E.hint = h('div', { class: 'lab-hint', hidden: true });
     E.legend = h('div', { class: 'lab-legend' });
     E.windows = h('div', { class: 'lab-windows' });
+    E.menu = h('div', { class: 'lab-menu', hidden: true, role: 'menu' });
+    E.info = h('div', { class: 'lab-pop lab-info', hidden: true });
+    E.dockBtn = h('button', { type: 'button', class: 'lab-ctl__btn lab-ctl__btn--text', title: 'Журнал пакетов и разбор кадров', onClick: () => toggleDock() }, 'Журнал');
+    buildDock();
     E.stage = h('div', { class: 'lab-stage' }, E.svg, E.hint, E.legend,
-      h('div', { class: 'lab-zoom' },
-        h('button', { type: 'button', title: 'Приблизить', onClick: () => zoom(1.2) }, '+'),
-        h('button', { type: 'button', title: 'Отдалить', onClick: () => zoom(1 / 1.2) }, '−'),
-        h('button', { type: 'button', title: 'Показать всю схему', onClick: fit }, '⤢')),
-      E.windows);
-    E.side = h('aside', { class: 'lab-side panel' });
-    E.simbar = h('div', { class: 'lab-sim panel' });
-    root.append(E.toolbar, h('div', { class: 'lab-main' }, E.stage, E.side), E.simbar);
+      h('button', { type: 'button', class: 'lab-ctl__btn lab-ctl__btn--text lab-info-btn', 'data-pop-toggle': '', title: 'Схема и управление',
+        onClick: () => { const show = E.info.hidden; closeMenus(); if (show) { renderInfo(); E.info.hidden = false; } } }, 'Инфо'),
+      E.info,
+      h('div', { class: 'lab-ctl' },
+        E.dockBtn,
+        h('button', { type: 'button', class: 'lab-ctl__btn', title: 'Приблизить', onClick: () => zoom(1.2) }, '+'),
+        h('button', { type: 'button', class: 'lab-ctl__btn', title: 'Отдалить', onClick: () => zoom(1 / 1.2) }, '−'),
+        h('button', { type: 'button', class: 'lab-ctl__btn', title: 'Показать всю схему', onClick: fit }, '⤢')),
+      E.chip, E.dock, E.windows, E.menu);
+    root.append(E.toolbar, E.stage);
 
     buildToolbar();
-    buildSimBar();
     bindStage();
 
     if (load()) {
@@ -1066,7 +1135,6 @@
       S.sim = new LAB.Sim(S.net);
       requestAnimationFrame(() => loadPreset('services'));
     }
-    setTool('select');
     setView(S.view);
   }
 
