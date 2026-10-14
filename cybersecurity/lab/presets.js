@@ -1,5 +1,7 @@
-// Готовые схемы. Новая: LAB.registerPreset({ id, title, desc, task?, try?: [имя, адрес], build(b) }).
-// b.add(type, x, y, { name, ip: 'a.b.c.d/nn', gw, ifs: { порт: 'a.b.c.d/nn' }, routes: [['сеть/nn', 'через']], vlans: { порт: n } })
+// Готовые схемы. Новая: LAB.registerPreset({ id, title, desc, task?, try?: [имя, цель, операция?], build(b) }).
+// операция: ping (по умолчанию), tracert, dhcp, dns, http
+// b.add(type, x, y, { name, ip: 'a.b.c.d/nn', gw, dns, dhcp: true, ifs: { порт: 'a.b.c.d/nn' }, helpers: { порт: ip },
+//                     routes: [['сеть/nn', 'через']], vlans: { порт: n }, services: { dns, dhcp, http } })
 // b.link(a, b, портA?, портB?) — без портов берутся первые свободные.
 (function () {
   LAB.registerPreset({
@@ -110,6 +112,33 @@
     },
   });
 
+  LAB.registerPreset({
+    id: 'services',
+    title: 'DHCP, DNS и веб-сервер',
+    desc: 'У ПК слева нет адресов: они получат их по DHCP. Сервер DHCP и DNS стоит в другой сети, поэтому на R1 включён ip helper-address (DHCP relay). Сделай dhclient на PC1, затем открой в его браузере http://site.lab: сначала DNS, потом TCP-рукопожатие и HTTP.',
+    try: ['PC1', '', 'dhcp'],
+    build(b) {
+      const r1 = b.add('router', 0, 0, { ifs: { 'G0/0': '192.168.10.1/24', 'G0/1': '10.0.0.1/24' }, helpers: { 'G0/0': '10.0.0.10' } });
+      const sw1 = b.add('switch', -260, 90);
+      const sw2 = b.add('switch', 260, 90);
+      const pc1 = b.add('pc', -380, 250, { dhcp: true });
+      const pc2 = b.add('pc', -160, 260, { dhcp: true });
+      const srv = b.add('server', 160, 260, {
+        name: 'NS1', ip: '10.0.0.10/24', gw: '10.0.0.1', dns: '10.0.0.10',
+        services: {
+          dns: { on: true, records: [{ name: 'site.lab', ip: '10.0.0.20' }, { name: 'ns1.lab', ip: '10.0.0.10' }] },
+          dhcp: { on: true, pool: { start: '192.168.10.100', end: '192.168.10.150', prefix: 24, gateway: '192.168.10.1', dns: '10.0.0.10' }, reservations: [] },
+        },
+      });
+      const web = b.add('server', 380, 250, {
+        name: 'WEB1', ip: '10.0.0.20/24', gw: '10.0.0.1', dns: '10.0.0.10',
+        services: { http: { on: true, title: 'site.lab', body: 'Привет! Эту страницу отдал nginx на WEB1. Чтобы её получить, браузер спросил DNS, открыл TCP-соединение и отправил HTTP GET.' } },
+      });
+      b.link(r1, sw1, 'G0/0'); b.link(r1, sw2, 'G0/1');
+      b.link(pc1, sw1); b.link(pc2, sw1); b.link(srv, sw2); b.link(web, sw2);
+    },
+  });
+
   // Построить сеть по пресету
   LAB.buildPreset = function (preset) {
     const net = new LAB.Net();
@@ -120,6 +149,10 @@
         if (o.name) d.name = o.name;
         if (o.ip) { const c = LAB.ip.parseCidr(o.ip); d.ifaces[0].ip = c.ip; d.ifaces[0].prefix = c.prefix; }
         if (o.gw) d.gateway = o.gw;
+        if (o.dns) d.dns = o.dns;
+        if (o.dhcp) d.dhcp = true;
+        Object.entries(o.helpers || {}).forEach(([port, h]) => { const itf = d.ifaces.find((i) => i.name === port); if (itf) itf.helper = h; });
+        Object.entries(o.services || {}).forEach(([k, v]) => Object.assign(d.services[k], v));
         Object.entries(o.ifs || {}).forEach(([port, cidr]) => {
           const itf = d.ifaces.find((i) => i.name === port);
           const c = LAB.ip.parseCidr(cidr);

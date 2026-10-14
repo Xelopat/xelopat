@@ -46,3 +46,31 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
 })();
+
+// Выпадающие каталоги шапки: наведение на компьютере, нажатие на телефоне, Esc и щелчок мимо закрывают
+(function () {
+  function init() {
+    const dds = [...document.querySelectorAll('[data-dd]')];
+    const closeAll = (except) => dds.forEach((d) => {
+      if (d === except) return;
+      d.classList.remove('open');
+      d.querySelector('.nav-dd').setAttribute('aria-expanded', 'false');
+    });
+    const set = (d, on) => {
+      if (on) closeAll(d);
+      d.classList.toggle('open', on);
+      d.querySelector('.nav-dd').setAttribute('aria-expanded', on ? 'true' : 'false');
+    };
+    const hover = window.matchMedia('(hover: hover)');
+    dds.forEach((d) => {
+      let t = null;
+      d.querySelector('.nav-dd').addEventListener('click', (e) => { e.stopPropagation(); set(d, !d.classList.contains('open')); });
+      d.addEventListener('mouseenter', () => { if (!hover.matches) return; clearTimeout(t); set(d, true); });
+      d.addEventListener('mouseleave', () => { if (!hover.matches) return; t = setTimeout(() => set(d, false), 300); });
+    });
+    document.addEventListener('click', (e) => { if (!e.target.closest('[data-dd]')) closeAll(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();

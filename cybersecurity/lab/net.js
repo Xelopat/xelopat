@@ -3,20 +3,21 @@
 // Расширение:
 //   LAB.registerType({...})     новый тип устройства (types.js); своё поведение задаётся функцией receive
 //   LAB.registerPreset({...})   готовая схема (presets.js)
-//   LAB.registerCommand({...})  команда консоли устройства (commands.js)
+//   LAB.registerShell(id, fn)   командная оболочка устройства (shell-ios.js, shell-linux.js)
 (function () {
   const LAB = (window.LAB = window.LAB || {});
   LAB.types = {};
   LAB.presets = [];
-  LAB.commands = [];
+  LAB.shells = {};
 
   // kind: host | router | switch | hub | своё (тогда нужен receive(sim, tick, dev, ifIdx, frame))
   // layers: [нижний, верхний] уровни OSI, на которых работает устройство
+  // shell: какая оболочка открывается в терминале (ios, linux)
   LAB.registerType = (def) => {
     LAB.types[def.type] = Object.assign({ kind: 'host', layers: [1, 7], ports: ['eth0'], ttl: 64, prefix: def.type.toUpperCase() }, def);
   };
   LAB.registerPreset = (p) => LAB.presets.push(p);
-  LAB.registerCommand = (c) => LAB.commands.push(c);
+  LAB.registerShell = (id, factory) => { LAB.shells[id] = factory; };
 
   /* ===== IPv4 ===== */
   const ip = {
@@ -28,6 +29,8 @@
       return ((p[0] << 24) >>> 0) + (p[1] << 16) + (p[2] << 8) + p[3];
     },
     str(n) { return [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join('.'); },
+    valid(s) { return ip.parse(s) != null; },
+    norm(s) { const n = ip.parse(s); return n == null ? '' : ip.str(n); },
     mask(prefix) { return prefix === 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) >>> 0; },
     maskStr(prefix) { return ip.str(ip.mask(prefix)); },
     // «24», «/24» или «255.255.255.0» → 24
@@ -70,6 +73,7 @@
   LAB.ip = ip;
 
   const BCAST = 'ff:ff:ff:ff:ff:ff';
+  const BCAST_IP = '255.255.255.255';
   LAB.BCAST = BCAST;
 
   function randMac() {
@@ -78,6 +82,17 @@
     return b.join(':');
   }
   const clone = (o) => JSON.parse(JSON.stringify(o));
+  const up = (itf) => !!(itf && itf.link && !itf.down);
+  LAB.ifUp = up;
+
+  function defaultServices() {
+    return {
+      dns: { on: false, records: [] },
+      dhcp: { on: false, pool: { start: '', end: '', prefix: 24, gateway: '', dns: '' }, reservations: [] },
+      http: { on: false, title: 'Добро пожаловать', body: 'Эту страницу отдал учебный веб-сервер.' },
+    };
+  }
+  LAB.defaultServices = defaultServices;
 
   /* ===== Модель сети ===== */
   class Net {
@@ -93,14 +108,27 @@
       net.seq = Number(json.seq) || 1;
       json.devices.forEach((d) => {
         if (!LAB.types[d.type]) throw new Error('неизвестный тип устройства: ' + d.type);
+        const sv = defaultServices();
+        const js = d.services || {};
         net.devices.push({
           id: String(d.id), type: d.type, name: String(d.name || d.id),
           x: Number(d.x) || 0, y: Number(d.y) || 0,
           gateway: String(d.gateway || ''),
+          dns: String(d.dns || ''),
+          dhcp: !!d.dhcp,
           routes: Array.isArray(d.routes) ? d.routes.map((r) => ({ net: String(r.net), prefix: Number(r.prefix), via: String(r.via) })) : [],
+          services: {
+            dns: Object.assign(sv.dns, js.dns, { records: ((js.dns && js.dns.records) || []).map((r) => ({ name: String(r.name), ip: String(r.ip) })) }),
+            dhcp: Object.assign(sv.dhcp, js.dhcp, {
+              pool: Object.assign(sv.dhcp.pool, js.dhcp && js.dhcp.pool),
+              reservations: ((js.dhcp && js.dhcp.reservations) || []).map((r) => ({ mac: String(r.mac), ip: String(r.ip) })),
+            }),
+            http: Object.assign(sv.http, js.http),
+          },
           ifaces: (d.ifaces || []).map((i) => ({
             name: String(i.name), mac: String(i.mac || randMac()), ip: String(i.ip || ''),
-            prefix: i.prefix == null ? 24 : Number(i.prefix), vlan: Number(i.vlan) || 1, link: i.link || null,
+            prefix: i.prefix == null ? 24 : Number(i.prefix), vlan: Number(i.vlan) || 1,
+            down: !!i.down, helper: String(i.helper || ''), link: i.link || null,
           })),
         });
       });
@@ -112,13 +140,14 @@
     }
 
     toJSON() {
-      return { v: 1, seq: this.seq, devices: this.devices, links: this.links };
+      return { v: 2, seq: this.seq, devices: this.devices, links: this.links };
     }
 
     dev(id) { return this.devices.find((d) => d.id === id) || null; }
     link(id) { return this.links.find((l) => l.id === id) || null; }
     byName(name) { return this.devices.find((d) => d.name.toLowerCase() === String(name).toLowerCase()) || null; }
     type(dev) { return LAB.types[dev.type]; }
+    byIp(addr) { return this.devices.find((d) => d.ifaces.some((i) => i.ip === addr)) || null; }
 
     uniqueName(prefix) {
       for (let n = 1; ; n++) if (!this.devices.some((d) => d.name === prefix + n)) return prefix + n;
@@ -129,8 +158,9 @@
       if (!t) return null;
       const dev = {
         id: 'd' + this.seq++, type, name: this.uniqueName(t.prefix),
-        x: Math.round(x), y: Math.round(y), gateway: '', routes: [],
-        ifaces: t.ports.map((name) => ({ name, mac: randMac(), ip: '', prefix: 24, vlan: 1, link: null })),
+        x: Math.round(x), y: Math.round(y), gateway: '', dns: '', dhcp: false, routes: [],
+        services: defaultServices(),
+        ifaces: t.ports.map((name) => ({ name, mac: randMac(), ip: '', prefix: 24, vlan: 1, down: false, helper: '', link: null })),
       };
       this.devices.push(dev);
       return dev;
@@ -164,13 +194,20 @@
       this.links = this.links.filter((x) => x.id !== linkId);
     }
 
-    // Что на другом конце кабеля
-    peer(devId, ifIdx) {
+    // Что на другом конце кабеля (any: вернуть даже если интерфейс выключен)
+    peer(devId, ifIdx, any) {
       const d = this.dev(devId);
       const l = d && d.ifaces[ifIdx] && this.link(d.ifaces[ifIdx].link);
       if (!l) return null;
       const end = l.a.dev === devId && l.a.i === ifIdx ? l.b : l.a;
-      return { dev: this.dev(end.dev), ifIdx: end.i, link: l };
+      const pd = this.dev(end.dev);
+      if (!any && (d.ifaces[ifIdx].down || pd.ifaces[end.i].down)) return null;
+      return { dev: pd, ifIdx: end.i, link: l };
+    }
+
+    linkDown(l) {
+      const a = this.dev(l.a.dev), b = this.dev(l.b.dev);
+      return !!(a.ifaces[l.a.i].down || b.ifaces[l.b.i].down);
     }
 
     // Широковещательные домены: хабы и коммутаторы (в пределах VLAN) соединяют порты,
@@ -187,7 +224,10 @@
         if (kind === 'switch') return d.id + ':v' + (d.ifaces[i].vlan || 1);
         return d.id + ':' + i;
       };
-      this.links.forEach((l) => union(key(l.a.dev, l.a.i), key(l.b.dev, l.b.i)));
+      this.links.forEach((l) => {
+        if (this.linkDown(l)) { add(key(l.a.dev, l.a.i)); add(key(l.b.dev, l.b.i)); return; }
+        union(key(l.a.dev, l.a.i), key(l.b.dev, l.b.i));
+      });
 
       const roots = [];
       const linkDomain = {};
@@ -198,11 +238,10 @@
         linkDomain[l.id] = n;
       });
 
-      // Какие подсети и VLAN живут в каждом домене
       const info = roots.map(() => ({ nets: new Set(), vlans: new Set(), hosts: 0 }));
       this.devices.forEach((d) => {
         const kind = this.type(d).kind;
-        d.ifaces.forEach((itf, i) => {
+        d.ifaces.forEach((itf) => {
           if (!itf.link) return;
           const dom = linkDomain[itf.link];
           if (kind === 'switch') info[dom].vlans.add(itf.vlan || 1);
@@ -217,12 +256,9 @@
   }
   LAB.Net = Net;
 
-  /* ===== Симуляция =====
-     Работает событиями по тактам: кадр, отправленный на такте t, приходит на такте t+1.
-     events: { type: 'hop', tick, link, from, to, frame, label, kind }
-             { type: 'log', tick, dev, layer, text, level: info|ok|err|dim, frame? }
-     ARP- и MAC-таблицы живут между запусками, как на настоящих устройствах (reset() их чистит). */
-  const STORM_LIMIT = 1200;
+  /* ===== Подписи пакетов ===== */
+  const DHCP_OP = { discover: 'DISCOVER', offer: 'OFFER', request: 'REQUEST', ack: 'ACK', nak: 'NAK' };
+  LAB.DHCP_OP = DHCP_OP;
 
   function describe(f) {
     if (f.type === 'arp') {
@@ -231,14 +267,34 @@
         : { kind: 'arp', label: 'ARP-ответ: ' + f.arp.sip + ' это ' + f.arp.smac };
     }
     const p = f.ip;
+    const app = p.app;
+    if (app && app.type === 'dhcp') return { kind: 'dhcp', label: 'DHCP ' + DHCP_OP[app.op] + (app.yiaddr ? ': ' + app.yiaddr : '') };
+    if (app && app.type === 'dns') {
+      return app.op === 'query'
+        ? { kind: 'dns', label: 'DNS-запрос: ' + app.name + '?' }
+        : { kind: 'dns', label: 'DNS-ответ: ' + app.name + ' = ' + (app.answer || 'не найдено') };
+    }
+    if (app && app.type === 'http') {
+      return app.op === 'request'
+        ? { kind: 'http', label: 'HTTP GET ' + app.path }
+        : { kind: 'http', label: 'HTTP ' + app.status + ' ' + (app.status === 200 ? 'OK' : 'Not Found') };
+    }
+    if (p.proto === 'tcp') return { kind: 'tcp', label: 'TCP [' + p.tcp.flags + '] ' + p.src + ':' + p.tcp.sport + ' → ' + p.dst + ':' + p.tcp.dport };
     const t = p.icmp && p.icmp.type;
     if (t === 'echo-request') return { kind: 'req', label: 'ICMP эхо-запрос ' + p.src + ' → ' + p.dst + ', TTL ' + p.ttl };
     if (t === 'echo-reply') return { kind: 'rep', label: 'ICMP эхо-ответ ' + p.src + ' → ' + p.dst + ', TTL ' + p.ttl };
     if (t === 'time-exceeded') return { kind: 'err', label: 'ICMP: TTL истёк (' + p.src + ' → ' + p.dst + ')' };
-    if (t === 'unreachable') return { kind: 'err', label: 'ICMP: сеть недоступна (' + p.src + ' → ' + p.dst + ')' };
+    if (t === 'unreachable') return { kind: 'err', label: 'ICMP: недоступно (' + p.src + ' → ' + p.dst + ')' };
     return { kind: 'req', label: 'IP ' + p.src + ' → ' + p.dst };
   }
   LAB.describe = describe;
+
+  /* ===== Симуляция =====
+     Работает событиями по тактам: кадр, отправленный на такте t, приходит на такте t+1.
+     events: { type: 'hop', tick, link, from, to, frame, label, kind }
+             { type: 'log', tick, dev, layer, text, level: info|ok|err|dim, frame? }
+     ARP- и MAC-таблицы и аренды DHCP живут между запусками (reset() их чистит). */
+  const STORM_LIMIT = 1200;
 
   class Sim {
     constructor(net) {
@@ -249,26 +305,32 @@
 
     reset() { this.rt = {}; }
 
-    tables(dev) { return this.rt[dev.id] || (this.rt[dev.id] = { arp: {}, mac: {} }); }
+    tables(dev) { return this.rt[dev.id] || (this.rt[dev.id] = { arp: {}, mac: {}, leases: {}, conns: {} }); }
 
-    begin() {
+    begin(originId) {
       this.events = [];
       this.queue = [];
       this.pending = {};
       this.results = [];
+      this.flows = {};
       this.count = 0;
       this.storm = false;
       this.lastTick = 0;
+      this.origin = originId;
     }
 
     log(tick, dev, layer, text, level, frame) {
       this.events.push({ type: 'log', tick, dev: dev ? dev.id : null, layer, text, level: level || 'info', frame: frame || null });
     }
 
+    // Отложить действие на следующий такт (например, ACK и сразу за ним HTTP-запрос)
+    later(tick, fn) { this.queue.push({ tick: tick + 1, fn }); }
+
     send(tick, dev, ifIdx, frame) {
       const p = this.net.peer(dev.id, ifIdx);
       if (!p) {
-        this.log(tick, dev, 1, dev.ifaces[ifIdx].name + ': кабель не подключён, кадр потерян', 'err');
+        const itf = dev.ifaces[ifIdx];
+        this.log(tick, dev, 1, itf.name + (itf.down ? ': интерфейс выключен (shutdown)' : itf.link ? ': порт на другом конце выключен' : ': кабель не подключён') + ', кадр потерян', 'err');
         return;
       }
       const f = clone(frame);
@@ -281,6 +343,7 @@
       while (this.queue.length) {
         const q = this.queue.shift();
         this.lastTick = q.tick;
+        if (q.fn) { q.fn(q.tick); continue; }
         if (++this.count > STORM_LIMIT) {
           this.storm = true;
           this.queue = [];
@@ -289,10 +352,9 @@
         }
         this.receive(q.tick, q.dev, q.ifIdx, q.frame);
       }
-      // Кому так и не ответили на ARP
       Object.values(this.pending).forEach((p) => {
         this.log(this.lastTick + 1, p.dev, 2, 'ARP: ' + p.nh + ' не ответил, пакеты отброшены', 'err');
-        if (p.packets.some((pk) => pk.origin === p.dev.id)) this.results.push({ type: 'arp-fail', dev: p.dev.id, nh: p.nh });
+        if (p.dev.id === this.origin) this.results.push({ type: 'arp-fail', dev: p.dev.id, nh: p.nh });
       });
       this.pending = {};
     }
@@ -307,7 +369,7 @@
 
     /* --- L1: концентратор --- */
     hubReceive(tick, dev, ifIdx, frame) {
-      const out = dev.ifaces.map((p, i) => i).filter((i) => i !== ifIdx && dev.ifaces[i].link);
+      const out = dev.ifaces.map((p, i) => i).filter((i) => i !== ifIdx && up(dev.ifaces[i]));
       this.log(tick, dev, 1, 'повторяю сигнал во все порты (' + out.length + '), адресов не смотрю', 'info', frame);
       out.forEach((i) => this.send(tick, dev, i, frame));
     }
@@ -324,7 +386,7 @@
       }
       const known = tb.mac[vlan + '|' + frame.dst];
       if (frame.dst === BCAST || known == null) {
-        const out = dev.ifaces.map((p, i) => i).filter((i) => i !== ifIdx && dev.ifaces[i].link && (dev.ifaces[i].vlan || 1) === vlan);
+        const out = dev.ifaces.map((p, i) => i).filter((i) => i !== ifIdx && up(dev.ifaces[i]) && (dev.ifaces[i].vlan || 1) === vlan);
         this.log(tick, dev, 2, (frame.dst === BCAST ? 'широковещательный кадр' : 'MAC ' + frame.dst + ' пока не знаю') +
           ': рассылаю во все порты VLAN ' + vlan + ' (' + out.length + ')', 'info', frame);
         out.forEach((i) => this.send(tick, dev, i, frame));
@@ -360,13 +422,13 @@
     routerLookup(dev, dst) {
       let best = null;
       dev.ifaces.forEach((itf, i) => {
-        if (!itf.ip || !itf.link) return;
+        if (!itf.ip || !up(itf)) return;
         if (ip.same(dst, itf.ip, itf.prefix) && (!best || itf.prefix > best.prefix)) best = { prefix: itf.prefix, ifIdx: i, nh: dst, code: 'C' };
       });
       dev.routes.forEach((r) => {
         if (!ip.same(dst, r.net, r.prefix)) return;
         if (best && r.prefix <= best.prefix) return;
-        const i = dev.ifaces.findIndex((itf) => itf.ip && itf.link && ip.same(r.via, itf.ip, itf.prefix));
+        const i = dev.ifaces.findIndex((itf) => itf.ip && up(itf) && ip.same(r.via, itf.ip, itf.prefix));
         if (i >= 0) best = { prefix: r.prefix, ifIdx: i, nh: r.via, code: 'S', via: true };
       });
       return best;
@@ -376,15 +438,20 @@
       const r = this.route(dev, pkt.dst);
       if (r.error) {
         this.log(tick, dev, 3, r.error + ', пакет отброшен', 'err');
-        if (pkt.origin === dev.id) this.results.push({ type: 'local-err', text: r.error });
-        // Чужой пакет: сообщить отправителю (но не отвечать ошибкой на ошибку)
+        if (pkt.origin === dev.id && dev.id === this.origin) this.results.push({ type: 'local-err', text: r.error });
         const isEcho = pkt.icmp && (pkt.icmp.type === 'echo-request' || pkt.icmp.type === 'echo-reply');
-        if (pkt.fwd && isEcho && pkt.src && !this.isMine(dev, pkt.src)) {
-          this.ipSend(tick, dev, { src: null, dst: pkt.src, ttl: this.net.type(dev).ttl, proto: 'icmp', icmp: { type: 'unreachable', id: pkt.icmp.id } });
+        if (pkt.fwd && (isEcho || pkt.proto !== 'icmp') && pkt.src && !this.isMine(dev, pkt.src)) {
+          this.ipSend(tick, dev, { src: null, dst: pkt.src, ttl: this.net.type(dev).ttl, proto: 'icmp', icmp: { type: 'unreachable' } });
         }
         return;
       }
       this.l2Out(tick, dev, r.ifIdx, r.nh, pkt);
+    }
+
+    // Отправить без маршрутизации и ARP: на известный MAC или широковещательно (DHCP)
+    rawSend(tick, dev, ifIdx, dstMac, pkt) {
+      const itf = dev.ifaces[ifIdx];
+      this.send(tick, dev, ifIdx, { src: itf.mac, dst: dstMac, type: 'ipv4', ip: pkt });
     }
 
     l2Out(tick, dev, ifIdx, nh, pkt) {
@@ -435,7 +502,11 @@
       }
 
       const p = frame.ip;
-      if (this.isMine(dev, p.dst)) return this.local(tick, dev, p, frame);
+      if (p.dst === BCAST_IP) {
+        if (kind === 'router') return this.routerBroadcast(tick, dev, ifIdx, p, frame);
+        return this.local(tick, dev, p, frame, ifIdx);
+      }
+      if (this.isMine(dev, p.dst)) return this.local(tick, dev, p, frame, ifIdx);
 
       if (kind !== 'router') {
         this.log(tick, dev, 3, 'IP-пакет для ' + p.dst + ', это не я: отбрасываю (узел не маршрутизирует)', 'dim', frame);
@@ -458,9 +529,25 @@
       this.ipSend(tick, dev, q);
     }
 
-    local(tick, dev, p, frame) {
+    // Широковещательный IP маршрутизатор не пересылает. Исключение: DHCP при настроенном relay
+    routerBroadcast(tick, dev, ifIdx, p, frame) {
+      const itf = dev.ifaces[ifIdx];
+      const app = p.app;
+      if (app && app.type === 'dhcp' && (app.op === 'discover' || app.op === 'request') && itf.helper && itf.ip) {
+        this.log(tick, dev, 7, 'DHCP relay: пересылаю ' + DHCP_OP[app.op] + ' серверу ' + itf.helper + ' (ip helper-address)', 'info', frame);
+        const a = clone(app);
+        a.giaddr = itf.ip;
+        this.ipSend(tick, dev, { src: itf.ip, dst: itf.helper, ttl: this.net.type(dev).ttl, proto: 'udp', udp: { sport: 67, dport: 67 }, app: a });
+        return;
+      }
+      this.log(tick, dev, 3, 'широковещательный пакет: маршрутизатор его дальше не пускает' +
+        (app && app.type === 'dhcp' ? ' (для DHCP из другой сети нужен ip helper-address)' : ''), 'dim', frame);
+    }
+
+    local(tick, dev, p, frame, ifIdx) {
+      if (p.proto === 'udp') return this.udpLocal(tick, dev, p, frame, ifIdx);
+      if (p.proto === 'tcp') return this.tcpLocal(tick, dev, p, frame);
       const t = p.icmp && p.icmp.type;
-      // Итог запуска считаем только у того, кто пинговал; остальные просто пишут в журнал
       const mine = dev.id === this.origin;
       if (t === 'echo-request') {
         this.log(tick, dev, 3, 'эхо-запрос от ' + p.src + ': отвечаю', 'ok', frame);
@@ -483,30 +570,213 @@
       }
     }
 
-    /* --- Запуски --- */
+    /* --- L4/L7: UDP (DHCP, DNS) --- */
+    udpLocal(tick, dev, p, frame, ifIdx) {
+      const app = p.app || {};
+      const kind = this.net.type(dev).kind;
+      const sv = dev.services || {};
+
+      if (app.type === 'dhcp') {
+        if (app.op === 'discover' || app.op === 'request') {
+          if (!(sv.dhcp && sv.dhcp.on)) {
+            this.log(tick, dev, 4, 'DHCP ' + DHCP_OP[app.op] + ': порт 67 закрыт, я не DHCP-сервер', 'dim', frame);
+            return;
+          }
+          return this.dhcpServer(tick, dev, p, frame, ifIdx);
+        }
+        // OFFER и ACK: маршрутизатор передаёт их клиенту, клиент принимает
+        if (kind === 'router') {
+          const out = dev.ifaces.findIndex((i) => i.ip === app.giaddr);
+          if (out < 0) return;
+          this.log(tick, dev, 7, 'DHCP relay: возвращаю ' + DHCP_OP[app.op] + ' клиенту в сеть ' + ip.netStr(app.giaddr, dev.ifaces[out].prefix), 'info', frame);
+          this.rawSend(tick, dev, out, app.chaddr, { src: dev.ifaces[out].ip, dst: BCAST_IP, ttl: 64, proto: 'udp', udp: { sport: 67, dport: 68 }, app: clone(app) });
+          return;
+        }
+        if (app.chaddr !== dev.ifaces[0].mac) {
+          this.log(tick, dev, 4, 'DHCP ' + DHCP_OP[app.op] + ' не мне', 'dim', frame);
+          return;
+        }
+        const flow = this.flows['dhcp:' + app.xid];
+        if (flow) flow(tick, p);
+        return;
+      }
+
+      if (app.type === 'dns') {
+        if (app.op === 'query') {
+          if (!(sv.dns && sv.dns.on)) {
+            this.log(tick, dev, 4, 'DNS-запрос на порт 53, но DNS-сервер здесь не запущен', 'err', frame);
+            return;
+          }
+          const name = String(app.name).toLowerCase().replace(/\.$/, '');
+          const rec = sv.dns.records.find((r) => r.name.toLowerCase().replace(/\.$/, '') === name);
+          this.log(tick, dev, 7, 'DNS: ' + app.name + (rec ? ' = ' + rec.ip : ' нет в зоне (NXDOMAIN)'), rec ? 'ok' : 'err', frame);
+          this.ipSend(tick, dev, { src: p.dst, dst: p.src, ttl: this.net.type(dev).ttl, proto: 'udp', udp: { sport: 53, dport: p.udp.sport },
+            app: { type: 'dns', op: 'response', id: app.id, name: app.name, answer: rec ? rec.ip : null } });
+          return;
+        }
+        const flow = this.flows['dns:' + app.id];
+        if (flow) flow(tick, p);
+      }
+    }
+
+    dhcpServer(tick, dev, p, frame, ifIdx) {
+      const app = p.app;
+      const cfg = dev.services.dhcp;
+      const pool = cfg.pool;
+      const myIf = dev.ifaces[ifIdx];
+      const tb = this.tables(dev);
+      const target = app.giaddr || myIf.ip;
+      if (!ip.valid(pool.start) || !ip.valid(pool.end) || !ip.same(pool.start, target, pool.prefix)) {
+        this.log(tick, dev, 7, 'DHCP: нет пула для сети ' + (target ? ip.netStr(target, pool.prefix) : '?') + ', запрос игнорирую', 'err', frame);
+        return;
+      }
+
+      const reply = (op, yiaddr) => {
+        const a = { type: 'dhcp', op, xid: app.xid, chaddr: app.chaddr, yiaddr, prefix: pool.prefix,
+          router: pool.gateway, dns: pool.dns, server: myIf.ip, giaddr: app.giaddr || '' };
+        if (app.giaddr) this.ipSend(tick, dev, { src: myIf.ip, dst: app.giaddr, ttl: 64, proto: 'udp', udp: { sport: 67, dport: 67 }, app: a });
+        else this.rawSend(tick, dev, ifIdx, app.chaddr, { src: myIf.ip, dst: BCAST_IP, ttl: 64, proto: 'udp', udp: { sport: 67, dport: 68 }, app: a });
+      };
+
+      if (app.op === 'discover') {
+        const addr = this.dhcpPick(dev, app.chaddr);
+        if (!addr) {
+          this.log(tick, dev, 7, 'DHCP: свободных адресов в пуле нет', 'err', frame);
+          return;
+        }
+        this.log(tick, dev, 7, 'DHCP DISCOVER от ' + app.chaddr + ': предлагаю ' + addr.ip + (addr.reserved ? ' (резервирование)' : ''), 'info', frame);
+        reply('offer', addr.ip);
+        return;
+      }
+      if (app.server && app.server !== myIf.ip) {
+        this.log(tick, dev, 7, 'DHCP REQUEST адресован другому серверу', 'dim', frame);
+        return;
+      }
+      tb.leases[app.chaddr] = app.yiaddr;
+      this.log(tick, dev, 7, 'DHCP: выдаю ' + app.yiaddr + ' клиенту ' + app.chaddr + ', аренда записана', 'ok', frame);
+      reply('ack', app.yiaddr);
+    }
+
+    dhcpPick(dev, mac) {
+      const cfg = dev.services.dhcp;
+      const pool = cfg.pool;
+      const res = cfg.reservations.find((r) => r.mac.toLowerCase() === mac.toLowerCase());
+      if (res && ip.valid(res.ip)) return { ip: res.ip, reserved: true };
+      const leases = this.tables(dev).leases;
+      if (leases[mac]) return { ip: leases[mac] };
+      const taken = new Set(Object.values(leases));
+      cfg.reservations.forEach((r) => taken.add(r.ip));
+      this.net.devices.forEach((d) => d.ifaces.forEach((i) => { if (i.ip && !(d.dhcp && i.mac === mac)) taken.add(i.ip); }));
+      [pool.gateway, pool.dns].forEach((x) => x && taken.add(x));
+      const a = ip.parse(pool.start), b = ip.parse(pool.end);
+      for (let n = a; n <= b && n - a < 4096; n++) {
+        const s = ip.str(n);
+        if (!taken.has(s) && !ip.hostError(s, pool.prefix)) return { ip: s };
+      }
+      return null;
+    }
+
+    /* --- L4/L7: TCP и HTTP --- */
+    tcpLocal(tick, dev, p, frame) {
+      const t = p.tcp;
+      const key = p.src + ':' + t.sport;
+      const tb = this.tables(dev);
+      const ttl = this.net.type(dev).ttl;
+      const answer = (flags, extra) => this.ipSend(tick, dev, Object.assign({ src: p.dst, dst: p.src, ttl, proto: 'tcp',
+        tcp: { sport: t.dport, dport: t.sport, flags, seq: t.ack || 0, ack: (t.seq || 0) + 1 } }, extra));
+
+      // Ответ клиенту: ищем открытый клиентом поток
+      const flow = this.flows['tcp:' + dev.id + ':' + t.dport];
+      if (flow && t.sport === 80) { flow(tick, p); return; }
+
+      if (t.dport !== 80) {
+        this.log(tick, dev, 4, 'TCP на порт ' + t.dport + ': порт закрыт', 'dim', frame);
+        return;
+      }
+      const http = dev.services && dev.services.http;
+      if (!(http && http.on)) {
+        if (t.flags === 'SYN') {
+          this.log(tick, dev, 4, 'TCP SYN на порт 80, но веб-сервер не запущен: отвечаю RST', 'err', frame);
+          answer('RST, ACK');
+        }
+        return;
+      }
+      if (t.flags === 'SYN') {
+        tb.conns[key] = 'syn';
+        this.log(tick, dev, 4, 'TCP SYN на порт 80: соглашаюсь, отвечаю SYN, ACK (шаг 2 из 3)', 'info', frame);
+        answer('SYN, ACK');
+        return;
+      }
+      if (p.app && p.app.type === 'http') {
+        const ok = p.app.path === '/' || p.app.path === '/index.html';
+        this.log(tick, dev, 7, 'HTTP GET ' + p.app.path + ': отдаю ' + (ok ? '200 OK' : '404 Not Found'), ok ? 'ok' : 'err', frame);
+        answer('PSH, ACK', { app: { type: 'http', op: 'response', status: ok ? 200 : 404, title: ok ? http.title : 'Not Found', body: ok ? http.body : 'Страница ' + p.app.path + ' не найдена' } });
+        return;
+      }
+      if (t.flags === 'FIN, ACK') {
+        tb.conns[key] = 'fin';
+        this.log(tick, dev, 4, 'клиент закрывает соединение: отвечаю FIN, ACK', 'info', frame);
+        answer('FIN, ACK');
+        return;
+      }
+      if (t.flags === 'ACK') {
+        if (tb.conns[key] === 'syn') { tb.conns[key] = 'est'; this.log(tick, dev, 4, 'TCP-соединение установлено (шаг 3 из 3)', 'ok', frame); }
+        else if (tb.conns[key] === 'fin') { delete tb.conns[key]; this.log(tick, dev, 4, 'соединение закрыто', 'dim', frame); }
+      }
+    }
+
+    /* --- Клиентские операции --- */
+    // DNS: найти имя и вызвать done(ip | null)
+    resolve(tick, dev, name, done) {
+      if (ip.valid(name)) { done(tick, ip.norm(name)); return; }
+      if (!dev.dns) {
+        this.log(tick, dev, 7, 'не задан DNS-сервер: не у кого спросить адрес ' + name, 'err');
+        this.results.push({ type: 'dns-fail', name, reason: 'DNS-сервер не задан' });
+        return;
+      }
+      const id = ++this.pid;
+      this.flows['dns:' + id] = (t, p) => {
+        delete this.flows['dns:' + id];
+        this.log(t, dev, 7, p.app.answer ? name + ' = ' + p.app.answer : 'DNS: имя ' + name + ' не найдено', p.app.answer ? 'ok' : 'err');
+        if (!p.app.answer) { this.results.push({ type: 'dns-fail', name, reason: 'имя не найдено (NXDOMAIN)' }); return; }
+        done(t, p.app.answer);
+      };
+      this.log(tick, dev, 7, 'спрашиваю DNS-сервер ' + dev.dns + ': какой адрес у ' + name + '?', 'info');
+      this.ipSend(tick, dev, { src: null, dst: dev.dns, ttl: this.net.type(dev).ttl, proto: 'udp', udp: { sport: 50000 + (id % 10000), dport: 53 },
+        app: { type: 'dns', op: 'query', id, name }, origin: dev.id });
+    }
+
     ping(srcId, dst, ttl) {
-      this.begin();
-      this.origin = srcId;
+      this.begin(srcId);
       const dev = this.net.dev(srcId);
       if (!dev) return this.finish();
-      if (ip.parse(dst) == null) {
-        this.results.push({ type: 'local-err', text: 'неверный адрес ' + dst });
-        return this.finish();
-      }
-      dst = ip.str(ip.parse(dst));
-      if (this.isMine(dev, dst)) {
-        this.log(0, dev, 3, dst + ' это мой адрес, ответ сразу (loopback)', 'ok');
-        this.results.push({ type: 'reply', from: dst, ttl: this.net.type(dev).ttl });
-        return this.finish();
-      }
-      const pkt = { src: null, dst, ttl: ttl || this.net.type(dev).ttl, proto: 'icmp', icmp: { type: 'echo-request', id: ++this.pid, seq: 1 }, origin: dev.id };
-      this.log(0, dev, 3, 'ping ' + dst + (ttl ? ' (TTL ' + ttl + ')' : '') + ': собираю ICMP эхо-запрос', 'info');
-      this.ipSend(0, dev, pkt);
+      const go = (tick, addr) => {
+        if (this.isMine(dev, addr)) {
+          this.log(tick, dev, 3, addr + ' это мой адрес, ответ сразу (loopback)', 'ok');
+          this.results.push({ type: 'reply', from: addr, ttl: this.net.type(dev).ttl });
+          return;
+        }
+        const pkt = { src: null, dst: addr, ttl: ttl || this.net.type(dev).ttl, proto: 'icmp', icmp: { type: 'echo-request', id: ++this.pid, seq: 1 }, origin: dev.id };
+        this.log(tick, dev, 3, 'ping ' + addr + (ttl ? ' (TTL ' + ttl + ')' : '') + ': собираю ICMP эхо-запрос', 'info');
+        this.ipSend(tick, dev, pkt);
+      };
+      if (ip.valid(dst)) go(0, ip.norm(dst));
+      else this.resolve(0, dev, dst, go);
       this.drain();
       return this.finish();
     }
 
     tracert(srcId, dst, max) {
+      // Имя сначала превращаем в адрес отдельным запуском
+      if (!ip.valid(dst)) {
+        const r = this.dnsLookup(srcId, dst);
+        const res = r.results.find((x) => x.type === 'dns');
+        if (!res || !res.ip) return Object.assign(r, { hops: [{ ttl: 1, from: null, error: 'не удалось узнать адрес ' + dst }] });
+        const t = this.tracert(srcId, res.ip, max);
+        t.events = r.events.concat(t.events.map((e) => Object.assign({}, e, { tick: e.tick + r.ticks + 1 })));
+        t.ticks += r.ticks + 1;
+        return t;
+      }
       const all = [];
       const hops = [];
       let offset = 0;
@@ -522,7 +792,104 @@
         hops.push({ ttl, from: res.from, done: res.type === 'reply', unreach: res.type === 'unreach' });
         if (res.type === 'reply' || res.type === 'unreach') break;
       }
-      return { events: all, hops, storm, ticks: offset };
+      return { events: all, hops, storm, ticks: offset, results: [] };
+    }
+
+    dnsLookup(srcId, name) {
+      this.begin(srcId);
+      const dev = this.net.dev(srcId);
+      if (!dev) return this.finish();
+      this.resolve(0, dev, name, (t, addr) => this.results.push({ type: 'dns', name, ip: addr, server: dev.dns }));
+      this.drain();
+      return this.finish();
+    }
+
+    // DHCP-клиент: DISCOVER → OFFER → REQUEST → ACK. При успехе адрес сразу записывается в настройки узла
+    dhcp(srcId) {
+      this.begin(srcId);
+      const dev = this.net.dev(srcId);
+      if (!dev) return this.finish();
+      const itf = dev.ifaces[0];
+      const xid = (Math.random() * 0xffffffff) >>> 0;
+      const bcast = (tick, app) => this.rawSend(tick, dev, 0, BCAST, { src: '0.0.0.0', dst: BCAST_IP, ttl: 64, proto: 'udp', udp: { sport: 68, dport: 67 }, app });
+      this.flows['dhcp:' + xid] = (tick, p) => {
+        const a = p.app;
+        if (a.op === 'offer') {
+          if (this.flows['dhcp:' + xid + ':got']) return;
+          this.flows['dhcp:' + xid + ':got'] = true;
+          this.log(tick, dev, 7, 'получил предложение ' + a.yiaddr + ' от ' + a.server + ': прошу его (REQUEST)', 'info', null);
+          bcast(tick, { type: 'dhcp', op: 'request', xid, chaddr: itf.mac, yiaddr: a.yiaddr, server: a.server });
+          return;
+        }
+        if (a.op === 'ack') {
+          itf.ip = a.yiaddr;
+          itf.prefix = a.prefix;
+          dev.gateway = a.router || '';
+          dev.dns = a.dns || '';
+          dev.dhcp = true;
+          this.tables(dev).arp = {};
+          this.log(tick, dev, 7, 'DHCP ACK: мой адрес ' + a.yiaddr + '/' + a.prefix + (a.router ? ', шлюз ' + a.router : '') + (a.dns ? ', DNS ' + a.dns : ''), 'ok', null);
+          this.results.push({ type: 'dhcp', ip: a.yiaddr, prefix: a.prefix, gateway: a.router, dns: a.dns, server: a.server });
+        }
+      };
+      if (!up(itf)) {
+        this.log(0, dev, 1, 'кабель не подключён: DHCP-запрос отправить некуда', 'err');
+        this.results.push({ type: 'local-err', text: 'кабель не подключён' });
+        return this.finish();
+      }
+      this.log(0, dev, 7, 'адреса пока нет: шлю DHCP DISCOVER всем (0.0.0.0 → 255.255.255.255)', 'info');
+      bcast(0, { type: 'dhcp', op: 'discover', xid, chaddr: itf.mac });
+      this.drain();
+      return this.finish();
+    }
+
+    // HTTP: DNS (если имя) → TCP-рукопожатие → GET → ответ → закрытие соединения
+    http(srcId, url) {
+      this.begin(srcId);
+      const dev = this.net.dev(srcId);
+      if (!dev) return this.finish();
+      const m = String(url).trim().match(/^(?:https?:\/\/)?([^/:\s]+)(?::\d+)?(\/\S*)?$/i);
+      if (!m) { this.results.push({ type: 'local-err', text: 'неверный адрес ' + url }); return this.finish(); }
+      const host = m[1];
+      const path = m[2] || '/';
+      this.resolve(0, dev, host, (tick, addr) => {
+        const sport = 49152 + (++this.pid % 16000);
+        let seq = 1000;
+        const send = (t, flags, extra) => this.ipSend(t, dev, Object.assign({ src: null, dst: addr, ttl: this.net.type(dev).ttl, proto: 'tcp',
+          tcp: { sport, dport: 80, flags, seq: seq++, ack: 0 }, origin: dev.id }, extra));
+        this.flows['tcp:' + dev.id + ':' + sport] = (t, p) => {
+          const f = p.tcp.flags;
+          if (f.startsWith('RST')) {
+            this.log(t, dev, 4, addr + ':80 отклонил соединение (RST): веб-сервер не запущен', 'err', null);
+            this.results.push({ type: 'http-refused', host, ip: addr });
+            return;
+          }
+          if (f === 'SYN, ACK') {
+            this.log(t, dev, 4, 'сервер согласен: отвечаю ACK, соединение установлено', 'ok', null);
+            send(t, 'ACK');
+            this.later(t, (t2) => {
+              this.log(t2, dev, 7, 'отправляю HTTP GET ' + path, 'info');
+              send(t2, 'PSH, ACK', { app: { type: 'http', op: 'request', path, host } });
+            });
+            return;
+          }
+          if (p.app && p.app.type === 'http') {
+            this.log(t, dev, 7, 'получил ответ HTTP ' + p.app.status + ': «' + p.app.title + '»', p.app.status === 200 ? 'ok' : 'err', null);
+            this.results.push({ type: 'http', host, ip: addr, path, status: p.app.status, title: p.app.title, body: p.app.body });
+            this.later(t, (t2) => { this.log(t2, dev, 4, 'страница получена, закрываю соединение (FIN)', 'dim'); send(t2, 'FIN, ACK'); });
+            return;
+          }
+          if (f === 'FIN, ACK') {
+            this.log(t, dev, 4, 'сервер тоже закрыл соединение: последний ACK', 'dim', null);
+            send(t, 'ACK');
+            delete this.flows['tcp:' + dev.id + ':' + sport];
+          }
+        };
+        this.log(tick, dev, 4, 'открываю TCP-соединение с ' + addr + ':80, шаг 1 из 3: SYN', 'info');
+        send(tick, 'SYN');
+      });
+      this.drain();
+      return this.finish();
     }
 
     finish() {
@@ -531,4 +898,17 @@
     }
   }
   LAB.Sim = Sim;
+
+  // Таблица маршрутизации для веб-интерфейса и show ip route
+  LAB.routeTable = function (dev) {
+    const rows = [];
+    dev.ifaces.forEach((i) => {
+      if (i.ip && up(i)) rows.push({ code: 'C', net: ip.netStr(i.ip, i.prefix), prefix: i.prefix, iface: i.name });
+    });
+    dev.routes.forEach((r, idx) => {
+      const out = dev.ifaces.find((i) => i.ip && up(i) && ip.same(r.via, i.ip, i.prefix));
+      rows.push({ code: 'S', net: r.net + '/' + r.prefix, prefix: r.prefix, via: r.via, iface: out ? out.name : '', idx });
+    });
+    return rows.sort((a, b) => b.prefix - a.prefix);
+  };
 })();
