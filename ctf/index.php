@@ -58,20 +58,71 @@ if (isset($_GET['api'])) {
                 $events = [];
                 $note[] = $e->getMessage();
             }
-            $extra = [];
-            try {
-                $extra = ctf_ai_search($cfg, $events);
-            } catch (Throwable $e) {
-                $note[] = $e->getMessage();
-            }
-            $all = array_merge($events, $extra);
-            if (!$all) ctf_json(400, ['error' => $note ? implode('; ', $note) : 'Ближайших событий не нашлось']);
-            usort($all, function ($a, $b) { return $a['start'] <=> $b['start']; });
             ctf_write('ctf_pending.json', [
-                'created' => time(), 'events' => $all, 'ai' => (object)[],
-                'extra' => count($extra), 'note' => implode('; ', $note),
+                'created' => time(), 'events' => $events, 'ai' => (object)[],
+                'extra' => 0, 'note' => implode('; ', $note),
             ]);
-            ctf_json(200, ['ok' => true, 'total' => count($all), 'left' => count($all), 'extra' => count($extra), 'note' => implode('; ', $note)]);
+            ctf_json(200, ['ok' => true, 'found' => count($events), 'note' => implode('; ', $note)]);
+        }
+
+        // Российский календарь: сбор страниц (без ИИ)
+        if ($action === 'ru_fetch') {
+            $p = ctf_read('ctf_pending.json');
+            if (!isset($p['events'])) ctf_json(400, ['error' => 'Начни анализ заново']);
+            try {
+                $p['ru_raw'] = ctf_ru_collect();
+            } catch (Throwable $e) {
+                $p['ru_raw'] = [];
+                $p['note'] = trim((string)($p['note'] ?? '') . '; ' . $e->getMessage(), '; ');
+            }
+            ctf_write('ctf_pending.json', $p);
+            ctf_json(200, ['ok' => true, 'found' => count((array)$p['ru_raw'])]);
+        }
+
+        // Российский календарь: ИИ достаёт время, формат и ссылки из статей
+        if ($action === 'ru_ai') {
+            $cfg = ctf_config();
+            $p = ctf_read('ctf_pending.json');
+            if (!isset($p['events'])) ctf_json(400, ['error' => 'Начни анализ заново']);
+            $raw = (array)($p['ru_raw'] ?? []);
+            $added = 0;
+            if ($raw) {
+                try {
+                    $ru = ctf_ru_extract($cfg, $raw, (array)$p['events']);
+                    $p['events'] = array_merge((array)$p['events'], $ru);
+                    $p['extra'] = (int)($p['extra'] ?? 0) + count($ru);
+                    $added = count($ru);
+                } catch (Throwable $e) {
+                    $p['note'] = trim((string)($p['note'] ?? '') . '; ' . $e->getMessage(), '; ');
+                }
+            }
+            unset($p['ru_raw']);
+            ctf_write('ctf_pending.json', $p);
+            ctf_json(200, ['ok' => true, 'added' => $added]);
+        }
+
+        // Поиск по интернету
+        if ($action === 'search') {
+            $cfg = ctf_config();
+            $p = ctf_read('ctf_pending.json');
+            if (!isset($p['events'])) ctf_json(400, ['error' => 'Начни анализ заново']);
+            $added = 0;
+            if ($cfg['search_model'] !== '') {
+                try {
+                    $extra = ctf_ai_search($cfg, (array)$p['events']);
+                    $p['events'] = array_merge((array)$p['events'], $extra);
+                    $p['extra'] = (int)($p['extra'] ?? 0) + count($extra);
+                    $added = count($extra);
+                } catch (Throwable $e) {
+                    $p['note'] = trim((string)($p['note'] ?? '') . '; ' . $e->getMessage(), '; ');
+                }
+            }
+            $all = (array)$p['events'];
+            if (!$all) ctf_json(400, ['error' => (string)($p['note'] ?? '') !== '' ? (string)$p['note'] : 'Ближайших событий не нашлось']);
+            usort($all, function ($a, $b) { return $a['start'] <=> $b['start']; });
+            $p['events'] = array_slice($all, 0, 100);
+            ctf_write('ctf_pending.json', $p);
+            ctf_json(200, ['ok' => true, 'added' => $added, 'total' => count($p['events']), 'left' => count($p['events']), 'note' => (string)($p['note'] ?? '')]);
         }
 
         if ($action === 'batch') {
@@ -164,7 +215,7 @@ function ctf_card(array $e, array $levels, array $kinds): void {
     $tags = array_map('strval', (array)($e['tags'] ?? []));
     $search = mb_strtolower((string)$e['title'] . ' ' . implode(' ', $tags) . ' ' . (string)($e['summary'] ?? '') . ' ' . implode(' ', (array)($e['organizers'] ?? [])));
     $link = (string)(($e['url'] ?? '') ?: ($e['ctftime_url'] ?? ''));
-    $byAi = ($e['source'] ?? '') === 'ai';
+    $mode = (string)($e['time_mode'] ?? (!empty($e['allday']) ? 'none' : 'full'));
     ?>
     <article class="ctf-card" data-pick="<?= !empty($e['pick']) ? '1' : '0' ?>" data-level="<?= ctf_h($level) ?>" data-online="<?= $isOnline ? '1' : '0' ?>" data-search="<?= ctf_h($search) ?>">
       <div class="ctf-top">
@@ -174,10 +225,9 @@ function ctf_card(array $e, array $levels, array $kinds): void {
           <?php if (isset($levels[$level])): ?><span class="ctf-badge lvl-<?= ctf_h($level) ?>"><?= ctf_h($levels[$level]) ?></span><?php endif; ?>
           <?php if (isset($kinds[$kind])): ?><span class="ctf-badge"><?= ctf_h($kinds[$kind]) ?></span><?php endif; ?>
           <span class="ctf-badge"><?= $isOnline ? 'Онлайн' : 'Очно' ?></span>
-          <?php if ($byAi): ?><span class="ctf-badge ai" title="Нашёл ИИ при поиске по интернету, на CTFtime этого нет. Проверяй дату на сайте.">Найдено ИИ</span><?php endif; ?>
         </div>
       </div>
-      <div class="ctf-when"><?= ctf_h(ctf_when((int)$e['start'], (int)$e['finish'], !empty($e['allday']))) ?><?php if (empty($e['allday'])): ?> <span class="ctf-dim">(<?= ctf_h(ctf_duration((int)$e['start'], (int)$e['finish'])) ?>)</span><?php endif; ?></div>
+      <div class="ctf-when"><?= ctf_h(ctf_when((int)$e['start'], (int)$e['finish'], $mode)) ?><?php if ($mode === 'full'): ?> <span class="ctf-dim">(<?= ctf_h(ctf_duration((int)$e['start'], (int)$e['finish'])) ?>)</span><?php endif; ?></div>
       <?php if ((string)($e['summary'] ?? '') !== ''): ?><p class="ctf-sum"><?= ctf_h((string)$e['summary']) ?></p><?php endif; ?>
       <?php if ((string)($e['why'] ?? '') !== ''): ?><p class="ctf-why"><?= ctf_h((string)$e['why']) ?></p><?php endif; ?>
       <div class="ctf-foot">
@@ -215,7 +265,6 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .ctf-badges{ display:flex; flex-wrap:wrap; gap:5px; }
   .ctf-badge{ font:11px var(--mono); padding:3px 8px; border-radius:5px; background:var(--panel-2); border:1px solid var(--line); color:var(--text-2, #c4c6d2); }
   .ctf-badge.pick{ background:rgba(97,209,173,.12); border-color:rgba(97,209,173,.4); color:var(--green); }
-  .ctf-badge.ai{ color:var(--violet); border-color:rgba(157,143,240,.4); }
   .ctf-badge.lvl-beginner{ color:var(--green); }
   .ctf-badge.lvl-medium{ color:var(--accent); }
   .ctf-badge.lvl-hard{ color:var(--danger); }
@@ -246,7 +295,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       <div>
         <span class="b-kicker">// хобби</span>
         <h1 class="b-title">CTF</h1>
-        <p class="b-sub">Афиша ближайших соревнований по информационной безопасности. События собираются с CTFtime и поиском ИИ по интернету, он же коротко пересказывает их, оценивает уровень и подсказывает, куда стоит заглянуть.</p>
+        <p class="b-sub">Афиша ближайших соревнований по информационной безопасности. Международные события берутся с CTFtime, российские из календаря CTF News и поиска ИИ по интернету. ИИ коротко пересказывает их, оценивает уровень и подсказывает, куда стоит заглянуть.</p>
       </div>
       <div class="b-stats" style="--n:3">
         <div class="b-stat"><strong><?= count($events) ?></strong><span>событий</span></div>
@@ -259,7 +308,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
       <section class="ctf-admin" id="ctfAdmin" data-csrf="<?= ctf_h(csrf_token()) ?>">
         <div class="ctf-admin-row">
           <button class="b-btn" type="button" id="ctfAnalyze">Проанализировать</button>
-          <span class="ctf-status" id="ctfStatus"><?= $updated ? 'Обновлено ' . ctf_h(date('d.m.Y H:i', $updated)) . ' МСК, модель ' . ctf_h((string)($data['model'] ?? '')) . ', ИИ-поиск нашёл ещё ' . (int)($data['extra'] ?? 0) . (((string)($data['note'] ?? '')) !== '' ? '. Замечание: ' . ctf_h((string)$data['note']) : '') : 'Афиша ещё не собиралась' ?></span>
+          <span class="ctf-status" id="ctfStatus"><?= $updated ? 'Обновлено ' . ctf_h(date('d.m.Y H:i', $updated)) . ' МСК, модель ' . ctf_h((string)($data['model'] ?? '')) . ', российских и найденных поиском: ' . (int)($data['extra'] ?? 0) . (((string)($data['note'] ?? '')) !== '' ? '. Замечание: ' . ctf_h((string)$data['note']) : '') : 'Афиша ещё не собиралась' ?></span>
         </div>
         <details class="ctf-settings"<?= $cfg['api_key'] === '' ? ' open' : '' ?>>
           <summary>Настройки ИИ (routerai.ru)</summary>
@@ -315,7 +364,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
       <div class="b-empty" id="ctfNone" hidden>По этим фильтрам ничего нет.</div>
 
-      <p class="b-hint" style="margin-top:22px">Даты и ссылки с пометкой CTFtime взяты оттуда без изменений. События с пометкой «Найдено ИИ» ИИ нашёл в интернете, как и краткие описания, уровень и рекомендации: проверяй их на странице соревнования.<?= $updated ? ' Обновлено ' . ctf_h(date('d.m.Y H:i', $updated)) . ' МСК.' : '' ?></p>
+      <p class="b-hint" style="margin-top:22px">Даты и ссылки с CTFtime показаны без изменений. Российские события собраны из календаря CTF News и поиска ИИ, краткие описания, уровень и рекомендации тоже пишет ИИ: время и условия участия проверяй на странице соревнования.<?= $updated ? ' Обновлено ' . ctf_h(date('d.m.Y H:i', $updated)) . ' МСК.' : '' ?></p>
     <?php endif; ?>
   </div>
 </main>
@@ -378,21 +427,33 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     return j;
   }
 
+  async function retry(action) {
+    let tries = 0;
+    for (;;) {
+      try { return await call(action); }
+      catch (e) { if (++tries >= 2) throw e; }
+    }
+  }
+
   btn.addEventListener('click', async () => {
     btn.disabled = true;
     try {
-      say(status, 'Загружаю список с CTFtime и ищу в интернете (до минуты)…');
+      say(status, 'Загружаю список с CTFtime…');
       const st = await call('start');
-      let left = st.left;
-      const total = st.total;
       if (st.note) say(status, 'Замечание: ' + st.note);
+
+      say(status, 'Собираю российские события из календаря CTF News…');
+      await retry('ru_fetch');
+      say(status, 'ИИ разбирает российские анонсы…');
+      const ru = await retry('ru_ai');
+
+      say(status, 'ИИ ищет по интернету ещё…');
+      const se = await retry('search');
+      let left = se.left;
+      const total = se.total;
       while (left > 0) {
-        say(status, 'ИИ разбирает события: ' + (total - left) + ' из ' + total);
-        let tries = 0;
-        for (;;) {
-          try { left = (await call('batch')).left; break; }
-          catch (e) { if (++tries >= 2) throw e; }
-        }
+        say(status, 'ИИ описывает события: ' + (total - left) + ' из ' + total);
+        left = (await retry('batch')).left;
       }
       say(status, 'Готовлю сводку…');
       await call('finish');
