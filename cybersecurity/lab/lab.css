@@ -285,7 +285,6 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 .lw__tab:hover{ color:var(--text); }
 .lw__tab.active{ background:#2a2a35; color:var(--text); }
 .lw__body{ flex:1; min-height:0; overflow:auto; position:relative; scrollbar-width:thin; scrollbar-color:#3a3a48 transparent; }
-.lw--term .lw__body{ overflow:hidden; background:#0c0c0f; }
 .wtoast{
   position:absolute; right:14px; bottom:14px;
   background:#1d1d24; color:var(--text); border:1px solid #3a3a48;
@@ -293,35 +292,24 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
   animation:lwIn .18s ease both;
 }
 
-/* ===== Терминал ===== */
-.term{
-  height:100%; overflow:auto;
-  padding:10px 12px 14px;
-  background:#0c0c0f;
-  font-family:var(--mono); font-size:12.5px; line-height:1.55; color:#d6d9e0;
-  cursor:text;
-  scrollbar-width:thin; scrollbar-color:#2f6f5c transparent;
+/* ===== Диагностика ===== */
+.wdiag{ display:flex; flex-direction:column; gap:10px; height:100%; padding:12px; box-sizing:border-box; }
+.wdiag .wrow{ flex-wrap:wrap; }
+.wdiag__in{ flex:1 1 180px; min-width:140px; }
+.wdiag__out{
+  flex:1; min-height:120px; overflow:auto;
+  padding:10px 12px; background:#0f0f13; border:1px solid #2e2e3a; border-radius:3px;
+  font-family:var(--mono); font-size:12px; line-height:1.6; color:#d6d9e0;
+  scrollbar-width:thin; scrollbar-color:#3a3a48 transparent;
 }
-.term__line{ white-space:pre-wrap; word-break:break-word; min-height:1.55em; }
-.term__line.is-err{ color:#ff8f8f; }
-.term__line.is-ok{ color:#61d1ad; }
-.term__line.is-dim{ color:#6f7385; }
-.term__line .is-host{ color:#11df7f; font-weight:700; }
-.term__line .is-path{ color:#5aa7ff; font-weight:700; }
-.term__line .is-sym{ color:#d6d9e0; }
-.term__line .is-priv{ color:#f9c940; font-weight:700; }
-.term__line .is-cmd{ color:#f2f4f8; }
-.term__line .is-ok{ color:#61d1ad; }
-.term__line .is-dim{ color:#6f7385; }
-.term__line .is-dir{ color:#5aa7ff; }
-.term__prompt{ display:flex; align-items:baseline; }
-.term__prompt[hidden]{ display:none; }
-.term__ps{ white-space:pre; flex:0 0 auto; }
-.term__in{
-  flex:1; min-width:30px;
-  background:transparent; border:none; outline:none; padding:0; margin:0;
-  color:#f2f4f8; font:inherit; caret-color:#f9c940;
-}
+.wdiag__line{ white-space:pre-wrap; word-break:break-word; }
+.wdiag__line.is-cmd{ color:var(--text); margin-top:8px; }
+.wdiag__line.is-cmd:first-child{ margin-top:0; }
+.wdiag__line.is-cmd::before{ content:'> '; color:var(--muted); }
+.wdiag__line.is-ok{ color:#61d1ad; }
+.wdiag__line.is-err{ color:#e06c6c; }
+.wdiag__line.is-dim{ color:#6f7385; }
+.wdiag__out .wempty{ margin:0; }
 
 /* ===== Веб-админка ===== */
 .wurl{

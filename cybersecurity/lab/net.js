@@ -3,21 +3,17 @@
 // Расширение:
 //   LAB.registerType({...})     новый тип устройства (types.js); своё поведение задаётся функцией receive
 //   LAB.registerPreset({...})   готовая схема (presets.js)
-//   LAB.registerShell(id, fn)   командная оболочка устройства (shell-ios.js, shell-linux.js)
 (function () {
   const LAB = (window.LAB = window.LAB || {});
   LAB.types = {};
   LAB.presets = [];
-  LAB.shells = {};
 
   // kind: host | router | switch | hub | своё (тогда нужен receive(sim, tick, dev, ifIdx, frame))
   // layers: [нижний, верхний] уровни OSI, на которых работает устройство
-  // shell: какая оболочка открывается в терминале (ios, linux)
   LAB.registerType = (def) => {
     LAB.types[def.type] = Object.assign({ kind: 'host', layers: [1, 7], ports: ['eth0'], ttl: 64, prefix: def.type.toUpperCase() }, def);
   };
   LAB.registerPreset = (p) => LAB.presets.push(p);
-  LAB.registerShell = (id, factory) => { LAB.shells[id] = factory; };
 
   /* ===== IPv4 ===== */
   const ip = {

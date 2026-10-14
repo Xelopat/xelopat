@@ -30,7 +30,6 @@
     cam: { x: 0, y: 0, k: 1 },
     speed: 1,
     anim: null,
-    terms: {},
     preset: null,
     map: null,          // { id, name } карты на сервере, если она открыта
   };
@@ -132,7 +131,6 @@
     S.net = net;
     S.sim = new LAB.Sim(net);
     S.sel = null;
-    S.terms = {};
     S.preset = presetId || null;
     S.map = map || null;
     clearLog();
@@ -479,7 +477,6 @@
     if (!d) return;
     if (LAB.Win) LAB.Win.close(id);
     S.net.remove(id);
-    delete S.terms[id];
     if (S.sel === id) S.sel = null;
     changed();
     hint(d.name + ' удалён', 'ok');
@@ -505,7 +502,7 @@
     let drag = null, pan = null, wire = null, press = null, lastTap = null, wireEnded = 0;
 
     const startWire = (id, e) => {
-      wire = { from: id, moved: false, x: e.clientX, y: e.clientY };
+      wire = { from: id, moved: false, x: e.clientX, y: e.clientY, btn: e.button, pointer: e.pointerType };
       E.stage.classList.add('is-wiring');
     };
     const endWire = () => {
@@ -527,11 +524,29 @@
       return best;
     };
 
+    // Закончить кабель в точке e: над другим устройством соединить, на месте открыть меню
+    const finishWire = (e, cancel) => {
+      const target = cancel ? null : nodeAt(e);
+      const from = wire.from;
+      const moved = wire.moved || Math.abs(e.clientX - wire.x) + Math.abs(e.clientY - wire.y) > 8;
+      endWire();
+      if (target && target !== from) connect(from, target);
+      else if (cancel) return;
+      else if (moved) hint('Отпусти кабель над другим устройством', 'err');
+      else openMenu(e, { node: from });
+    };
+
     E.svg.addEventListener('contextmenu', (e) => e.preventDefault());
-    // Пока тянется кабель, системное меню не нужно нигде (кнопку могли отпустить над окном или панелью)
-    window.addEventListener('contextmenu', (e) => { if (wire || wireEnded > performance.now() - 400) e.preventDefault(); }, true);
+    // Жесты мыши в браузере (Яндекс, Opera, Vivaldi) съедают движение и отпускание правой кнопки,
+    // но в конце обычно присылают contextmenu с координатами: по нему и заканчиваем кабель
+    window.addEventListener('contextmenu', (e) => {
+      // На Linux и macOS contextmenu приходит при нажатии, кнопка ещё зажата: тогда ждём отпускания
+      if (wire) { e.preventDefault(); if (!(e.buttons & 2)) finishWire(e); return; }
+      if (wireEnded > performance.now() - 400) e.preventDefault();
+    }, true);
 
     E.svg.addEventListener('pointerdown', (e) => {
+      if (wire) { finishWire(e); return; }
       closeMenus();
       const nodeEl = e.target.closest('[data-node]');
       const linkEl = e.target.closest('[data-link]');
@@ -578,6 +593,7 @@
 
     E.svg.addEventListener('pointermove', (e) => {
       if (wire) {
+        if (wire.pointer === 'mouse' && wire.btn === 2 && !(e.buttons & 2)) { finishWire(e); return; }
         if (Math.abs(e.clientX - wire.x) + Math.abs(e.clientY - wire.y) > 4) wire.moved = true;
         const a = S.net.dev(wire.from);
         const w = toWorld(e);
@@ -607,16 +623,7 @@
     });
 
     const up = (e) => {
-      if (wire) {
-        const target = e.type === 'pointerup' ? nodeAt(e) : null;
-        const from = wire.from;
-        const moved = wire.moved;
-        endWire();
-        if (target && target !== from) connect(from, target);
-        else if (moved) hint('Отпусти кабель над другим устройством', 'err');
-        else if (e.type === 'pointerup') openMenu(e, { node: from });
-        return;
-      }
+      if (wire) { finishWire(e, e.type !== 'pointerup'); return; }
       if (drag) {
         clearTimeout(drag.timer);
         if (drag.moved) save();
@@ -743,7 +750,7 @@
     E.info.append(h('div', { class: 'lab-info__sec' },
       h('div', { class: 'lab-info__label' }, 'Управление'),
       h('ul', { class: 'lab-help' },
-        h('li', null, h('b', null, 'Двойной щелчок'), ' по устройству: настройки (веб-интерфейс, SSH или терминал, браузер).'),
+        h('li', null, h('b', null, 'Двойной щелчок'), ' по устройству: настройки (веб-интерфейс, диагностика: ping и traceroute, браузер).'),
         h('li', null, h('b', null, 'Кабель'), ': зажми правую кнопку на устройстве, веди к другому и отпусти. Ещё можно тянуть левой за точку над устройством или с зажатым Shift. На телефоне: долгое нажатие на устройство и тянуть.'),
         h('li', null, h('b', null, 'Удалить'), ': правой кнопкой по кабелю или устройству, или выдели и нажми Delete. На телефоне: тап по кабелю и ✕, или долгое нажатие.'),
         h('li', null, h('b', null, 'Щелчок правой кнопкой'), ': меню устройства, кабеля или пустого места.'),
@@ -757,7 +764,7 @@
     const d = S.net.byName(p.try[0]);
     if (!d || !LAB.Win) return;
     const op = p.try[2] || 'ping';
-    LAB.Win.runInTerm(d.id, op === 'dhcp' ? 'dhclient' : op === 'http' ? 'curl ' + p.try[1] : (op === 'tracert' ? 'traceroute ' : 'ping ') + p.try[1]);
+    LAB.Win.runDiag(d.id, op, p.try[1]);
   }
 
   function fillTry() {
@@ -823,16 +830,14 @@
     E.ips.replaceChildren(...opts.map(([a, n]) => h('option', { value: a }, n)));
   }
 
-  // Запуск из журнала идёт через терминал устройства, чтобы там остался вывод команды
   function startFromDock(op) {
     const src = E.src.value;
     const dst = E.dst.value.trim();
     if (!src) { hint('Добавь узел или маршрутизатор, с которого отправлять', 'err'); return; }
     if (!dst) { hint('Укажи, куда: IP-адрес или имя', 'err'); E.dst.focus(); return; }
     const d = S.net.dev(src);
-    if (op === 'http' && typeOf(d).shell !== 'linux') { hint('HTTP-запрос можно отправить только с ПК или сервера', 'err'); return; }
-    const cmd = op === 'ping' ? 'ping ' + dst : op === 'tracert' ? 'traceroute ' + dst : 'curl ' + dst;
-    if (LAB.Win) LAB.Win.runInTerm(src, cmd);
+    if (op === 'http' && kindOf(d) !== 'host') { hint('HTTP-запрос можно отправить только с ПК или сервера', 'err'); return; }
+    runOp(op, src, dst);
   }
 
   /* ===== Запуск операций ===== */

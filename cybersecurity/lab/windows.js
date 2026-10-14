@@ -1,6 +1,6 @@
-// Окна устройств: веб-интерфейс, терминал (SSH или локальный), браузер, службы сервера.
+// Окна устройств: веб-интерфейс, диагностика (ping, traceroute, nslookup), браузер, службы сервера.
 // Окна фиксированы относительно окна браузера, поэтому их можно утащить и выше холста, до шапки.
-// Вкладки окна берутся из type.web и type.shell (types.js). Новая вкладка: добавить запись в TABS и функцию в PAGES.
+// Вкладки окна берутся из type.web (types.js). Новая вкладка: добавить запись в TABS и функцию в PAGES.
 (function () {
   const ip = LAB.ip;
   const VLAN_COLORS = ['#6a6c80', '#5f9e8a', '#b39a5a', '#6f8fb8', '#a87878', '#8a80b0', '#7fa3a8', '#9c8a6c'];
@@ -12,6 +12,7 @@
     browser: { label: 'Браузер', sub: 'открыть сайт', icon: '◎' },
     router: { label: 'Веб-интерфейс', sub: 'интерфейсы, маршруты', icon: '◫' },
     switch: { label: 'Веб-интерфейс', sub: 'порты и VLAN', icon: '◫' },
+    diag: { label: 'Диагностика', sub: 'ping, traceroute', icon: '⌁' },
   };
 
   const wins = {};
@@ -20,32 +21,7 @@
 
   function tabsFor(dev) {
     const t = LAB.types[dev.type];
-    const list = (t.web || []).map((id) => Object.assign({ id }, TABS[id]));
-    if (t.shell && LAB.shells[t.shell]) {
-      list.push(t.shell === 'ios'
-        ? { id: 'term', label: 'SSH', sub: 'командная строка в стиле Cisco', icon: '>_' }
-        : { id: 'term', label: 'Терминал', sub: 'bash: ip, ping, curl', icon: '>_' });
-    }
-    return list;
-  }
-
-  /* ===== Сеанс терминала: живёт дольше окна ===== */
-  function session(devId) {
-    const S = ui.S;
-    if (!S.terms[devId]) {
-      const dev = S.net.dev(devId);
-      const t = LAB.types[dev.type];
-      S.terms[devId] = {
-        store: { lines: [], history: [], booted: false },
-        shell: LAB.shells[t.shell]({
-          dev: () => S.net.dev(devId),
-          sim: () => S.sim,
-          changed: () => ui.changed(),
-          run: (op, arg) => ui.runOp(op, devId, arg),
-        }),
-      };
-    }
-    return S.terms[devId];
+    return (t.web || []).filter((id) => TABS[id]).map((id) => Object.assign({ id }, TABS[id]));
   }
 
   /* ===== Окно ===== */
@@ -56,7 +32,7 @@
     if (!tabs.length) { ui.hint(dev.name + ': у этого устройства нет настроек', 'err'); return null; }
     let w = wins[devId];
     if (!w) {
-      w = wins[devId] = { devId, tab: null, nav: {}, browser: { url: '', state: null } };
+      w = wins[devId] = { devId, tab: null, nav: {}, browser: { url: '', state: null }, diag: { target: '', lines: [], busy: false } };
       build(w);
     }
     focus(w);
@@ -131,7 +107,6 @@
 
   function setTab(w, tab) {
     w.tab = tab;
-    w.el.classList.toggle('lw--term', tab === 'term');
     w.el.classList.toggle('lw--browser', tab === 'browser');
     render(w);
   }
@@ -145,20 +120,13 @@
     }, t.label)));
     renderTitle(w, dev);
     w.body.replaceChildren();
-    w.term = null;
-    if (w.tab === 'term') {
-      const ses = session(w.devId);
-      w.term = LAB.Terminal(w.body, ses.shell, ses.store);
-      requestAnimationFrame(() => w.term && w.term.focus());
-      return;
-    }
     const fn = PAGES[w.tab];
     if (fn) fn(w, dev, w.body);
   }
 
   function renderTitle(w, dev) {
     let title;
-    if (w.tab === 'term') title = session(w.devId).shell.title();
+    if (w.tab === 'diag') title = dev.name + ': диагностика';
     else if (w.tab === 'browser') title = dev.name + ': браузер';
     else if (w.tab === 'net') title = dev.name + ': параметры сети';
     else if (w.tab === 'services') title = dev.name + ': службы';
@@ -166,23 +134,41 @@
     w.titleEl.textContent = title;
   }
 
-  // После изменений перерисовать веб-страницы окон (терминал не трогаем, в нём свой вывод)
+  // После изменений перерисовать страницы окон (кроме тех, где сейчас что-то вводят)
   function refresh() {
     Object.values(wins).forEach((w) => {
       const dev = ui.S.net.dev(w.devId);
       if (!dev) { close(w.devId); return; }
       renderTitle(w, dev);
-      if (w.tab === 'term') { if (w.term) w.term.refreshPrompt(); return; }
       const a = document.activeElement;
       if (a && w.el.contains(a) && a.matches('input, textarea, select')) return;
       render(w);
     });
   }
 
-  // Выполнить команду в терминале устройства (кнопки внизу и подсказки схем)
-  function runInTerm(devId, cmd) {
-    const w = open(devId, 'term');
-    if (w && w.term) w.term.run(cmd);
+  // Запустить проверку с устройства в его окне (подсказки схем): ping, tracert, dns, dhcp, http
+  function runDiag(devId, op, arg) {
+    if (op === 'http') {
+      const w = open(devId, 'browser');
+      if (!w) return;
+      w.browser.url = arg;
+      w.browser.autogo = true;
+      render(w);
+      return;
+    }
+    if (op === 'dhcp') {
+      const w = open(devId, 'net');
+      if (!w) return;
+      ui.runOp('dhcp', devId).then((r) => {
+        const ok = r.results.find((x) => x.type === 'dhcp');
+        toast(w, ok ? 'Получен ' + ok.ip : 'DHCP-сервер не ответил');
+      });
+      return;
+    }
+    const w = open(devId, 'diag');
+    if (!w) return;
+    w.diag.target = arg;
+    diagRun(w, op);
   }
 
   /* ===== Элементы форм ===== */
@@ -566,6 +552,81 @@
         h('button', { type: 'button', class: 'wbtn wbtn--primary', onClick: go }, 'Перейти')),
       view));
     draw();
+    if (b.autogo) { b.autogo = false; go(); }
+  };
+
+  /* --- Диагностика: ping, traceroute, nslookup --- */
+  const DIAG_OPS = {
+    ping: { label: 'Ping', cmd: 'ping' },
+    tracert: { label: 'Traceroute', cmd: 'traceroute' },
+    dns: { label: 'Nslookup', cmd: 'nslookup', host: true },
+  };
+
+  function diagLines(op, dst, r, dev) {
+    const out = [];
+    const add = (t, cls) => out.push({ t, cls: cls || '' });
+    const find = (t) => r.results.find((x) => x.type === t);
+    const dnsFail = find('dns-fail');
+    const local = find('local-err');
+    if (op === 'ping') {
+      if (dnsFail) { add('Не удалось узнать адрес ' + dst + ': ' + dnsFail.reason, 'err'); return out; }
+      if (local) { add('Сеть недоступна: ' + local.text, 'err'); return out; }
+      const res = r.results[0];
+      if (res && res.type === 'reply') add('Ответ от ' + res.from + ': TTL ' + res.ttl + ', время ' + (0.3 + Math.random() * 2).toFixed(1) + ' мс', 'ok');
+      else if (res && res.type === 'unreach') add(res.from + ' сообщает: сеть назначения недоступна', 'err');
+      else if (res && res.type === 'arp-fail') add('Узел недоступен: на ARP-запрос никто не ответил (узла нет в этой сети или он в другом VLAN)', 'err');
+      else add('Превышено время ожидания: ответ не вернулся, в журнале видно, где пропал пакет', 'err');
+    } else if (op === 'tracert') {
+      if (dnsFail) { add('Не удалось узнать адрес ' + dst + ': ' + dnsFail.reason, 'err'); return out; }
+      r.hops.forEach((x) => add(String(x.ttl).padStart(2) + '   ' + (x.from ? x.from + '   ' + (0.5 + x.ttl * 0.7).toFixed(1) + ' мс' + (x.unreach ? '   сеть недоступна' : '') : '*   ответа нет' + (x.error ? ' (' + x.error + ')' : '')),
+        x.done ? 'ok' : x.from && !x.unreach ? '' : 'err'));
+      if (!r.hops.length) add('Маршрут не найден', 'err');
+    } else {
+      const ok = find('dns');
+      if (ok) add(dst + ' = ' + ok.ip + '   (ответил DNS ' + (dev.dns || '?') + ')', 'ok');
+      else if (dnsFail) add(dnsFail.reason === 'DNS-сервер не задан' ? 'DNS-сервер не задан: укажи его во вкладке «Сеть»' : 'Имя ' + dst + ' не найдено: ' + dnsFail.reason, 'err');
+      else if (local) add('Сеть недоступна: ' + local.text, 'err');
+      else add('DNS-сервер не ответил: он недоступен или служба DNS на нём выключена', 'err');
+    }
+    return out;
+  }
+
+  function diagRun(w, op) {
+    const dev = ui.S.net.dev(w.devId);
+    const dst = w.diag.target.trim();
+    if (!dev || !dst || w.diag.busy) return;
+    w.diag.busy = true;
+    w.diag.lines.push({ t: DIAG_OPS[op].cmd + ' ' + dst, cls: 'cmd' });
+    if (w.diag.lines.length > 300) w.diag.lines.splice(0, w.diag.lines.length - 300);
+    if (w.tab === 'diag') render(w);
+    ui.runOp(op, dev.id, dst).then((r) => {
+      w.diag.busy = false;
+      w.diag.lines.push(...diagLines(op, dst, r, dev));
+      if (wins[w.devId] === w && w.tab === 'diag') render(w);
+    });
+  }
+
+  PAGES.diag = (w, dev, root) => {
+    const d = w.diag;
+    const host = LAB.types[dev.type].kind === 'host';
+    const opts = [];
+    ui.S.net.devices.forEach((x) => x !== dev && x.ifaces.forEach((i) => { if (i.ip && opts.length < 300) opts.push([i.ip, x.name]); }));
+    ui.S.net.devices.forEach((x) => x.services && x.services.dns.on && x.services.dns.records.forEach((r) => opts.push([r.name, 'DNS: ' + r.ip])));
+    const listId = 'labDiag-' + dev.id;
+    const target = h('input', { class: 'wf__in wdiag__in', value: d.target, placeholder: host ? 'IP-адрес или имя' : 'IP-адрес', list: listId, spellcheck: 'false', 'aria-label': 'Куда',
+      onInput: (e) => { d.target = e.target.value; },
+      onKeydown: (e) => { if (e.key === 'Enter') diagRun(w, 'ping'); } });
+    const ops = Object.entries(DIAG_OPS).filter(([, o]) => host || !o.host);
+    const out = h('div', { class: 'wdiag__out', 'aria-live': 'polite' },
+      d.lines.length ? d.lines.map((l) => h('div', { class: 'wdiag__line' + (l.cls ? ' is-' + l.cls : '') }, l.t))
+        : h('p', { class: 'wempty' }, 'Введи адрес и нажми кнопку. Пакеты пойдут по схеме, разбор каждого кадра есть в журнале.'));
+    if (d.busy) out.append(h('div', { class: 'wdiag__line is-dim' }, 'идёт симуляция…'));
+    root.append(h('div', { class: 'wdiag' },
+      h('div', { class: 'wrow' }, target, h('datalist', { id: listId }, opts.map(([a, n]) => h('option', { value: a }, n))),
+        ops.map(([id, o], k) => h('button', { type: 'button', class: 'wbtn' + (k === 0 ? ' wbtn--primary' : ''), disabled: d.busy, onClick: () => { d.target = target.value; diagRun(w, id); } }, o.label)),
+        d.lines.length ? h('button', { type: 'button', class: 'wbtn', title: 'Очистить вывод', onClick: () => { d.lines = []; render(w); } }, 'Очистить') : null),
+      out));
+    requestAnimationFrame(() => { out.scrollTop = out.scrollHeight; });
   };
 
   /* ===== Подключение ===== */
@@ -579,6 +640,6 @@
     close, closeAll, clamp,
     refresh() { if (ui) refresh(); },
     tabsFor,
-    runInTerm(devId, cmd) { init(); runInTerm(devId, cmd); },
+    runDiag(devId, op, arg) { init(); runDiag(devId, op, arg); },
   };
 })();
