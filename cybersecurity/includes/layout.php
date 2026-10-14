@@ -11,9 +11,10 @@ $cs_base = ($cs_doc !== '' && strpos($cs_root, $cs_doc) === 0) ? rtrim(substr($c
 
 $cs_main_site = 'https://xelopat.ru';
 
-// [ключ (папка), название, описание, тег]
+// [ключ (папка), название, описание, тег, короткое имя для шапки]
 $cs_tools = [
-    ['osi', 'Модель OSI', 'Семь уровней: функции, PDU, протоколы, устройства, атаки и защита. Инкапсуляция по шагам, сравнение с TCP/IP и тренажёр.', '// network'],
+    ['lab', 'Сетевая лаборатория', 'Собери сеть на холсте: ПК, коммутаторы, маршрутизаторы, VLAN, статические маршруты. Ping и tracert с анимацией пакетов, ARP и разбором кадра по уровням OSI.', '// network / lab', 'Лаборатория'],
+    ['osi', 'Модель OSI', 'Семь уровней: функции, PDU, протоколы, устройства, атаки и защита. Инкапсуляция по шагам, сравнение с TCP/IP и тренажёр.', '// network', 'OSI'],
 ];
 
 function cs_h(string $s): string {
@@ -58,7 +59,7 @@ function cs_head(string $title, string $active = '', string $extra_head = ''): v
     <nav class="nav" aria-label="Навигация">
       <a class="nav-link<?= $active === '' ? ' active' : '' ?>" href="<?= cs_h(cs_url()) ?>">Разделы</a>
       <?php foreach ($cs_tools as $t): ?>
-        <a class="nav-link<?= $active === $t[0] ? ' active' : '' ?>" href="<?= cs_h(cs_url($t[0])) ?>"><?= cs_h($t[1]) ?></a>
+        <a class="nav-link<?= $active === $t[0] ? ' active' : '' ?>" href="<?= cs_h(cs_url($t[0])) ?>"><?= cs_h($t[4] ?? $t[1]) ?></a>
       <?php endforeach; ?>
       <a class="nav-link nav-link--out" href="<?= cs_h($cs_main_site) ?>">xelopat.ru</a>
     </nav>
