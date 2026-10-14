@@ -40,7 +40,7 @@ if (isset($_GET['api'])) {
             if ($model !== '' && !preg_match('~^[A-Za-z0-9._:/\-]{3,80}$~', $model)) ctf_json(400, ['error' => 'Название модели выглядит неправильно']);
             $cur['model'] = $model;
             $px = trim((string)($in['proxy'] ?? ''));
-            if ($px !== '' && !preg_match('~^(https?|socks4|socks5h?)://[A-Za-z0-9._~%!$&\'()*+,;=:@\-]{3,200}$~', $px)) ctf_json(400, ['error' => 'Прокси вида socks5://host:port или http://user:pass@host:port']);
+            if ($px !== '' && !preg_match('#^(https?|socks4|socks5h?)://[A-Za-z0-9._~%!$&\'()*+,;=:@\-]{3,200}$#', $px)) ctf_json(400, ['error' => 'Прокси вида socks5://host:port или http://user:pass@host:port']);
             $cur['proxy'] = $px;
             $sm = trim((string)($in['search_model'] ?? ''));
             if ($sm !== '' && !preg_match('~^[A-Za-z0-9._:/\-]{3,80}$~', $sm)) ctf_json(400, ['error' => 'Название модели поиска выглядит неправильно']);
