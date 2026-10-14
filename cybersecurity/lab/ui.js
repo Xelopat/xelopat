@@ -2,8 +2,9 @@
 // Логика сети живёт в net.js, окна устройств в windows.js, сохранение карт на сервере в maps.js.
 //
 // Управление: левая кнопка двигает устройство или холст, двойной щелчок открывает настройки,
-// правой кнопкой протяни от устройства к устройству, чтобы соединить их кабелем,
+// кабель тянется левой кнопкой от точки над устройством (или с зажатым Shift) к другому устройству,
 // щелчок правой кнопкой открывает меню. На телефоне кабель тянется после долгого нажатия.
+// Протягивание правой кнопкой не используем: в браузерах это жесты мыши (назад, другая вкладка).
 (function () {
   const NS = 'http://www.w3.org/2000/svg';
   const STORE = 'cs-lab:v2';
@@ -254,8 +255,12 @@
         transform: 'translate(' + d.x + ' ' + d.y + ')',
       });
       g.append(s('title', null, d.name + ', ' + t.title.toLowerCase() + '. Двойной щелчок: настройки'));
-      g.append(s('rect', { class: 'lab-node__halo', x: -36, y: -30, width: 80, height: S.view === 'l1' ? 80 : 92, rx: 4 }));
+      g.append(s('rect', { class: 'lab-node__halo', x: -36, y: -46, width: 80, height: S.view === 'l1' ? 96 : 108, rx: 4 }));
       g.append(iconFor(d.type));
+      g.append(s('g', { class: 'lab-node__plug' },
+        s('title', null, 'Потяни к другому устройству, чтобы соединить кабелем'),
+        s('circle', { cx: 0, cy: -34, r: 9, class: 'lab-node__plug-hit' }),
+        s('circle', { cx: 0, cy: -34, r: 4.5, class: 'lab-node__plug-dot' })));
       const bar = s('g', { class: 'lab-bar', transform: 'translate(31 -24)' });
       for (let n = 7; n >= 1; n--) {
         const on = n >= t.layers[0] && n <= t.layers[1];
@@ -272,6 +277,7 @@
     });
     E.gNodes.append(nodesFrag);
     markNear();
+    drawLinkDel();
   }
 
   // Подсветить подписи портов у выделенного устройства
@@ -298,6 +304,20 @@
       el.ta.setAttribute('x', gm.pa.x); el.ta.setAttribute('y', gm.pa.y);
       el.tb.setAttribute('x', gm.pb.x); el.tb.setAttribute('y', gm.pb.y);
     });
+    if (S.sel && S.sel.startsWith('link:')) drawLinkDel();
+  }
+
+  // Кнопка ✕ в середине выделенного кабеля
+  function drawLinkDel() {
+    E.gSel.replaceChildren();
+    if (!S.sel || !S.sel.startsWith('link:')) return;
+    const l = S.net.link(S.sel.slice(5));
+    if (!l) return;
+    const gm = linkGeom(l);
+    E.gSel.append(s('g', { class: 'lab-link-del', transform: 'translate(' + (gm.x1 + gm.x2) / 2 + ' ' + (gm.y1 + gm.y2) / 2 + ')' },
+      s('title', null, 'Удалить кабель (Delete)'),
+      s('rect', { x: -10, y: -10, width: 20, height: 20, rx: 3 }),
+      s('path', { d: 'M-4 -4 L4 4 M4 -4 L-4 4' })));
   }
 
   function select(id) {
@@ -310,6 +330,7 @@
       if (el) el.classList.toggle('is-sel', x === id);
     });
     markNear();
+    drawLinkDel();
   }
 
   function nodeSub(d) {
@@ -354,10 +375,24 @@
       return h('div', { class: 'lab-legend__row' }, h('i', { style: { background: domainColor(n) } }), text);
     });
     if (dom.info.length > 12) rows.push(h('div', { class: 'lab-legend__row' }, 'и ещё ' + (dom.info.length - 12)));
-    E.legend.append(rows);
+    E.legend.append(...rows);
   }
 
   /* ===== Тулбар ===== */
+  const TB_ICONS = {
+    export: 'M12 4v11M7 10l5 5 5-5M5 19h14',
+    import: 'M12 20V9M7 14l5-5 5 5M5 5h14',
+    clear: 'M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12',
+    full: 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5',
+    exit: 'M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5',
+  };
+  function tbIcon(name) {
+    return s('svg', { viewBox: '0 0 24 24', width: 16, height: 16, 'aria-hidden': 'true' },
+      s('path', { d: TB_ICONS[name], fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+  }
+  function iconBtn(name, title, onClick, extra) {
+    return h('button', Object.assign({ type: 'button', class: 'lab-btn lab-btn--icon', title, 'aria-label': title, onClick }, extra || {}), tbIcon(name));
+  }
   function buildToolbar() {
     const palette = h('div', { class: 'lab-group' },
       Object.values(LAB.types).map((t) => h('button', {
@@ -374,13 +409,13 @@
       LAB.presets.map((p) => h('option', { value: p.id }, (p.task ? 'Задача: ' : '') + p.title.replace(/^Задача: /, ''))));
     const file = h('input', { type: 'file', accept: '.json,application/json', hidden: true, onChange: importFile });
     E.mapsBtn = h('button', { type: 'button', class: 'lab-btn', 'data-pop-toggle': '', onClick: (e) => { e.stopPropagation(); if (LAB.Maps) LAB.Maps.toggle(); }, title: 'Сохранённые карты в аккаунте' }, 'Мои карты');
-    E.fullBtn = h('button', { type: 'button', class: 'lab-btn', onClick: toggleFull, title: 'Развернуть на весь экран (Esc чтобы выйти)' }, '⛶ На весь экран');
+    E.fullBtn = iconBtn('full', 'На весь экран (Esc чтобы выйти)', toggleFull);
     const files = h('div', { class: 'lab-group lab-group--end' },
       E.presetSel,
       E.mapsBtn,
-      h('button', { type: 'button', class: 'lab-btn', onClick: exportFile, title: 'Скачать схему в JSON' }, 'Экспорт'),
-      h('button', { type: 'button', class: 'lab-btn', onClick: () => file.click(), title: 'Загрузить схему из JSON' }, 'Импорт'),
-      h('button', { type: 'button', class: 'lab-btn', onClick: () => { if (confirm('Очистить холст?')) setNet(new LAB.Net(), null); } }, 'Очистить'),
+      iconBtn('export', 'Экспорт: скачать схему в JSON', exportFile),
+      iconBtn('import', 'Импорт: загрузить схему из JSON', () => file.click()),
+      iconBtn('clear', 'Очистить холст', () => { if (confirm('Очистить холст?')) setNet(new LAB.Net(), null); }),
       E.fullBtn,
       file);
 
@@ -410,7 +445,8 @@
   function setFullClass(on) {
     E.root.classList.toggle('lab--full', on);
     document.documentElement.classList.toggle('lab-noscroll', on);
-    E.fullBtn.textContent = on ? '✕ Свернуть' : '⛶ На весь экран';
+    E.fullBtn.replaceChildren(tbIcon(on ? 'exit' : 'full'));
+    E.fullBtn.title = on ? 'Свернуть (Esc)' : 'На весь экран (Esc чтобы выйти)';
     requestAnimationFrame(() => { applyCam(); if (LAB.Win) LAB.Win.clamp(); });
   }
   function toggleFull() {
@@ -434,7 +470,7 @@
     const d = S.net.add(type, Math.round(p.x / 10) * 10, Math.round(p.y / 10) * 10);
     S.sel = d.id;
     changed();
-    hint(d.name + ' добавлен. Протяни правой кнопкой к другому устройству, чтобы соединить', 'ok');
+    hint(d.name + ' добавлен. Потяни за точку над ним к другому устройству, чтобы соединить', 'ok');
   }
 
   function removeDevice(id) {
@@ -465,7 +501,7 @@
 
   /* ===== Мышь и касания на холсте ===== */
   function bindStage() {
-    let drag = null, pan = null, wire = null, press = null;
+    let drag = null, pan = null, wire = null, press = null, lastTap = null;
 
     const startWire = (id, e) => {
       wire = { from: id, moved: false, x: e.clientX, y: e.clientY };
@@ -476,10 +512,17 @@
       E.gPreview.replaceChildren();
       E.stage.classList.remove('is-wiring');
     };
+    // Устройство под курсором ищем по координатам схемы: ближайшее, в пределах его рамки
     const nodeAt = (e) => {
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      const n = el && el.closest ? el.closest('[data-node]') : null;
-      return n && E.svg.contains(n) ? n.dataset.node : null;
+      const w = toWorld(e);
+      let best = null, bd = Infinity;
+      S.net.devices.forEach((d) => {
+        const dx = w.x - d.x, dy = w.y - d.y;
+        if (Math.abs(dx) > 40 || dy < -46 || dy > 62) return;
+        const dist = dx * dx + dy * dy;
+        if (dist < bd) { bd = dist; best = d.id; }
+      });
+      return best;
     };
 
     E.svg.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -488,15 +531,20 @@
       closeMenus();
       const nodeEl = e.target.closest('[data-node]');
       const linkEl = e.target.closest('[data-link]');
+      if (e.button === 0 && e.target.closest('.lab-link-del')) { removeLink(S.sel.slice(5)); return; }
       try { E.svg.setPointerCapture(e.pointerId); } catch (err) { /* без захвата тоже работает */ }
 
       if (e.button === 2) {
-        if (nodeEl) startWire(nodeEl.dataset.node, e);
-        else press = { x: e.clientX, y: e.clientY, link: linkEl ? linkEl.dataset.link : null, right: true };
+        press = { x: e.clientX, y: e.clientY, node: nodeEl ? nodeEl.dataset.node : null, link: linkEl ? linkEl.dataset.link : null };
         return;
       }
       if (e.button !== 0) return;
 
+      if (nodeEl && (e.target.closest('.lab-node__plug') || e.shiftKey)) {
+        select(nodeEl.dataset.node);
+        startWire(nodeEl.dataset.node, e);
+        return;
+      }
       if (nodeEl) {
         const id = nodeEl.dataset.node;
         const d = S.net.dev(id);
@@ -552,18 +600,25 @@
         const moved = wire.moved;
         endWire();
         if (target && target !== from) connect(from, target);
-        else if (!moved && e.type === 'pointerup') { select(from); openMenu(e, { node: from }); }
+        else if (moved) hint('Отпусти кабель над другим устройством', 'err');
         return;
       }
       if (drag) {
         clearTimeout(drag.timer);
         if (drag.moved) save();
+        else if (e.type === 'pointerup') {
+          // Двойной щелчок считаем сами: из-за захвата указателя dblclick приходит на холст, а не на устройство
+          const now = performance.now();
+          if (lastTap && lastTap.id === drag.id && now - lastTap.t < 420) { lastTap = null; openDevice(drag.id); }
+          else lastTap = { id: drag.id, t: now };
+        }
         drag = null;
         return;
       }
       if (press) {
-        if (Math.abs(e.clientX - press.x) + Math.abs(e.clientY - press.y) < 5) {
-          if (press.link) { select('link:' + press.link); openMenu(e, { link: press.link }); }
+        if (Math.abs(e.clientX - press.x) + Math.abs(e.clientY - press.y) < 8) {
+          if (press.node) { select(press.node); openMenu(e, { node: press.node }); }
+          else if (press.link) { select('link:' + press.link); openMenu(e, { link: press.link }); }
           else openMenu(e, { at: toWorld(e) });
         }
         press = null;
@@ -577,14 +632,6 @@
     E.svg.addEventListener('pointerup', up);
     E.svg.addEventListener('pointercancel', up);
 
-    E.svg.addEventListener('dblclick', (e) => {
-      const nodeEl = e.target.closest('[data-node]');
-      if (!nodeEl) return;
-      const d = S.net.dev(nodeEl.dataset.node);
-      if (!d || !LAB.Win) return;
-      if (!LAB.Win.tabsFor(d).length) { hint(d.name + ': неуправляемое устройство, настроек нет', 'err'); return; }
-      LAB.Win.open(d.id);
-    });
 
     E.svg.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -612,6 +659,13 @@
         if (S.sel.startsWith('link:')) removeLink(S.sel.slice(5)); else removeDevice(S.sel);
       }
     });
+  }
+
+  function openDevice(id) {
+    const d = S.net.dev(id);
+    if (!d || !LAB.Win) return;
+    if (!LAB.Win.tabsFor(d).length) { hint(d.name + ': неуправляемое устройство, настроек нет', 'err'); return; }
+    LAB.Win.open(d.id);
   }
 
   /* ===== Контекстное меню ===== */
@@ -676,8 +730,9 @@
       h('div', { class: 'lab-info__label' }, 'Управление'),
       h('ul', { class: 'lab-help' },
         h('li', null, h('b', null, 'Двойной щелчок'), ' по устройству: настройки (веб-интерфейс, SSH или терминал, браузер).'),
-        h('li', null, h('b', null, 'Правой кнопкой протянуть'), ' от устройства к устройству: кабель. На телефоне: долгое нажатие и тянуть.'),
+        h('li', null, h('b', null, 'Кабель'), ': наведи на устройство и потяни за точку над ним к другому устройству. Или тяни с зажатым Shift. На телефоне: долгое нажатие и тянуть.'),
         h('li', null, h('b', null, 'Щелчок правой кнопкой'), ': меню устройства, кабеля или пустого места.'),
+        h('li', null, h('b', null, 'Удалить кабель'), ': щёлкни по нему и нажми ✕ в его середине (или Delete). Правый щелчок по кабелю тоже даёт меню.'),
         h('li', null, 'Левой кнопкой двигать устройства и холст, колесо масштабирует, Delete удаляет выделенное.'),
         h('li', null, 'Виды L1, L2, L3: кабели, широковещательные домены, подсети. Полоска у устройства: его уровни OSI, при обработке кадра она подсвечивается.'),
         h('li', null, h('b', null, 'Журнал'), ' внизу справа: ping с любого узла и разбор каждого кадра по уровням.'))),
@@ -1102,7 +1157,7 @@
       s('defs', null, s('pattern', { id: 'labGrid', width: 40, height: 40, patternUnits: 'userSpaceOnUse' },
         s('circle', { cx: 1, cy: 1, r: 1, fill: '#2a2a35' }))),
       s('rect', { x: -100000, y: -100000, width: 200000, height: 200000, fill: 'url(#labGrid)' }),
-      E.gLinks = s('g'), E.gPreview = s('g'), E.gNodes = s('g'), E.gPk = s('g', { class: 'lab-pk' }));
+      E.gLinks = s('g'), E.gPreview = s('g'), E.gNodes = s('g'), E.gSel = s('g'), E.gPk = s('g', { class: 'lab-pk' }));
     E.hint = h('div', { class: 'lab-hint', hidden: true });
     E.legend = h('div', { class: 'lab-legend' });
     E.windows = h('div', { class: 'lab-windows' });
@@ -1128,12 +1183,12 @@
     if (load()) {
       S.sim = new LAB.Sim(S.net);
       renderAll();
-      requestAnimationFrame(fit);
+      setTimeout(fit);
       fillTry();
     } else {
       S.net = new LAB.Net();
       S.sim = new LAB.Sim(S.net);
-      requestAnimationFrame(() => loadPreset('services'));
+      setTimeout(() => loadPreset('services'));
     }
     setView(S.view);
   }

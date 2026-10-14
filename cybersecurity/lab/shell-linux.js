@@ -82,7 +82,14 @@
       },
     },
   };
-  const DIRS = { '/etc': ['hostname', 'resolv.conf', 'bind/', 'dhcp/'], '/etc/bind': ['db.lab'], '/etc/dhcp': ['dhcpd.conf'], '/var/www/html': ['index.html'] };
+  FILES['/var/lib/dhcp/dhcpd.leases'] = {
+    read(d, c) {
+      const rows = Object.entries(c.sim.tables(d).leases);
+      if (!rows.length) return ['# аренд пока нет: никто не получал адрес у этого сервера'];
+      return rows.map(([mac, a]) => 'lease ' + a + ' { hardware ethernet ' + mac + '; binding state active; }');
+    },
+  };
+  const DIRS = { '/etc': ['hostname', 'resolv.conf', 'bind/', 'dhcp/'], '/etc/bind': ['db.lab'], '/etc/dhcp': ['dhcpd.conf'], '/var/www/html': ['index.html'], '/var/lib/dhcp': ['dhcpd.leases'] };
 
   function pingOut(c, dst) {
     return c.run('ping', dst).then((r) => {
@@ -111,6 +118,7 @@
       c.print('Файлы:     cat /etc/resolv.conf   echo "nameserver 10.0.0.10" > /etc/resolv.conf   ls /etc');
       c.print('Службы:    systemctl status|start|stop named|isc-dhcp-server|nginx');
       c.print('           cat /etc/bind/db.lab   /etc/dhcp/dhcpd.conf   /var/www/html/index.html');
+      c.print('           cat /var/lib/dhcp/dhcpd.leases (выданные адреса)');
       c.print('Прочее:    hostname   whoami   clear   history', 'dim');
     } },
     { re: /^clear$/, run(c) { c.clear(); } },
@@ -234,7 +242,7 @@
     { re: /^cat\s+(\S+)$/, run(c, m) {
       const f = FILES[m[1]];
       if (!f) { c.err('cat: ' + m[1] + ': No such file or directory'); return; }
-      f.read(c.dev).forEach((l) => c.print(l));
+      f.read(c.dev, c).forEach((l) => c.print(l));
     } },
     { re: /^echo\s+(["']?)(.*?)\1\s*(>>?)\s*(\S+)$/, run(c, m) {
       const f = FILES[m[4]];

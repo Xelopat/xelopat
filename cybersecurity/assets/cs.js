@@ -74,3 +74,24 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
+
+// Бургер на узких экранах: меню выезжает панелью, как на основном сайте
+(function () {
+  function init() {
+    const nav = document.getElementById('navRoot');
+    const btn = document.getElementById('burgerBtn');
+    if (!nav || !btn) return;
+    const set = (on) => {
+      nav.classList.toggle('open', on);
+      btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+      document.body.classList.toggle('nav-open', on);
+    };
+    btn.addEventListener('click', (e) => { e.stopPropagation(); set(!nav.classList.contains('open')); });
+    nav.addEventListener('click', (e) => { if (e.target.closest('a[href]')) set(false); });
+    document.addEventListener('click', (e) => { if (!e.target.closest('.site-header')) set(false); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
+    window.addEventListener('resize', () => { if (window.innerWidth > 900) set(false); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();

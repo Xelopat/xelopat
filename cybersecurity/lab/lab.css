@@ -41,8 +41,8 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 }
 .lab-seg-ctl button:hover, .lab-btn:hover{ border-color:var(--accent); color:var(--accent); }
 .lab-seg-ctl button.active{ background:#26262f; border-color:#55556a; color:var(--text); }
-.lab-btn--full{ color:var(--text); border-color:#4a4a5c; }
-.lab--full .lab-btn--full{ color:var(--text); border-color:#55556a; }
+.lab-btn--icon{ display:inline-flex; align-items:center; justify-content:center; padding:6px 8px; color:var(--text-2); }
+.lab-btn--icon:hover{ color:var(--text); border-color:#55556a; }
 .lab-select{
   background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:4px;
   padding:6px 8px; font:inherit; font-size:12px; outline:none; max-width:240px;
@@ -99,6 +99,18 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 .lab-node__sub{ font-family:var(--mono); font-size:9.5px; fill:var(--muted); paint-order:stroke; stroke:var(--panel-2); stroke-width:4px; }
 .lab-node__sub.is-err{ fill:var(--danger); }
 .lab-node__svc{ font-family:var(--mono); font-size:8.5px; font-weight:700; fill:var(--muted); paint-order:stroke; stroke:var(--panel-2); stroke-width:3px; }
+.lab-link-del{ cursor:pointer; }
+.lab-link-del rect{ fill:#1b1b22; stroke:#55556a; stroke-width:1; }
+.lab-link-del path{ stroke:var(--text-2); stroke-width:1.6; stroke-linecap:round; }
+.lab-link-del:hover rect{ fill:#c42b1c; stroke:#c42b1c; }
+.lab-link-del:hover path{ stroke:#fff; }
+.lab-node__plug{ opacity:0; transition:opacity .12s ease; cursor:crosshair; }
+.lab-node:hover .lab-node__plug, .lab-node.is-sel .lab-node__plug{ opacity:1; }
+.lab-stage.is-wiring .lab-node__plug{ opacity:0; }
+.lab-node__plug-hit{ fill:transparent; }
+.lab-node__plug-dot{ fill:#1e1e25; stroke:var(--green); stroke-width:1.6; }
+.lab-node__plug:hover .lab-node__plug-dot{ fill:var(--green); }
+@media (hover: none){ .lab-node.is-sel .lab-node__plug{ opacity:1; } }
 .lab-seg{ opacity:.18; transition:opacity .25s ease; }
 .lab-seg.is-in{ opacity:.45; }
 .lab-seg.is-on{ opacity:1; animation:labSeg .9s ease; }
@@ -230,12 +242,12 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 .lab-empty{ margin:0; font-size:12px; color:var(--muted); line-height:1.5; }
 
 /* ===== Окна устройств ===== */
-.lab-windows{ position:absolute; inset:0; pointer-events:none; z-index:25; }
+/* Слой окон фиксирован на всё окно браузера: окно можно поднять над холстом до шапки */
+.lab-windows{ position:fixed; inset:0; pointer-events:none; z-index:1500; }
 .lw{
   position:absolute;
-  width:min(660px, calc(100% - 24px));
-  height:min(520px, calc(100% - 24px));
   min-width:300px; min-height:200px;
+  max-width:calc(100vw - 8px); max-height:calc(100vh - 8px);
   display:flex; flex-direction:column;
   background:#18181d;
   border:1px solid #3a3a48;
@@ -248,22 +260,23 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 }
 @keyframes lwIn{ from{ opacity:0; transform:translateY(8px) scale(.985); } to{ opacity:1; transform:none; } }
 .lw.is-front{ border-color:#4c4c60; }
-.lw.is-max{ left:8px !important; top:8px !important; width:calc(100% - 16px) !important; height:calc(100% - 16px) !important; resize:none; }
+.lw.is-max{ left:8px !important; top:8px !important; width:calc(100vw - 16px) !important; height:calc(100vh - 16px) !important; resize:none; }
 .lw.is-min{ height:auto !important; min-height:0; resize:none; }
 .lw.is-min .lw__body{ display:none; }
 .lw__bar{
   display:flex; align-items:center; gap:10px;
-  padding:8px 10px; background:#202027; border-bottom:1px solid #2e2e3a;
+  padding:0 0 0 12px; min-height:38px; background:#202027; border-bottom:1px solid #2e2e3a;
   cursor:move; user-select:none; touch-action:none;
 }
-.lw__dots{ display:flex; gap:7px; flex:0 0 auto; }
-.lw__dot{ width:12px; height:12px; border-radius:50%; border:none; padding:0; cursor:pointer; opacity:.9; }
-.lw__dot:hover{ opacity:1; }
-.lw__dot{ background:#3e3e4c; }
-.lw__dot--close:hover{ background:#e06c6c; }
-.lw__dot--min:hover{ background:#c9a640; }
-.lw__dot--max:hover{ background:#61d1ad; }
-.lw__title{ flex:1; min-width:0; font-family:var(--mono); font-size:12px; color:var(--text-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }
+/* Кнопки окна справа, как в Windows */
+.lw__ctls{ display:flex; align-self:stretch; flex:0 0 auto; margin-left:2px; }
+.lw__ctl{
+  width:46px; border:none; background:transparent; color:var(--text-2);
+  display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+}
+.lw__ctl:hover{ background:#2c2c37; color:var(--text); }
+.lw__ctl--close:hover{ background:#c42b1c; color:#fff; }
+.lw__title{ flex:1; min-width:0; font-family:var(--mono); font-size:12px; color:var(--text-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; }
 .lw__tabs{ display:flex; gap:2px; background:#151518; border:1px solid #2e2e3a; border-radius:4px; padding:2px; flex:0 0 auto; }
 .lw__tab{
   border:none; background:transparent; color:var(--muted);
@@ -321,7 +334,13 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 .wa{ display:grid; grid-template-columns:150px minmax(0,1fr); gap:0; min-height:calc(100% - 40px); }
 .wa__nav{ display:flex; flex-direction:column; gap:2px; padding:10px 8px; border-right:1px solid #2a2a34; }
 .wa__brand{ font-family:var(--mono); font-size:12px; font-weight:700; color:var(--text); padding:4px 8px 10px; }
-.wa__brand small{ display:block; font-weight:400; color:var(--muted); font-size:10.5px; }
+.wa__name{
+  display:block; width:100%; margin-top:4px; padding:3px 6px; margin-left:-6px;
+  background:transparent; border:1px solid transparent; border-radius:3px;
+  color:var(--text-2); font-family:var(--mono); font-size:11px; font-weight:400; outline:none;
+}
+.wa__name:hover{ border-color:#33333f; }
+.wa__name:focus{ border-color:var(--green); background:#121216; color:var(--text); }
 .wa__link{
   text-align:left; border:none; background:transparent; color:var(--text-2);
   border-radius:3px; padding:7px 10px; font:inherit; font-size:12.5px; cursor:pointer;
@@ -530,7 +549,8 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
   .lab-dst{ width:auto; flex:1 1 120px; }
   .lab-dock{ height:55%; }
   .lab-chip{ max-width:calc(100% - 20px); bottom:50px; }
-  .lw{ left:6px !important; top:6px !important; width:calc(100% - 12px) !important; height:calc(100% - 12px) !important; resize:none; }
+  .lw{ left:4px !important; top:4px !important; width:calc(100vw - 8px) !important; height:calc(100vh - 8px) !important; resize:none; }
+  .lw__ctl{ width:40px; }
   .lw__bar{ flex-wrap:wrap; }
   .lw__title{ text-align:left; }
   .wa{ grid-template-columns:1fr; }

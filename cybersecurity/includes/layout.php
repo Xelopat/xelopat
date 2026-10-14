@@ -59,7 +59,7 @@ function cs_head(string $title, string $active = '', string $extra_head = ''): v
       <span class="brand-mark"><img src="<?= cs_h(cs_url('img/xelopat.png')) ?>" alt="xelopat"></span>
       <span class="brand-text">xelopat<span class="brand-sub">/cybersecurity</span></span>
     </a>
-    <nav class="nav" aria-label="Навигация">
+    <nav class="nav" id="navRoot" aria-label="Навигация">
       <a class="nav-link<?= $active === '' ? ' active' : '' ?>" href="<?= cs_h(cs_url()) ?>">Разделы</a>
       <?php foreach ($cs_sections as $sec): ?>
         <?php $sec_on = in_array($active, array_column($sec[2], 0), true); ?>
@@ -75,8 +75,14 @@ function cs_head(string $title, string $active = '', string $extra_head = ''): v
           </div>
         </div>
       <?php endforeach; ?>
-      <a class="nav-link nav-link--out" href="<?= cs_h($cs_main_site) ?>">xelopat.ru</a>
     </nav>
+
+    <div class="auth-area">
+      <a class="auth-action" href="<?= cs_h($cs_main_site) ?>">xelopat.ru</a>
+      <button class="burger" type="button" id="burgerBtn" aria-label="Открыть меню" aria-expanded="false">
+        <span class="burger-lines" aria-hidden="true"><span></span><span></span><span></span></span>
+      </button>
+    </div>
   </div>
 </header>
 <?php

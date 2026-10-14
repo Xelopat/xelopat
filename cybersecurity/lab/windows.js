@@ -1,4 +1,5 @@
-// Окна устройств поверх холста: веб-интерфейс, терминал (SSH или локальный), браузер, службы сервера.
+// Окна устройств: веб-интерфейс, терминал (SSH или локальный), браузер, службы сервера.
+// Окна фиксированы относительно окна браузера, поэтому их можно утащить и выше холста, до шапки.
 // Вкладки окна берутся из type.web и type.shell (types.js). Новая вкладка: добавить запись в TABS и функцию в PAGES.
 (function () {
   const ip = LAB.ip;
@@ -69,21 +70,24 @@
     w.titleEl = h('span', { class: 'lw__title' });
     w.tabsEl = h('div', { class: 'lw__tabs', role: 'tablist' });
     w.body = h('div', { class: 'lw__body' });
+    const ctl = (cls, title, path, fn) => h('button', { type: 'button', class: 'lw__ctl lw__ctl--' + cls, title, 'aria-label': title, onClick: fn },
+      ui.s('svg', { viewBox: '0 0 12 12', width: 12, height: 12, 'aria-hidden': 'true' }, ui.s('path', { d: path, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.2 })));
     const bar = h('div', { class: 'lw__bar' },
-      h('div', { class: 'lw__dots' },
-        h('button', { type: 'button', class: 'lw__dot lw__dot--close', title: 'Закрыть', onClick: () => close(w.devId) }),
-        h('button', { type: 'button', class: 'lw__dot lw__dot--min', title: 'Свернуть', onClick: () => w.el.classList.toggle('is-min') }),
-        h('button', { type: 'button', class: 'lw__dot lw__dot--max', title: 'Развернуть', onClick: () => { w.el.classList.toggle('is-max'); } })),
       w.titleEl,
-      w.tabsEl);
+      w.tabsEl,
+      h('div', { class: 'lw__ctls' },
+        ctl('min', 'Свернуть', 'M1.5 6.5h9', () => w.el.classList.toggle('is-min')),
+        ctl('max', 'Развернуть', 'M2 2h8v8H2z', () => { w.el.classList.toggle('is-max'); w.el.classList.remove('is-min'); }),
+        ctl('close', 'Закрыть', 'M2 2l8 8M10 2l-8 8', () => close(w.devId))));
     w.el = h('div', { class: 'lw', role: 'dialog', onPointerdown: () => focus(w) }, bar, w.body);
     ui.E.windows.append(w.el);
 
     const st = ui.E.stage.getBoundingClientRect();
-    const width = Math.min(660, st.width - 24);
-    const left = Math.max(12, st.width - width - 16 - n * 26);
-    w.el.style.left = left + 'px';
-    w.el.style.top = (12 + n * 26) + 'px';
+    const width = Math.min(680, st.width - 24, window.innerWidth - 16);
+    const height = Math.min(520, Math.max(260, st.height - 24), window.innerHeight - 16);
+    w.el.style.width = width + 'px';
+    w.el.style.height = height + 'px';
+    place(w, st.left + Math.max(12, st.width - width - 16 - n * 26), Math.max(st.top, 0) + 12 + n * 26);
 
     // Перетаскивание за заголовок
     let drag = null;
@@ -100,12 +104,12 @@
     bar.addEventListener('dblclick', (e) => { if (!e.target.closest('button')) w.el.classList.toggle('is-max'); });
   }
 
+  // Держим окно в пределах окна браузера: заголовок всегда виден, чтобы его можно было схватить
   function place(w, x, y) {
-    const st = ui.E.stage;
-    const maxX = Math.max(0, st.clientWidth - 120);
-    const maxY = Math.max(0, st.clientHeight - 40);
-    w.el.style.left = Math.min(maxX, Math.max(-w.el.offsetWidth + 120, x)) + 'px';
-    w.el.style.top = Math.min(maxY, Math.max(0, y)) + 'px';
+    const maxX = window.innerWidth - 120;
+    const maxY = window.innerHeight - 40;
+    w.el.style.left = Math.round(Math.min(maxX, Math.max(-(w.el.offsetWidth || 300) + 120, x))) + 'px';
+    w.el.style.top = Math.round(Math.min(maxY, Math.max(0, y))) + 'px';
   }
 
   function clamp() { Object.values(wins).forEach((w) => place(w, w.el.offsetLeft, w.el.offsetTop)); }
@@ -226,11 +230,19 @@
       h('div', { class: 'wurl' }, h('span', { class: 'wurl__lock' }, mgmt ? '⌂' : '⚠'), h('span', null, mgmt ? 'http://' + mgmt.ip + '/' + cur : 'нет IP: доступ только по консольному кабелю')),
       h('div', { class: 'wa' },
         h('nav', { class: 'wa__nav' },
-          h('div', { class: 'wa__brand' }, brand, h('small', null, dev.name)),
+          h('div', { class: 'wa__brand' }, brand, renameInput(dev)),
           Object.entries(pages).map(([id, p]) => h('button', { type: 'button', class: 'wa__link' + (id === cur ? ' active' : ''), onClick: () => { w.nav[w.tab] = id; render(w); } }, p.title))),
         content));
     content.append(h('h3', { class: 'wa__h' }, pages[cur].title));
     pages[cur].render(content);
+  }
+
+  // Поле имени устройства: применяется по Enter или при уходе фокуса
+  function renameInput(dev) {
+    const el = h('input', { class: 'wa__name', value: dev.name, title: 'Имя устройства, можно изменить', 'aria-label': 'Имя устройства', spellcheck: 'false', maxlength: 24 });
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') el.blur(); });
+    el.addEventListener('change', () => { const v = el.value.trim(); if (v && v !== dev.name) { dev.name = v.slice(0, 24); ui.refreshed(); } else el.value = dev.name; });
+    return el;
   }
 
   /* ===== Страницы ===== */
