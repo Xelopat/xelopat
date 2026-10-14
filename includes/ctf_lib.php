@@ -37,6 +37,7 @@ function ctf_config(): array {
         'api_key' => trim((string)($c['api_key'] ?? '')),
         'model' => $model !== '' ? $model : CTF_DEFAULT_MODEL,
         'search_model' => $search,
+        'proxy' => trim((string)($c['proxy'] ?? '')),
     ];
 }
 
@@ -51,7 +52,7 @@ function ctf_safe_url(string $u): string {
 }
 
 // [код ответа, тело, текст ошибки]
-function ctf_http(string $url, ?string $body, array $headers, int $timeout, bool $v4 = false, int $connect = 10): array {
+function ctf_http(string $url, ?string $body, array $headers, int $timeout, bool $v4 = false, int $connect = 10, string $proxy = ''): array {
     if (function_exists('curl_init')) {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -63,6 +64,7 @@ function ctf_http(string $url, ?string $body, array $headers, int $timeout, bool
             CURLOPT_MAXREDIRS => 3,
         ]);
         if ($v4) curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+        if ($proxy !== '') curl_setopt($ch, CURLOPT_PROXY, $proxy);
         if ($body !== null) {
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
@@ -84,30 +86,47 @@ function ctf_http(string $url, ?string $body, array $headers, int $timeout, bool
     return [$code, is_string($resp) ? $resp : '', $resp === false ? 'сетевая ошибка' : ''];
 }
 
-// CTFtime иногда недоступен с хостинга (таймаут соединения). Пробуем напрямую по IPv4, потом через публичные прокси.
+// CTFtime иногда недоступен с хостинга (таймаут соединения). Пробуем свой прокси из настроек, напрямую по IPv4,
+// публичные прокси, а в конце последний удачный ответ, сохранённый на сервере.
+function ctf_ctftime_cache(): ?array {
+    $f = ctf_dir() . '/ctftime_cache.json';
+    if (!is_file($f)) return null;
+    $list = json_decode((string)file_get_contents($f), true);
+    return is_array($list) ? $list : null;
+}
+
 function ctf_ctftime_json(string $apiUrl): array {
     $ua = 'User-Agent: Mozilla/5.0 (compatible; xelopat.ru CTF digest)';
-    $tries = [
-        ['напрямую', $apiUrl, true, 7],
-        ['allorigins', 'https://api.allorigins.win/raw?url=' . rawurlencode($apiUrl), false, 10],
-        ['jina', 'https://r.jina.ai/' . $apiUrl, false, 10],
-    ];
+    $proxy = ctf_config()['proxy'];
+    $tries = [];
+    if ($proxy !== '') $tries[] = ['через свой прокси', $apiUrl, false, 8, $proxy];
+    $tries[] = ['напрямую', $apiUrl, true, 6, ''];
+    $tries[] = ['allorigins', 'https://api.allorigins.win/raw?url=' . rawurlencode($apiUrl), false, 6, ''];
+    $tries[] = ['jina', 'https://r.jina.ai/' . $apiUrl, false, 6, ''];
+
     $errors = [];
-    foreach ($tries as [$name, $url, $v4, $connect]) {
-        [$code, $body, $err] = ctf_http($url, null, [$ua], 30, $v4, $connect);
+    foreach ($tries as [$name, $url, $v4, $connect, $px]) {
+        [$code, $body, $err] = ctf_http($url, null, [$ua], 25, $v4, $connect, $px);
         if ($code === 200 && $body !== '') {
             $a = strpos($body, '[{');
             if ($a === false) $a = strpos($body, '[');
             $z = strrpos($body, ']');
             if ($a !== false && $z !== false && $z > $a) {
                 $list = json_decode(substr($body, $a, $z - $a + 1), true);
-                if (is_array($list)) return $list;
+                if (is_array($list) && $list) {
+                    $dir = ctf_dir();
+                    if (!is_dir($dir)) @mkdir($dir, 0755, true);
+                    @file_put_contents($dir . '/ctftime_cache.json', json_encode($list, JSON_UNESCAPED_UNICODE), LOCK_EX);
+                    return $list;
+                }
             }
             $errors[] = $name . ': не JSON';
             continue;
         }
         $errors[] = $name . ': ' . ($code ?: ($err ?: 'нет связи'));
     }
+    $cache = ctf_ctftime_cache();
+    if ($cache !== null) return $cache; // прошлый удачный ответ: прошедшие события отсеются сами
     throw new RuntimeException('CTFtime недоступен (' . implode('; ', $errors) . ')');
 }
 
@@ -254,10 +273,57 @@ function ctf_ru_calendar(): array {
     return array_slice($list, 0, 20);
 }
 
-// Текст статьи про событие и внешние ссылки из неё (там обычно официальный сайт)
-function ctf_ru_article(string $path): array {
-    [$code, $html] = ctf_http(CTF_RU_BASE . $path, null, [CTF_UA], 15);
-    if ($code !== 200 || $html === '') return ['text' => '', 'links' => []];
+// Много страниц сразу (curl_multi). url => тело или пустая строка.
+function ctf_http_multi(array $urls, int $timeout): array {
+    $urls = array_values(array_unique($urls));
+    $out = [];
+    if (!$urls) return $out;
+    if (!function_exists('curl_multi_init')) {
+        foreach ($urls as $u) { [$c, $b] = ctf_http($u, null, [CTF_UA], $timeout, false, 6); $out[$u] = $c === 200 ? $b : ''; }
+        return $out;
+    }
+    $mh = curl_multi_init();
+    $hs = [];
+    foreach ($urls as $u) {
+        $ch = curl_init($u);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => 6,
+            CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 3, CURLOPT_HTTPHEADER => [CTF_UA], CURLOPT_ENCODING => '',
+        ]);
+        curl_multi_add_handle($mh, $ch);
+        $hs[$u] = $ch;
+    }
+    do {
+        $st = curl_multi_exec($mh, $running);
+        if ($running) curl_multi_select($mh, 1.0);
+    } while ($running && $st === CURLM_OK);
+    foreach ($hs as $u => $ch) {
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $out[$u] = $code === 200 ? (string)curl_multi_getcontent($ch) : '';
+        curl_multi_remove_handle($mh, $ch);
+        curl_close($ch);
+    }
+    curl_multi_close($mh);
+    return $out;
+}
+
+// Видимый текст страницы, кодировка приведена к UTF-8
+function ctf_html_text(string $html, int $max): string {
+    if ($html === '') return '';
+    if (!mb_check_encoding($html, 'UTF-8')) {
+        $conv = @iconv('Windows-1251', 'UTF-8//IGNORE', $html);
+        if ($conv === false || $conv === '') return '';
+        $html = $conv;
+    }
+    $html = (string)preg_replace('~<(script|style|noscript|svg|nav|footer|header)[^>]*>.*?</\1>~is', ' ', $html);
+    $html = (string)preg_replace('~<!--.*?-->~s', ' ', $html);
+    $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    return mb_substr(trim((string)preg_replace('~\s+~u', ' ', $text)), 0, $max);
+}
+
+// Статья ctfnews.ru: текст и внешние ссылки (там обычно официальный сайт)
+function ctf_ru_parse_article(string $html): array {
+    if ($html === '') return ['text' => '', 'links' => []];
     $body = preg_match('~<article.*?</article>~s', $html, $m) ? $m[0] : $html;
     $links = [];
     if (preg_match_all('~href="(https?://[^"]+)"~i', $body, $lm)) {
@@ -267,17 +333,33 @@ function ctf_ru_article(string $path): array {
             if (ctf_safe_url($u) !== '') $links[$u] = true;
         }
     }
-    $text = trim((string)preg_replace('~\s+~u', ' ', html_entity_decode(strip_tags((string)preg_replace('~<(script|style)[^>]*>.*?</\1>~is', ' ', $body)), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-    return ['text' => mb_substr($text, 0, 1800), 'links' => array_slice(array_keys($links), 0, 5)];
+    return ['text' => ctf_html_text($body, 1200), 'links' => array_slice(array_keys($links), 0, 5)];
 }
 
-// Календарь + статьи (без ИИ)
+// Официальный сайт: первая ссылка не на соцсеть и не на форму
+function ctf_pick_site(array $links): string {
+    foreach ($links as $u) {
+        if (!preg_match('~(^|\.)(t\.me|vk\.com|vk\.ru|youtube\.com|youtu\.be|docs\.google\.com|forms\.gle|forms\.yandex\.ru|instagram\.com|facebook\.com|twitter\.com|x\.com)$~i', (string)parse_url($u, PHP_URL_HOST))) return $u;
+    }
+    return '';
+}
+
+// Календарь + статьи + официальные сайты (всё параллельно, без ИИ)
 function ctf_ru_collect(): array {
     $items = ctf_ru_calendar();
+    if (!$items) return [];
+    $pages = ctf_http_multi(array_map(function ($it) { return CTF_RU_BASE . $it['news']; }, $items), 20);
     foreach ($items as &$it) {
-        $art = ctf_ru_article($it['news']);
+        $art = ctf_ru_parse_article($pages[CTF_RU_BASE . $it['news']] ?? '');
         $it['text'] = $art['text'];
         $it['links'] = $art['links'];
+        $it['site_url'] = ctf_pick_site($art['links']);
+    }
+    unset($it);
+    // Статья на CTF News часто только анонс, настоящие подробности на сайте события
+    $sites = ctf_http_multi(array_filter(array_map(function ($it) { return $it['site_url']; }, $items)), 15);
+    foreach ($items as &$it) {
+        $it['site'] = $it['site_url'] !== '' ? ctf_html_text($sites[$it['site_url']] ?? '', 1500) : '';
     }
     unset($it);
     return $items;
@@ -287,25 +369,51 @@ function ctf_ru_collect(): array {
 function ctf_ru_extract(array $cfg, array $items, array $known): array {
     $payload = [];
     foreach ($items as $i => $it) {
-        $payload[] = ['n' => $i, 'name' => $it['label'], 'dates' => $it['start'] . ' .. ' . $it['finish'], 'links' => $it['links'], 'article' => $it['text']];
+        $payload[] = [
+            'n' => $i, 'name' => $it['label'], 'dates' => $it['start'] . ' .. ' . $it['finish'],
+            'links' => $it['links'], 'site_url' => $it['site_url'] ?? '',
+            'announce' => $it['text'], 'site' => $it['site'] ?? '',
+        ];
     }
     $res = ctf_ai_json(
         $cfg,
-        'Ты разбираешь анонсы российских CTF и киберсоревнований. Используй только то, что написано в статье, ничего не выдумывай. Отвечай только JSON.',
+        'Ты разбираешь российские CTF и киберсоревнования. У каждого события есть announce (короткий анонс на CTF News, часто только про регистрацию) и site (текст официального сайта события). '
+        . 'Подробности о времени, формате и условиях бери в первую очередь из site, потом из announce. Используй только то, что там написано, ничего не выдумывай. Отвечай только JSON.',
         'Для каждого события верни JSON {"events":[{"n":номер,"start_time":"HH:MM" московское время начала или пустая строка,'
         . '"finish_time":"HH:MM" или пустая строка,"online":true если можно участвовать онлайн, false если только очно,'
-        . '"city":"город или пусто","organizer":"организатор или пусто","url":"официальный сайт или регистрация, выбери из links, иначе пусто",'
-        . '"summary":"1-2 предложения по-русски о событии, формате и том, кому подойдёт"}]}. Время указывай только если оно прямо названо в статье.' . "\n"
+        . '"city":"город или пусто","organizer":"организатор или пусто","url":"официальный сайт события: site_url или один из links, иначе пусто",'
+        . '"summary":"1-2 предложения по-русски о событии, формате и том, кому подойдёт"}]}. Время указывай только если оно прямо названо в тексте. online=false ставь только если прямо сказано, что участие только очное.' . "\n"
         . json_encode($payload, JSON_UNESCAPED_UNICODE),
         5000
     );
+    $rows = [];
+    foreach ((array)($res['events'] ?? []) as $a) {
+        if (is_array($a) && isset($items[(int)($a['n'] ?? -1)])) $rows[(int)$a['n']] = $a;
+    }
+
+    // Добор: где время неизвестно, а также где сайта нет (часто JS-приложение, текста не достать)
+    $weak = [];
+    foreach ($rows as $n => $a) {
+        if (!ctf_valid_time((string)($a['start_time'] ?? ''))) {
+            $weak[$n] = ['name' => $items[$n]['label'], 'dates' => $items[$n]['start'] . ' .. ' . $items[$n]['finish']];
+        }
+        if (count($weak) >= 8) break;
+    }
+    try {
+        foreach (ctf_ai_enrich($cfg, $weak) as $n => $e) {
+            foreach (['start_time', 'finish_time', 'city', 'organizer', 'url'] as $k) {
+                if (trim((string)($rows[$n][$k] ?? '')) === '' && trim((string)($e[$k] ?? '')) !== '') $rows[$n][$k] = $e[$k];
+            }
+            if (array_key_exists('online', $e) && $e['online'] !== null && !array_key_exists('online', $rows[$n])) $rows[$n]['online'] = $e['online'];
+        }
+    } catch (Throwable $ex) {
+        // добор не критичен
+    }
+
     $seen = [];
     foreach ($known as $k) $seen[ctf_norm_title((string)$k['title'])] = true;
     $out = [];
-    foreach ((array)($res['events'] ?? []) as $a) {
-        if (!is_array($a)) continue;
-        $n = (int)($a['n'] ?? -1);
-        if (!isset($items[$n])) continue;
+    foreach ($rows as $n => $a) {
         $it = $items[$n];
         if (ctf_is_dup(ctf_norm_title($it['label']), $seen)) continue;
         $url = ctf_safe_url((string)($a['url'] ?? ''));
@@ -315,7 +423,7 @@ function ctf_ru_extract(array $cfg, array $items, array $known): array {
             $it['start'], (string)($a['start_time'] ?? ''),
             $it['finish'], (string)($a['finish_time'] ?? ''),
             $url,
-            !array_key_exists('online', $a) || !empty($a['online']),
+            !(array_key_exists('online', $a) && $a['online'] === false && trim((string)($a['city'] ?? '')) !== ''),
             mb_substr(trim(strip_tags((string)($a['organizer'] ?? ''))), 0, 60),
             mb_substr(trim(strip_tags((string)($a['city'] ?? ''))), 0, 60),
             mb_substr(trim(strip_tags((string)($a['summary'] ?? ''))), 0, 500),
@@ -328,18 +436,8 @@ function ctf_ru_extract(array $cfg, array $items, array $known): array {
 
 /* ---------- поиск по интернету моделью с веб-поиском ---------- */
 
-// Находит то, чего нет ни на CTFtime, ни в календаре ctfnews.ru
-function ctf_ai_search(array $cfg, array $known): array {
-    if ($cfg['api_key'] === '' || $cfg['search_model'] === '') return [];
-    $now = time();
-    $until = $now + CTF_HORIZON_DAYS * 86400;
-    $prompt = 'Сегодня ' . date('Y-m-d', $now) . '. Найди в интернете предстоящие и идущие сейчас CTF-соревнования по информационной безопасности '
-        . 'в ближайшие 4 месяца. Особенно ищи российские и русскоязычные (RuCTF, VolgaCTF, Codeby Games, Standoff, студенческие, от вузов и компаний, '
-        . 'региональные), а также любые другие. Только реально существующие события с официальным сайтом или страницей анонса. '
-        . 'Не включай события, которые уже закончились. Верни ТОЛЬКО JSON вида '
-        . '{"events":[{"title":"","start":"YYYY-MM-DD","start_time":"HH:MM по Москве или пустая строка","finish":"YYYY-MM-DD","finish_time":"HH:MM или пустая строка",'
-        . '"url":"https://...","online":true,"organizer":"","description":"1-2 предложения"}]}. '
-        . 'Время указывай только если оно известно точно. Если точных дат нет, пропусти событие.';
+// Запрос к модели с выходом в интернет; ответ вытаскиваем из текста как JSON
+function ctf_ai_web(array $cfg, string $prompt): array {
     $body = json_encode([
         'model' => $cfg['search_model'],
         'messages' => [['role' => 'user', 'content' => $prompt]],
@@ -354,6 +452,40 @@ function ctf_ai_search(array $cfg, array $known): array {
     $b = strrpos($txt, '}');
     $res = ($a !== false && $b !== false && $b > $a) ? json_decode(substr($txt, $a, $b - $a + 1), true) : null;
     if (!is_array($res)) throw new RuntimeException('ИИ-поиск вернул ответ не в JSON');
+    return $res;
+}
+
+// Если анонс и сайт события не дали времени или формата, спрашиваем модель с веб-поиском одним запросом на все такие события
+function ctf_ai_enrich(array $cfg, array $items): array {
+    if (!$items || $cfg['api_key'] === '' || $cfg['search_model'] === '') return [];
+    $list = [];
+    foreach ($items as $n => $it) $list[] = ['n' => $n, 'name' => $it['name'], 'dates' => $it['dates']];
+    $res = ctf_ai_web($cfg, 'Найди в интернете точные сведения об этих CTF-соревнованиях (даты указаны). Для каждого определи: время начала и окончания по Москве, '
+        . 'формат участия (онлайн или только очно), город, организатора и официальный сайт. Заполняй только то, что нашёл в источниках, иначе оставляй пусто или null. '
+        . 'Верни ТОЛЬКО JSON вида {"events":[{"n":0,"start_time":"HH:MM","finish_time":"HH:MM","online":true,"city":"","organizer":"","url":"https://..."}]}.' . "\n"
+        . json_encode($list, JSON_UNESCAPED_UNICODE));
+    $out = [];
+    foreach ((array)($res['events'] ?? []) as $a) {
+        if (is_array($a) && isset($items[(int)($a['n'] ?? -1)])) $out[(int)$a['n']] = $a;
+    }
+    return $out;
+}
+
+// Находит то, чего нет ни на CTFtime, ни в календаре ctfnews.ru. В режиме $ctftimeMode (CTFtime недоступен)
+// ещё и пытается перечислить международные события из календаря CTFtime.
+function ctf_ai_search(array $cfg, array $known, bool $ctftimeMode = false): array {
+    if ($cfg['api_key'] === '' || $cfg['search_model'] === '') return [];
+    $now = time();
+    $until = $now + CTF_HORIZON_DAYS * 86400;
+    $prompt = 'Сегодня ' . date('Y-m-d', $now) . '. Найди в интернете предстоящие и идущие сейчас CTF-соревнования по информационной безопасности '
+        . 'в ближайшие 4 месяца. Особенно ищи российские и русскоязычные (RuCTF, VolgaCTF, Codeby Games, Standoff, студенческие, от вузов и компаний, '
+        . 'региональные), а также любые другие. Только реально существующие события с официальным сайтом или страницей анонса. '
+        . 'Не включай события, которые уже закончились. Верни ТОЛЬКО JSON вида '
+        . '{"events":[{"title":"","start":"YYYY-MM-DD","start_time":"HH:MM по Москве или пустая строка","finish":"YYYY-MM-DD","finish_time":"HH:MM или пустая строка",'
+        . '"url":"https://...","online":true,"organizer":"","description":"1-2 предложения"}]}. '
+        . 'Время указывай только если оно известно точно. Если точных дат нет, пропусти событие.'
+        . ($ctftimeMode ? ' Обязательно включи международные события из календаря CTFtime (ctftime.org/event/list/upcoming), в url дай официальный сайт или страницу события на ctftime.org.' : '');
+    $res = ctf_ai_web($cfg, $prompt);
 
     $seen = [];
     foreach ($known as $k) $seen[ctf_norm_title((string)$k['title'])] = true;
@@ -365,7 +497,8 @@ function ctf_ai_search(array $cfg, array $known): array {
         $sd = (string)($e['start'] ?? '');
         $fd = (string)($e['finish'] ?? '') !== '' ? (string)$e['finish'] : $sd;
         if ($title === '' || $url === '') continue;
-        if (stripos((string)parse_url($url, PHP_URL_HOST), 'ctftime.org') !== false) continue; // эти события и так берём с CTFtime напрямую
+        $onCtftime = stripos((string)parse_url($url, PHP_URL_HOST), 'ctftime.org') !== false;
+        if ($onCtftime && (!$ctftimeMode || !preg_match('~/event/\d+~', $url))) continue; // CTFtime-события в обычном режиме берём напрямую
         $ev = ctf_make_event(
             $title, $sd, (string)($e['start_time'] ?? ''), $fd, (string)($e['finish_time'] ?? ''), $url,
             !isset($e['online']) || !empty($e['online']),
@@ -374,9 +507,10 @@ function ctf_ai_search(array $cfg, array $known): array {
             'ai'
         );
         if (!$ev || $ev['finish'] < $now || $ev['start'] > $until) continue;
+        if ($onCtftime) $ev['ctftime_url'] = $url;
         if (ctf_is_dup(ctf_norm_title($title), $seen)) continue;
         $out[] = $ev;
-        if (count($out) >= 25) break;
+        if (count($out) >= ($ctftimeMode ? 40 : 25)) break;
     }
     return $out;
 }

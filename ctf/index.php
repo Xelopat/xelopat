@@ -39,12 +39,15 @@ if (isset($_GET['api'])) {
             $model = trim((string)($in['model'] ?? ''));
             if ($model !== '' && !preg_match('~^[A-Za-z0-9._:/\-]{3,80}$~', $model)) ctf_json(400, ['error' => 'Название модели выглядит неправильно']);
             $cur['model'] = $model;
+            $px = trim((string)($in['proxy'] ?? ''));
+            if ($px !== '' && !preg_match('~^(https?|socks4|socks5h?)://[A-Za-z0-9._~%!$&\'()*+,;=:@\-]{3,200}$~', $px)) ctf_json(400, ['error' => 'Прокси вида socks5://host:port или http://user:pass@host:port']);
+            $cur['proxy'] = $px;
             $sm = trim((string)($in['search_model'] ?? ''));
             if ($sm !== '' && !preg_match('~^[A-Za-z0-9._:/\-]{3,80}$~', $sm)) ctf_json(400, ['error' => 'Название модели поиска выглядит неправильно']);
             $cur['search_model'] = $sm;
             if (!ctf_write('ctf_config.json', $cur)) ctf_json(500, ['error' => 'Не удалось сохранить настройки']);
             $c = ctf_config();
-            ctf_json(200, ['ok' => true, 'key' => ctf_mask_key($c['api_key']), 'model' => $c['model'], 'search_model' => $c['search_model']]);
+            ctf_json(200, ['ok' => true, 'key' => ctf_mask_key($c['api_key']), 'model' => $c['model'], 'search_model' => $c['search_model'], 'proxy' => $c['proxy']]);
         }
 
         if ($action === 'start') {
@@ -59,7 +62,7 @@ if (isset($_GET['api'])) {
             }
             ctf_write('ctf_pending.json', [
                 'created' => time(), 'events' => $events, 'ai' => (object)[],
-                'extra' => 0, 'note' => implode('; ', $note),
+                'extra' => 0, 'note' => implode('; ', $note), 'ctftime_ok' => count($events) > 0,
             ]);
             ctf_json(200, ['ok' => true, 'found' => count($events), 'note' => implode('; ', $note)]);
         }
@@ -108,7 +111,7 @@ if (isset($_GET['api'])) {
             $added = 0;
             if ($cfg['search_model'] !== '') {
                 try {
-                    $extra = ctf_ai_search($cfg, (array)$p['events']);
+                    $extra = ctf_ai_search($cfg, (array)$p['events'], empty($p['ctftime_ok']));
                     $p['events'] = array_merge((array)$p['events'], $extra);
                     $p['extra'] = (int)($p['extra'] ?? 0) + count($extra);
                     $added = count($extra);
@@ -204,7 +207,7 @@ $upcoming = array_values(array_filter($current, function ($e) use ($now) { retur
 $online = count(array_filter($current, function ($e) { return empty($e['onsite']); }));
 $picks = count(array_filter($current, function ($e) { return !empty($e['pick']); }));
 $updated = (int)($data['updated_at'] ?? 0);
-$cfg = $ctf_is_admin ? ctf_config() : ['api_key' => '', 'model' => CTF_DEFAULT_MODEL, 'search_model' => ''];
+$cfg = $ctf_is_admin ? ctf_config() : ['api_key' => '', 'model' => CTF_DEFAULT_MODEL, 'search_model' => '', 'proxy' => ''];
 
 // популярные теги для фильтра
 $tagCount = [];
@@ -449,6 +452,9 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
             <label>Модель для поиска по интернету (пусто = искать только в CTFtime и календаре)
               <input class="b-input" type="text" id="ctfSearchModel" value="<?= ctf_h($cfg['search_model']) ?>">
             </label>
+            <label>Прокси для CTFtime (необязательно, если сервер сам не достаёт до ctftime.org)
+              <input class="b-input" type="text" id="ctfProxy" value="<?= ctf_h($cfg['proxy'] ?? '') ?>" placeholder="socks5://host:port или http://user:pass@host:port">
+            </label>
             <div class="ctf-admin-row">
               <button class="b-btn" type="submit">Сохранить</button>
               <span class="ctf-status" id="ctfSetStatus"></span>
@@ -684,6 +690,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
         api_key: document.getElementById('ctfKey').value,
         model: document.getElementById('ctfModel').value,
         search_model: document.getElementById('ctfSearchModel').value,
+        proxy: document.getElementById('ctfProxy').value,
       });
       document.getElementById('ctfKey').value = '';
       document.getElementById('ctfModel').value = j.model;
