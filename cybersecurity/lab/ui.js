@@ -2,8 +2,9 @@
 // Логика сети живёт в net.js, окна устройств в windows.js, сохранение карт на сервере в maps.js.
 //
 // Управление: левая кнопка двигает устройство или холст, двойной щелчок открывает настройки,
-// кабель тянется правой кнопкой от устройства к устройству (или левой от точки над ним, или с Shift),
-// щелчок правой кнопкой открывает меню. На телефоне кабель тянется после долгого нажатия,
+// кабель тянется левой кнопкой от точки над устройством к другому устройству (или с зажатым Shift),
+// щелчок правой кнопкой открывает меню. Протягивание правой кнопкой не используем: в браузерах это жесты
+// мыши (назад, закрыть вкладку). На телефоне кабель тянется после долгого нажатия,
 // долгое нажатие без движения открывает меню, у выделенного кабеля появляется кнопка ✕.
 (function () {
   const NS = 'http://www.w3.org/2000/svg';
@@ -253,12 +254,13 @@
         transform: 'translate(' + d.x + ' ' + d.y + ')',
       });
       g.append(s('title', null, d.name + ', ' + t.title.toLowerCase() + '. Двойной щелчок: настройки'));
-      g.append(s('rect', { class: 'lab-node__halo', x: -36, y: -46, width: 80, height: S.view === 'l1' ? 96 : 108, rx: 4 }));
+      g.append(s('rect', { class: 'lab-node__halo', x: -36, y: -56, width: 80, height: S.view === 'l1' ? 106 : 118, rx: 4 }));
       g.append(iconFor(d.type));
       g.append(s('g', { class: 'lab-node__plug' },
         s('title', null, 'Потяни к другому устройству, чтобы соединить кабелем'),
-        s('circle', { cx: 0, cy: -34, r: 9, class: 'lab-node__plug-hit' }),
-        s('circle', { cx: 0, cy: -34, r: 4.5, class: 'lab-node__plug-dot' })));
+        s('circle', { cx: 0, cy: -40, r: 15, class: 'lab-node__plug-hit' }),
+        s('circle', { cx: 0, cy: -40, r: 7.5, class: 'lab-node__plug-dot' }),
+        s('path', { d: 'M-3.5 -40h7M0 -43.5v7', class: 'lab-node__plug-plus' })));
       const bar = s('g', { class: 'lab-bar', transform: 'translate(31 -24)' });
       for (let n = 7; n >= 1; n--) {
         const on = n >= t.layers[0] && n <= t.layers[1];
@@ -469,7 +471,7 @@
     const d = S.net.add(type, Math.round(p.x / 10) * 10, Math.round(p.y / 10) * 10);
     S.sel = d.id;
     changed();
-    hint(d.name + ' добавлен. Щёлкни по нему правой кнопкой, потом по другому устройству, чтобы соединить', 'ok');
+    hint(d.name + ' добавлен. Потяни за точку над ним к другому устройству, чтобы соединить', 'ok');
   }
 
   function removeDevice(id) {
@@ -517,7 +519,7 @@
       let best = null, bd = Infinity;
       S.net.devices.forEach((d) => {
         const dx = w.x - d.x, dy = w.y - d.y;
-        if (Math.abs(dx) > 40 || dy < -46 || dy > 62) return;
+        if (Math.abs(dx) > 40 || dy < -56 || dy > 62) return;
         const dist = dx * dx + dy * dy;
         if (dist < bd) { bd = dist; best = d.id; }
       });
@@ -525,9 +527,8 @@
     };
 
     // Закончить кабель в точке e: над другим устройством соединить.
-    // Щелчок мышью без движения не заканчивает кабель, а «прилепляет» его к курсору: дальше щёлкни по второму
-    // устройству. Так кабель тянется и без зажатой кнопки, а значит без жестов мыши браузера.
-    // Повторный щелчок по тому же устройству открывает его меню, по пустому месту или Esc отменяет.
+    // Щелчок по точке без движения «прилепляет» кабель к курсору: дальше щёлкни по второму устройству.
+    // Щелчок по пустому месту, по тому же устройству или Esc отменяет.
     const finishWire = (e, cancel) => {
       const target = cancel ? null : nodeAt(e);
       const from = wire.from;
@@ -535,15 +536,15 @@
       if (!cancel && !moved && !wire.sticky && wire.pointer === 'mouse') {
         wire.sticky = true;
         const d = S.net.dev(from);
-        hint('Кабель от ' + (d ? d.name : '?') + ': щёлкни по второму устройству. Щелчок по этому же: меню, Esc: отмена', 'ok');
+        hint('Кабель от ' + (d ? d.name : '?') + ': щёлкни по второму устройству. Esc или пустое место: отмена', 'ok');
         return;
       }
       const wasSticky = wire.sticky;
       endWire();
       if (target && target !== from) connect(from, target);
       else if (cancel) return;
-      else if (target === from && (wasSticky || !moved)) {
-        // На следующем такте: это же нажатие ещё дойдёт до document и закрыло бы меню
+      else if (target === from && !wasSticky && !moved) {
+        // Долгое нажатие на телефоне без движения: меню. На следующем такте, иначе его закроет это же нажатие
         const at = { clientX: e.clientX, clientY: e.clientY };
         select(from);
         setTimeout(() => openMenu(at, { node: from }), 0);
@@ -552,13 +553,8 @@
     };
 
     E.svg.addEventListener('contextmenu', (e) => e.preventDefault());
-    // Жесты мыши в браузере (Яндекс, Opera, Vivaldi) съедают движение и отпускание правой кнопки,
-    // но в конце обычно присылают contextmenu с координатами: по нему и заканчиваем кабель
-    window.addEventListener('contextmenu', (e) => {
-      // На Linux и macOS contextmenu приходит при нажатии, кнопка ещё зажата: тогда ждём отпускания
-      if (wire) { e.preventDefault(); if (!wire.sticky && !(e.buttons & 2)) finishWire(e); return; }
-      if (wireEnded > performance.now() - 400) e.preventDefault();
-    }, true);
+    // Пока тянется кабель, системное меню не нужно нигде (кнопку могли отпустить над окном или панелью)
+    window.addEventListener('contextmenu', (e) => { if (wire || wireEnded > performance.now() - 400) e.preventDefault(); }, true);
 
     E.svg.addEventListener('pointerdown', (e) => {
       if (wire) { finishWire(e); return; }
@@ -571,9 +567,7 @@
       try { E.svg.setPointerCapture(e.pointerId); } catch (err) { /* без захвата тоже работает */ }
 
       if (e.button === 2) {
-        // Правой кнопкой от устройства: кабель; без движения это просто меню
-        if (nodeEl) { select(nodeEl.dataset.node); startWire(nodeEl.dataset.node, e); }
-        else press = { x: e.clientX, y: e.clientY, link: linkEl ? linkEl.dataset.link : null };
+        press = { x: e.clientX, y: e.clientY, node: nodeEl ? nodeEl.dataset.node : null, link: linkEl ? linkEl.dataset.link : null };
         return;
       }
       if (e.button !== 0) return;
@@ -608,7 +602,6 @@
 
     E.svg.addEventListener('pointermove', (e) => {
       if (wire) {
-        if (!wire.sticky && wire.pointer === 'mouse' && wire.btn === 2 && !(e.buttons & 2)) { finishWire(e); return; }
         if (Math.abs(e.clientX - wire.x) + Math.abs(e.clientY - wire.y) > 4) wire.moved = true;
         const a = S.net.dev(wire.from);
         const w = toWorld(e);
@@ -654,7 +647,8 @@
       if (press && press.touch) { clearTimeout(press.timer); press = null; return; }
       if (press) {
         if (Math.abs(e.clientX - press.x) + Math.abs(e.clientY - press.y) < 8) {
-          if (press.link) { select('link:' + press.link); openMenu(e, { link: press.link }); }
+          if (press.node) { select(press.node); openMenu(e, { node: press.node }); }
+          else if (press.link) { select('link:' + press.link); openMenu(e, { link: press.link }); }
           else openMenu(e, { at: toWorld(e) });
         }
         press = null;
@@ -766,9 +760,8 @@
       h('div', { class: 'lab-info__label' }, 'Управление'),
       h('ul', { class: 'lab-help' },
         h('li', null, h('b', null, 'Двойной щелчок'), ' по устройству: настройки (веб-интерфейс, диагностика: ping и traceroute, браузер).'),
-        h('li', null, h('b', null, 'Кабель'), ': щёлкни правой кнопкой по устройству, кабель пойдёт за курсором, щёлкни по второму устройству. Можно и тянуть с зажатой кнопкой, если в браузере выключены жесты мыши. На телефоне: долгое нажатие на устройство и тянуть.'),
-        h('li', null, h('b', null, 'Меню устройства'), ': два щелчка правой кнопкой по нему. По кабелю или пустому месту хватит одного.'),
-        h('li', null, h('b', null, 'Удалить'), ': через меню или выдели и нажми Delete. На телефоне: тап по кабелю и ✕, или долгое нажатие.'),
+        h('li', null, h('b', null, 'Кабель'), ': наведи на устройство, над ним появится точка с плюсом. Потяни её левой кнопкой к другому устройству или щёлкни по ней, а потом по второму устройству. На телефоне: долгое нажатие на устройство и тянуть.'),
+        h('li', null, h('b', null, 'Удалить'), ': правой кнопкой по кабелю или устройству, или выдели и нажми Delete. На телефоне: тап по кабелю и ✕, или долгое нажатие.'),
         h('li', null, 'Левой кнопкой двигать устройства и холст, колесо масштабирует, Delete удаляет выделенное.'),
         h('li', null, 'Виды L1, L2, L3: кабели, широковещательные домены, подсети. Полоска у устройства: его уровни OSI, при обработке кадра она подсвечивается.'),
         h('li', null, h('b', null, 'Журнал'), ' внизу справа: ping с любого узла и разбор каждого кадра по уровням.'))),

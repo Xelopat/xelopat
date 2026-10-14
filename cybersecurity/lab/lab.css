@@ -106,6 +106,8 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 .lab-link-del:hover path{ stroke:#fff; }
 .lab-node__plug{ opacity:0; transition:opacity .12s ease; cursor:crosshair; }
 .lab-node:hover .lab-node__plug, .lab-node.is-sel .lab-node__plug{ opacity:1; }
+.lab-node__plug-plus{ stroke:var(--green); stroke-width:1.6; stroke-linecap:round; pointer-events:none; }
+.lab-node__plug:hover .lab-node__plug-plus{ stroke:#121216; }
 .lab-stage.is-wiring .lab-node__plug{ opacity:0; }
 .lab-node__plug-hit{ fill:transparent; }
 .lab-node__plug-dot{ fill:#1e1e25; stroke:var(--green); stroke-width:1.6; }
