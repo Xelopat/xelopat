@@ -4,6 +4,7 @@
 declare(strict_types=1);
 
 const CTF_DEFAULT_MODEL = 'openai/gpt-4o-mini';
+const CTF_DEFAULT_SEARCH_MODEL = 'perplexity/sonar'; // модель с выходом в интернет
 const CTF_AI_URL = 'https://routerai.ru/api/v1/chat/completions';
 const CTF_BATCH = 15;          // сколько событий отдаём ИИ за один запрос (чтобы не упереться в таймаут)
 const CTF_HORIZON_DAYS = 120;  // на сколько дней вперёд смотрим
@@ -30,9 +31,12 @@ function ctf_write(string $name, array $data): bool {
 function ctf_config(): array {
     $c = ctf_read('ctf_config.json');
     $model = trim((string)($c['model'] ?? ''));
+    // пустая строка в search_model = поиск по интернету выключен; если поля нет вовсе, берём модель по умолчанию
+    $search = array_key_exists('search_model', $c) ? trim((string)$c['search_model']) : CTF_DEFAULT_SEARCH_MODEL;
     return [
         'api_key' => trim((string)($c['api_key'] ?? '')),
         'model' => $model !== '' ? $model : CTF_DEFAULT_MODEL,
+        'search_model' => $search,
     ];
 }
 
@@ -120,6 +124,89 @@ function ctf_fetch_events(): array {
     return array_slice($out, 0, CTF_MAX_EVENTS);
 }
 
+function ctf_norm_title(string $t): string {
+    $t = mb_strtolower($t);
+    $t = preg_replace('~\b(19|20)\d{2}\b~u', '', $t);
+    return (string)preg_replace('~[^\p{L}\p{N}]+~u', '', (string)$t);
+}
+
+// Поиск по интернету моделью с веб-поиском: находит то, чего нет на CTFtime (российские и студенческие CTF).
+// Возвращает события в том же виде, что и ctf_fetch_events(), с пометкой source = ai.
+function ctf_ai_search(array $cfg, array $known): array {
+    if ($cfg['api_key'] === '' || $cfg['search_model'] === '') return [];
+    $now = time();
+    $until = $now + CTF_HORIZON_DAYS * 86400;
+    $prompt = 'Сегодня ' . date('Y-m-d', $now) . '. Найди в интернете предстоящие и идущие сейчас CTF-соревнования по информационной безопасности '
+        . 'в ближайшие 4 месяца. Особенно ищи российские и русскоязычные (RuCTF, VolgaCTF, Codeby Games, Standoff, студенческие, от вузов и компаний, '
+        . 'региональные), а также любые другие. Только реально существующие события с официальным сайтом или страницей анонса. '
+        . 'Не включай события, которые уже закончились. Верни ТОЛЬКО JSON вида '
+        . '{"events":[{"title":"","start":"YYYY-MM-DD","finish":"YYYY-MM-DD","url":"https://...","online":true,"organizer":"","description":"1-2 предложения"}]}. '
+        . 'Если точных дат нет, пропусти событие.';
+    $body = json_encode([
+        'model' => $cfg['search_model'],
+        'messages' => [['role' => 'user', 'content' => $prompt]],
+        'temperature' => 0.1,
+        'max_tokens' => 4000,
+    ], JSON_UNESCAPED_UNICODE);
+    [$code, $resp, $err] = ctf_http(CTF_AI_URL, (string)$body, ['Content-Type: application/json', 'Authorization: Bearer ' . $cfg['api_key']], 100);
+    $j = json_decode($resp, true);
+    if ($code !== 200 || !is_array($j)) throw new RuntimeException('ИИ-поиск не ответил (' . ($code ?: ($err ?: 'нет связи')) . ')');
+    $txt = (string)($j['choices'][0]['message']['content'] ?? '');
+    $a = strpos($txt, '{');
+    $b = strrpos($txt, '}');
+    $res = ($a !== false && $b !== false && $b > $a) ? json_decode(substr($txt, $a, $b - $a + 1), true) : null;
+    if (!is_array($res)) throw new RuntimeException('ИИ-поиск вернул ответ не в JSON');
+
+    $seen = [];
+    foreach ($known as $k) $seen[ctf_norm_title((string)$k['title'])] = true;
+    $tz = new DateTimeZone('Europe/Moscow');
+    $out = [];
+    foreach ((array)($res['events'] ?? []) as $e) {
+        if (!is_array($e)) continue;
+        $title = mb_substr(trim(strip_tags((string)($e['title'] ?? ''))), 0, 120);
+        $url = ctf_safe_url((string)($e['url'] ?? ''));
+        $sd = (string)($e['start'] ?? '');
+        $fd = (string)($e['finish'] ?? '') !== '' ? (string)$e['finish'] : $sd;
+        if ($title === '' || $url === '' || !preg_match('~^\d{4}-\d{2}-\d{2}$~', $sd) || !preg_match('~^\d{4}-\d{2}-\d{2}$~', $fd)) continue;
+        if (stripos((string)parse_url($url, PHP_URL_HOST), 'ctftime.org') !== false) continue; // эти события и так берём с CTFtime напрямую
+        try {
+            $start = (new DateTime($sd . ' 00:00:00', $tz))->getTimestamp();
+            $finish = (new DateTime($fd . ' 23:59:59', $tz))->getTimestamp();
+        } catch (Throwable $ex) {
+            continue; // кривая дата от ИИ: пропускаем только это событие
+        }
+        if ($finish < $now || $start > $until || $finish < $start) continue;
+        $nt = ctf_norm_title($title);
+        if ($nt === '' || isset($seen[$nt])) continue;
+        foreach (array_keys($seen) as $sk) {
+            $s = (string)$sk;
+            if (strlen($nt) >= 6 && strlen($s) >= 6 && (strpos($s, $nt) !== false || strpos($nt, $s) !== false)) continue 2;
+        }
+        $seen[$nt] = true;
+        $out[] = [
+            'id' => 900000000 + (crc32($nt . $sd) % 90000000),
+            'title' => $title,
+            'start' => $start,
+            'finish' => $finish,
+            'allday' => true,
+            'source' => 'ai',
+            'url' => $url,
+            'ctftime_url' => '',
+            'weight' => 0.0,
+            'participants' => 0,
+            'onsite' => isset($e['online']) ? !$e['online'] : false,
+            'location' => '',
+            'format' => '',
+            'organizers' => ((string)($e['organizer'] ?? '') !== '') ? [mb_substr(trim(strip_tags((string)$e['organizer'])), 0, 60)] : [],
+            'restrictions' => '',
+            'prizes' => '',
+            'description' => mb_substr(trim(strip_tags((string)($e['description'] ?? ''))), 0, 500),
+        ];
+        if (count($out) >= 25) break;
+    }
+    return $out;
+}
+
 // Один запрос к routerai.ru (формат OpenAI). Возвращает разобранный JSON-ответ модели.
 function ctf_ai_json(array $cfg, string $system, string $user, int $maxTokens): array {
     if ($cfg['api_key'] === '') throw new RuntimeException('Не задан API-ключ routerai.ru (настройки ИИ ниже)');
@@ -171,8 +258,8 @@ function ctf_ai_batch(array $events, array $cfg): array {
         $items[] = [
             'id' => $e['id'],
             'title' => $e['title'],
-            'start' => gmdate('Y-m-d', $e['start']),
-            'finish' => gmdate('Y-m-d', $e['finish']),
+            'start' => date('Y-m-d', $e['start']),
+            'finish' => date('Y-m-d', $e['finish']),
             'format' => $e['format'],
             'onsite' => $e['onsite'],
             'weight' => $e['weight'],
@@ -182,7 +269,7 @@ function ctf_ai_batch(array $events, array $cfg): array {
         ];
     }
     $system = 'Ты помогаешь составить афишу CTF-соревнований для русскоязычного студента-новичка в инфобезе, который уже немного играет. '
-        . 'Тебе дают события с CTFtime. Для КАЖДОГО события верни короткую выжимку на русском. '
+        . 'Тебе дают события (с CTFtime или найденные поиском по интернету). Для КАЖДОГО события верни короткую выжимку на русском. '
         . 'Не выдумывай факты: если в описании чего-то нет, оставь поле пустым. Отвечай только JSON.';
     $user = 'Верни JSON вида {"events":[{"id":число,"summary":"1-2 предложения по-русски о чём событие и кто организатор, если известно",'
         . '"level":"beginner|medium|hard","tags":["web","pwn","crypto","rev","forensics","osint","misc" и т.п., до 5],'
@@ -204,7 +291,7 @@ function ctf_ai_digest(array $events, array $cfg): string {
     foreach ($events as $e) {
         $items[] = [
             'title' => $e['title'],
-            'start' => gmdate('Y-m-d', $e['start']),
+            'start' => date('Y-m-d', $e['start']),
             'level' => $e['level'] ?? '',
             'pick' => !empty($e['pick']),
         ];
@@ -220,8 +307,13 @@ function ctf_ai_digest(array $events, array $cfg): string {
 
 /* ---------------- оформление ---------------- */
 
-function ctf_when(int $s, int $f): string {
+function ctf_when(int $s, int $f, bool $allday = false): string {
     $m = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    if ($allday) {
+        $a = date('j', $s) . ' ' . $m[(int)date('n', $s) - 1];
+        if (date('Y-m-d', $s) === date('Y-m-d', $f)) return $a;
+        return $a . ' — ' . date('j', $f) . ' ' . $m[(int)date('n', $f) - 1];
+    }
     $a = date('j', $s) . ' ' . $m[(int)date('n', $s) - 1] . ', ' . date('H:i', $s);
     $b = date('Y-m-d', $s) === date('Y-m-d', $f)
         ? date('H:i', $f)
@@ -231,6 +323,7 @@ function ctf_when(int $s, int $f): string {
 
 function ctf_duration(int $s, int $f): string {
     $h = (int)round(($f - $s) / 3600);
+    if ($h >= 48) return (int)round($h / 24) . ' дн';
     if ($h < 48) return $h . ' ч';
     return (int)round($h / 24) . ' дн';
 }
