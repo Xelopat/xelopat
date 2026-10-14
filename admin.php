@@ -189,6 +189,10 @@ foreach (COLLECTIONS as $key => $def) {
 $perf = is_file(__DIR__ . '/perfumes/data.json') ? json_decode((string)file_get_contents(__DIR__ . '/perfumes/data.json'), true) : [];
 $sections[] = ['title' => 'Духи', 'url' => '/perfumes', 'add' => '/perfumes?add=1', 'stat' => count((array)($perf['items'] ?? [])) . ' шт.', 'last' => 'редактируются на странице'];
 
+$ctfData = is_file(__DIR__ . '/data/ctf_events.json') ? json_decode((string)file_get_contents(__DIR__ . '/data/ctf_events.json'), true) : [];
+$ctfUpd = (int)($ctfData['updated_at'] ?? 0);
+$sections[] = ['title' => 'CTF', 'url' => '/ctf', 'add' => '', 'stat' => count((array)($ctfData['events'] ?? [])) . ' событий', 'last' => $ctfUpd ? 'афиша обновлена ' . admin_when($ctfUpd) : 'афиша ещё не собиралась'];
+
 $la = is_file(__DIR__ . '/data/lisa_alisa.json') ? json_decode((string)file_get_contents(__DIR__ . '/data/lisa_alisa.json'), true) : [];
 $laMonth = 0.0; $laDays = 0;
 $laStart = la_config()['start_day'];
