@@ -2,9 +2,9 @@
 // Логика сети живёт в net.js, окна устройств в windows.js, сохранение карт на сервере в maps.js.
 //
 // Управление: левая кнопка двигает устройство или холст, двойной щелчок открывает настройки,
-// кабель тянется левой кнопкой от точки над устройством (или с зажатым Shift) к другому устройству,
-// щелчок правой кнопкой открывает меню. На телефоне кабель тянется после долгого нажатия.
-// Протягивание правой кнопкой не используем: в браузерах это жесты мыши (назад, другая вкладка).
+// кабель тянется правой кнопкой от устройства к устройству (или левой от точки над ним, или с Shift),
+// щелчок правой кнопкой открывает меню. На телефоне кабель тянется после долгого нажатия,
+// долгое нажатие без движения открывает меню, у выделенного кабеля появляется кнопка ✕.
 (function () {
   const NS = 'http://www.w3.org/2000/svg';
   const STORE = 'cs-lab:v2';
@@ -308,9 +308,10 @@
   }
 
   // Кнопка ✕ в середине выделенного кабеля
+  // Кнопка нужна только на сенсорном экране: мышью кабель удаляется через правую кнопку или Delete
   function drawLinkDel() {
     E.gSel.replaceChildren();
-    if (!S.sel || !S.sel.startsWith('link:')) return;
+    if (!S.touch || !S.sel || !S.sel.startsWith('link:')) return;
     const l = S.net.link(S.sel.slice(5));
     if (!l) return;
     const gm = linkGeom(l);
@@ -470,7 +471,7 @@
     const d = S.net.add(type, Math.round(p.x / 10) * 10, Math.round(p.y / 10) * 10);
     S.sel = d.id;
     changed();
-    hint(d.name + ' добавлен. Потяни за точку над ним к другому устройству, чтобы соединить', 'ok');
+    hint(d.name + ' добавлен. Протяни правой кнопкой к другому устройству, чтобы соединить', 'ok');
   }
 
   function removeDevice(id) {
@@ -501,7 +502,7 @@
 
   /* ===== Мышь и касания на холсте ===== */
   function bindStage() {
-    let drag = null, pan = null, wire = null, press = null, lastTap = null;
+    let drag = null, pan = null, wire = null, press = null, lastTap = null, wireEnded = 0;
 
     const startWire = (id, e) => {
       wire = { from: id, moved: false, x: e.clientX, y: e.clientY };
@@ -509,6 +510,7 @@
     };
     const endWire = () => {
       wire = null;
+      wireEnded = performance.now();
       E.gPreview.replaceChildren();
       E.stage.classList.remove('is-wiring');
     };
@@ -526,16 +528,22 @@
     };
 
     E.svg.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Пока тянется кабель, системное меню не нужно нигде (кнопку могли отпустить над окном или панелью)
+    window.addEventListener('contextmenu', (e) => { if (wire || wireEnded > performance.now() - 400) e.preventDefault(); }, true);
 
     E.svg.addEventListener('pointerdown', (e) => {
       closeMenus();
       const nodeEl = e.target.closest('[data-node]');
       const linkEl = e.target.closest('[data-link]');
+      const touch = e.pointerType === 'touch';
+      if (touch !== !!S.touch) { S.touch = touch; drawLinkDel(); }
       if (e.button === 0 && e.target.closest('.lab-link-del')) { removeLink(S.sel.slice(5)); return; }
       try { E.svg.setPointerCapture(e.pointerId); } catch (err) { /* без захвата тоже работает */ }
 
       if (e.button === 2) {
-        press = { x: e.clientX, y: e.clientY, node: nodeEl ? nodeEl.dataset.node : null, link: linkEl ? linkEl.dataset.link : null };
+        // Правой кнопкой от устройства: кабель; без движения это просто меню
+        if (nodeEl) { select(nodeEl.dataset.node); startWire(nodeEl.dataset.node, e); }
+        else press = { x: e.clientX, y: e.clientY, link: linkEl ? linkEl.dataset.link : null };
         return;
       }
       if (e.button !== 0) return;
@@ -559,7 +567,12 @@
         }
         return;
       }
-      if (linkEl) { select('link:' + linkEl.dataset.link); return; }
+      if (linkEl) {
+        select('link:' + linkEl.dataset.link);
+        // Долгое нажатие на кабель на телефоне: меню
+        if (touch) { const id = linkEl.dataset.link; press = { x: e.clientX, y: e.clientY, link: id, touch: true, timer: setTimeout(() => { if (press && press.link === id) { press = null; openMenu(e, { link: id }); } }, LONG_PRESS_MS) }; }
+        return;
+      }
       pan = { x: e.clientX, y: e.clientY, cx: S.cam.x, cy: S.cam.y, moved: false };
     });
 
@@ -601,6 +614,7 @@
         endWire();
         if (target && target !== from) connect(from, target);
         else if (moved) hint('Отпусти кабель над другим устройством', 'err');
+        else if (e.type === 'pointerup') openMenu(e, { node: from });
         return;
       }
       if (drag) {
@@ -615,10 +629,10 @@
         drag = null;
         return;
       }
+      if (press && press.touch) { clearTimeout(press.timer); press = null; return; }
       if (press) {
         if (Math.abs(e.clientX - press.x) + Math.abs(e.clientY - press.y) < 8) {
-          if (press.node) { select(press.node); openMenu(e, { node: press.node }); }
-          else if (press.link) { select('link:' + press.link); openMenu(e, { link: press.link }); }
+          if (press.link) { select('link:' + press.link); openMenu(e, { link: press.link }); }
           else openMenu(e, { at: toWorld(e) });
         }
         press = null;
@@ -730,9 +744,9 @@
       h('div', { class: 'lab-info__label' }, 'Управление'),
       h('ul', { class: 'lab-help' },
         h('li', null, h('b', null, 'Двойной щелчок'), ' по устройству: настройки (веб-интерфейс, SSH или терминал, браузер).'),
-        h('li', null, h('b', null, 'Кабель'), ': наведи на устройство и потяни за точку над ним к другому устройству. Или тяни с зажатым Shift. На телефоне: долгое нажатие и тянуть.'),
+        h('li', null, h('b', null, 'Кабель'), ': зажми правую кнопку на устройстве, веди к другому и отпусти. Ещё можно тянуть левой за точку над устройством или с зажатым Shift. На телефоне: долгое нажатие на устройство и тянуть.'),
+        h('li', null, h('b', null, 'Удалить'), ': правой кнопкой по кабелю или устройству, или выдели и нажми Delete. На телефоне: тап по кабелю и ✕, или долгое нажатие.'),
         h('li', null, h('b', null, 'Щелчок правой кнопкой'), ': меню устройства, кабеля или пустого места.'),
-        h('li', null, h('b', null, 'Удалить кабель'), ': щёлкни по нему и нажми ✕ в его середине (или Delete). Правый щелчок по кабелю тоже даёт меню.'),
         h('li', null, 'Левой кнопкой двигать устройства и холст, колесо масштабирует, Delete удаляет выделенное.'),
         h('li', null, 'Виды L1, L2, L3: кабели, широковещательные домены, подсети. Полоска у устройства: его уровни OSI, при обработке кадра она подсвечивается.'),
         h('li', null, h('b', null, 'Журнал'), ' внизу справа: ping с любого узла и разбор каждого кадра по уровням.'))),
