@@ -5,7 +5,7 @@
 (function () {
   const STORE = 'cs-lab:progress';
   let ui, h;
-  let pop = null, spop = null, card = null, pill = null;
+  let pop = null, spop = null, card = null, pill = null, modal = null;
   const st = {
     done: {},          // id -> время прохождения (секунды)
     hints: {},         // id -> сколько подсказок открыто
@@ -15,7 +15,6 @@
     revealed: 0,       // сколько условий уже показано
     stale: false,      // после проверки схему меняли
     hidden: false,     // карточка скрыта, вместо неё кнопка «Задача: …»
-    showKnow: false,
     syncing: false,
   };
 
@@ -101,7 +100,6 @@
     st.results = null;
     st.stale = false;
     st.hidden = false;
-    st.showKnow = !st.done[id];
     ui.setNet(LAB.buildTask(t), null, null, t.id);
     closePop();
     renderCard();
@@ -157,6 +155,33 @@
     updateBtn();
   }
 
+  /* ===== Теория: модальное окно ===== */
+  function theoryBtn(id) {
+    if (!id || !LAB.theory || !LAB.theory[id]) return null;
+    return h('button', { type: 'button', class: 'lab-task__theory', onClick: () => openTheory(id) },
+      h('span', { class: 'lab-task__theory-ic', 'aria-hidden': 'true' }, '?'), 'Что нужно знать: ' + LAB.theory[id].title);
+  }
+
+  function openTheory(id) {
+    const th = LAB.theory[id];
+    if (!th) return;
+    const body = th.body.map((b) => {
+      if (Array.isArray(b)) return h('ul', null, b.map((x) => h('li', null, x)));
+      if (b && b.h) return h('h4', null, b.h);
+      return h('p', null, b);
+    });
+    const box = h('div', { class: 'lab-modal__box', role: 'dialog', 'aria-modal': 'true', 'aria-label': th.title },
+      h('div', { class: 'lab-modal__head' },
+        h('span', { class: 'lab-task__lvl' }, 'Что нужно знать'),
+        h('button', { type: 'button', class: 'lab-task__ic', title: 'Закрыть (Esc)', 'aria-label': 'Закрыть', onClick: closeTheory }, ui.icon('close'))),
+      h('h3', { class: 'lab-modal__title' }, th.title),
+      h('div', { class: 'lab-modal__body' }, body));
+    modal.replaceChildren(box);
+    modal.hidden = false;
+    box.querySelector('button').focus();
+  }
+  function closeTheory() { if (modal) { modal.hidden = true; modal.replaceChildren(); } }
+
   /* ===== Карточка задачи или схемы ===== */
   // Свернуть карточку в маленькую кнопку слева вверху
   const hideBtn = () => h('button', { type: 'button', class: 'lab-task__ic', title: 'Свернуть', 'aria-label': 'Свернуть', onClick: () => { st.hidden = true; saveLocal(); renderCard(); } }, ui.icon('minimize'));
@@ -185,8 +210,7 @@
     const nHints = Math.min(st.hints[t.id] || 0, t.hints.length);
     const body = [
       h('p', { class: 'lab-task__goal' }, t.goal),
-      h('details', { class: 'lab-task__know', open: st.showKnow, onToggle: (e) => { st.showKnow = e.target.open; } },
-        ui.foldSummary('Что нужно знать'), h('p', null, t.know)),
+      theoryBtn(t.theory),
     ];
     // Во время показа отметки открываются по одной; текущее условие помечено «проверяю»
     const items = (st.results || t.checks.map((c) => ({ text: c.text, ok: null }))).map((r, k) => {
@@ -226,7 +250,7 @@
       p.try ? h('button', { type: 'button', class: 'btn btn--primary', onClick: () => ui.tryPreset(p) }, ui.tryLabel(p)) : null,
       h('button', { type: 'button', class: 'lab-btn', 'data-pop-toggle': '', onClick: (e) => { e.stopPropagation(); LAB.TasksUI.toggleSchemes(); } }, 'Все схемы'),
       h('button', { type: 'button', class: 'lab-btn lab-btn--quiet', title: 'Вернуть схему к исходному виду', onClick: () => { if (confirm('Вернуть схему к исходному виду? Твои изменения пропадут.')) { ui.loadPreset(p.id); renderCard(); } } }, 'Заново'));
-    card.replaceChildren(head, h('div', { class: 'lab-task__body' }, h('p', { class: 'lab-task__goal' }, p.desc)), actions);
+    card.replaceChildren(head, h('div', { class: 'lab-task__body' }, h('p', { class: 'lab-task__goal' }, p.desc), theoryBtn(p.theory)), actions);
   }
 
   // Первая фраза описания: для подписи в списке
@@ -298,6 +322,12 @@
       pop = h('div', { class: 'lab-pop lab-tasks', hidden: true });
       spop = h('div', { class: 'lab-pop lab-tasks lab-schemes', hidden: true });
       ui.E.stage.append(card, pill, pop, spop);
+      // Окно теории внутри #lab: так оно видно и в полноэкранном режиме
+      modal = h('div', { class: 'lab-modal', hidden: true, onPointerdown: (e) => { if (e.target === modal) closeTheory(); } });
+      ui.E.root.append(modal);
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal && !modal.hidden) { e.stopPropagation(); closeTheory(); }
+      }, true);
       renderAll();
       sync();
     },
