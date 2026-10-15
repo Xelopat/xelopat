@@ -1,5 +1,6 @@
 <?php
-$site_page_title = 'Курсовая: инъекции — xelopat';
+$site_page_title = 'SQL-инъекции, XSS и LFI на примерах: уязвимый и защищённый код — курсовая';
+$site_page_description = 'Курсовая работа по веб-уязвимостям на примере онлайн-библиотеки: живые демо SQL-инъекции, XSS и LFI в уязвимой и защищённой реализации, презентация и текст работы.';
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 ?>
 <style>

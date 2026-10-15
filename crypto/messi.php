@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/theme.php';
-crypto_page_start('Линейный регистр сдвига');
+crypto_page_start('messi');
 ?>
     <label for="sequence">Введите двоичную последовательность:</label>
     <input type="text" id="sequence" placeholder="Например, 1111101110110100">

@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/theme.php';
-crypto_page_start('Проверка эллиптической подписи');
+crypto_page_start('check_signature_eleptic');
 ?>
     <label for="a">a (коэффициент кривой(перед x без степени)):</label>
     <input type="number" id="a" placeholder="Введите a" value="2">

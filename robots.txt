@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /admin
+Disallow: /auth/
+Disallow: /data/
+Disallow: /crypto/process
+
+Sitemap: https://xelopat.ru/sitemap.xml

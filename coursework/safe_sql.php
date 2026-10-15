@@ -37,6 +37,7 @@ if ($countSecret == 0) {
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="robots" content="noindex, follow">
     <title>Онлайн-библиотека: Поиск книг по автору (защищённая страница)</title>
     <style>
         body { font-family: Arial, sans-serif; background: #f4faf4; padding: 20px; }

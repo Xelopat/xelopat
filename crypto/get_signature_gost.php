@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/theme.php';
-crypto_page_start('Вычисление подписи по ГОСТ Р 34.10-2012');
+crypto_page_start('get_signature_gost');
 ?>
 
     <label for="a">a (коэффициент кривой):</label>

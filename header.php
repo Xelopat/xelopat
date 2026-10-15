@@ -16,12 +16,13 @@ $brand_href = '/';
 $univer_sections = [
     'crypto' => [
         'title' => 'Криптография',
+        'href' => '/crypto',
         'items' => [
-            ['Треугольник', '/crypto/triangle'],
+            ['Полином Жегалкина', '/crypto/triangle'],
             ['Построение циклов', '/crypto/hmm_cycles'],
             ['Берлекэмп-Мэсси', '/crypto/messi'],
-            ['Проверка подписи', '/crypto/check_signature'],
-            ['Создание подписи', '/crypto/get_signature'],
+            ['Подпись Эль-Гамаля', '/crypto/check_signature'],
+            ['Подпись ECDSA', '/crypto/get_signature'],
             ['Эллиптические кривые', '/crypto/eleptic_sum'],
         ],
     ],
@@ -77,6 +78,11 @@ function site_active(string $href, string $uri): bool {
 $site_css_v = @filemtime($_SERVER['DOCUMENT_ROOT'] . '/assets/site.css') ?: 1;
 $site_js_v = @filemtime($_SERVER['DOCUMENT_ROOT'] . '/assets/site.js') ?: 1;
 if (isset($site_page_title)):
+  // Для поисковиков: описание, канонический адрес без query, превью для соцсетей и JSON-LD.
+  // Страница может задать $site_page_description, $site_page_noindex, $site_page_jsonld (массив) и $site_page_head_extra (готовый HTML).
+  $site_origin = 'https://xelopat.ru';
+  $site_canonical = $site_origin . ($uri === '/' ? '/' : rtrim($uri, '/'));
+  $site_desc = trim((string)($site_page_description ?? ''));
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -84,9 +90,32 @@ if (isset($site_page_title)):
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title><?= site_h((string)$site_page_title) ?></title>
+<?php if ($site_desc !== ''): ?>
+  <meta name="description" content="<?= site_h($site_desc) ?>">
+<?php endif; ?>
+<?php if (!empty($site_page_noindex)): ?>
+  <meta name="robots" content="noindex, follow">
+<?php else: ?>
+  <link rel="canonical" href="<?= site_h($site_canonical) ?>">
+<?php endif; ?>
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="xelopat">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:title" content="<?= site_h((string)$site_page_title) ?>">
+<?php if ($site_desc !== ''): ?>
+  <meta property="og:description" content="<?= site_h($site_desc) ?>">
+<?php endif; ?>
+  <meta property="og:url" content="<?= site_h($site_canonical) ?>">
+  <meta property="og:image" content="<?= $site_origin ?>/img/xelopat.png">
   <link rel="icon" type="image/png" href="/img/xelopat.png">
   <link rel="stylesheet" href="/assets/site.css?v=<?= $site_css_v ?>">
+<?php if (!empty($site_page_head_extra)): ?>
+  <?= $site_page_head_extra ?>
+<?php endif; ?>
   <script src="/assets/site.js?v=<?= $site_js_v ?>" defer></script>
+<?php if (!empty($site_page_jsonld)): ?>
+  <script type="application/ld+json"><?= json_encode($site_page_jsonld, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?></script>
+<?php endif; ?>
 </head>
 <body>
 <?php else: ?>
@@ -135,7 +164,11 @@ if (isset($site_page_title)):
         <div class="dd-panel" id="dd-univer" role="dialog" aria-label="МЭИ">
           <?php foreach ($univer_sections as $section): ?>
             <section class="dd-group">
-              <div class="dd-group-title"><?= site_h((string)$section['title']) ?></div>
+              <?php if (!empty($section['href'])): ?>
+                <a class="dd-group-title" href="<?= site_h((string)$section['href']) ?>" title="Все калькуляторы раздела"><?= site_h((string)$section['title']) ?> →</a>
+              <?php else: ?>
+                <div class="dd-group-title"><?= site_h((string)$section['title']) ?></div>
+              <?php endif; ?>
               <ul class="dd-group-list">
                 <?php foreach ($section['items'] as $it): ?>
                   <?php $label = (string)$it[0]; $href = (string)$it[1]; ?>

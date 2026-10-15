@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/theme.php';
-crypto_page_start('Полином Жегалкина');
+crypto_page_start('triangle');
 ?>
 <label for="input-string">Введите двоичную строку (16 бит):</label>
 <input type="text" id="input-string" maxlength="16" placeholder="например, 1010101010101010">

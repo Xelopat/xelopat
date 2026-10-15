@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/theme.php';
-crypto_page_start('Вычисление подписи (r, S)');
+crypto_page_start('get_signature');
 ?>
     <label for="a">a (коэффициент кривой (перед x без степени)):</label>
     <input type="number" id="a" placeholder="Введите a" value="2">

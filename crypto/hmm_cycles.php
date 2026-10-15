@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/theme.php';
-crypto_page_start('Построение циклов по формуле');
+crypto_page_start('hmm_cycles');
 ?>
     <script>
         function evaluateFormula(formula, x4, x3, x2, x1) {

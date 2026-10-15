@@ -2,6 +2,9 @@
 <IfModule mod_rewrite.c>
 RewriteEngine On
 
+# Карта сайта для поисковиков собирается скриптом
+RewriteRule ^sitemap\.xml$ sitemap.php [L]
+
 # Не добавлять слэш к папкам: иначе Apache шлёт /dir -> /dir/, а правила ниже обратно, и выходит петля
 DirectorySlash Off
 

@@ -266,6 +266,7 @@ body.nav-open{
   border-top:1px solid #2a2a34;
 }
 .dd-group-title{
+  display:block;
   margin:0 0 4px;
   color:var(--green);
   font-size:11px;
@@ -273,6 +274,8 @@ body.nav-open{
   text-transform:uppercase;
   letter-spacing:.04em;
 }
+a.dd-group-title{ text-decoration:none; }
+a.dd-group-title:hover{ color:var(--accent); }
 
 .auth-modal{ position:fixed; inset:0; display:none; z-index:2000; }
 .auth-modal.open{ display:block; }

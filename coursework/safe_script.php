@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="robots" content="noindex, follow">
     <title>Онлайн-библиотека: Отзывы о книге (уязвимая страница)</title>
     <style>
         body { font-family: Arial, sans-serif; background: #f4faf4; padding: 20px; }

@@ -1,5 +1,18 @@
 <?php
-$site_page_title = 'Калькулятор подсетей — xelopat';
+$site_page_title = 'Калькулятор подсетей VLSM онлайн — разбиение сети по числу ПК';
+$site_page_description = 'Онлайн-калькулятор подсетей VLSM: разбивает сеть в формате CIDR (например, 192.168.0.0/24) на подсети под заданное количество компьютеров и выдаёт адрес сети, маску, первый и последний адрес и broadcast для каждой.';
+$site_page_jsonld = [
+    '@context' => 'https://schema.org',
+    '@type' => 'WebApplication',
+    'name' => 'Калькулятор подсетей VLSM',
+    'description' => $site_page_description,
+    'url' => 'https://xelopat.ru/adminis/ip',
+    'applicationCategory' => 'UtilitiesApplication',
+    'operatingSystem' => 'Any',
+    'inLanguage' => 'ru',
+    'isAccessibleForFree' => true,
+    'offers' => ['@type' => 'Offer', 'price' => '0', 'priceCurrency' => 'RUB'],
+];
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 ?>
 <style>
@@ -24,7 +37,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   <div class="page-wrap page-wrap--narrow">
     <div class="page-label">// администрирование</div>
     <h1 class="page-title">Калькулятор подсетей (VLSM)</h1>
-    <p class="page-sub">Введите сеть в формате CIDR и список групп ПК через пробел. Расчёт строится от самой крупной подсети к меньшей.</p>
+    <p class="page-sub">Введите сеть в формате CIDR и список групп ПК через пробел. Расчёт строится от самой крупной подсети к меньшей (VLSM): для каждой группы подбирается минимальная маска, в которую влезают все компьютеры, плюс адрес сети и broadcast. В таблице: адрес сети, маска, первый и последний адрес хоста и broadcast.</p>
 
     <section class="panel">
       <form id="subnetForm" class="ip-form">

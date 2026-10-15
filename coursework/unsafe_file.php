@@ -19,6 +19,7 @@ $targetPath = ($book !== '') ? realpath($baseDir . '/' . $book) : false;
 <head>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="UTF-8">
+    <meta name="robots" content="noindex, follow">
     <title>Онлайн-библиотека: Чтение файлов книг (LFI)</title>
     <style>
         body { font-family: Arial, sans-serif; background: #fff4f4; padding: 20px; }

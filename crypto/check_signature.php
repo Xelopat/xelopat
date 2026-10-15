@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/theme.php';
-crypto_page_start('Проверка цифровой подписи');
+crypto_page_start('check_signature');
 ?>
     <label for="alpha">α (множество ненулевых вычетов):</label>
     <input type="number" id="alpha" placeholder="Введите α" value="15">

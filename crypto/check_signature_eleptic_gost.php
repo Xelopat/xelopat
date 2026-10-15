@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/theme.php';
-crypto_page_start('Проверка подписи ГОСТ Р 34.10-2012');
+crypto_page_start('check_signature_eleptic_gost');
 ?>
     <label for="a">a (коэффициент кривой(перед x без степени)):</label>
     <input type="number" id="a" placeholder="Введите a" value="2">

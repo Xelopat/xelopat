@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/theme.php';
-crypto_page_start('Сложение точек на эллиптической кривой');
+crypto_page_start('eleptic_sum');
 ?>
     <label for="p">Модуль p:</label>
     <input type="number" id="p" placeholder="Введите модуль p" value="7">
