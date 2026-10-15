@@ -927,7 +927,7 @@
     let text, cls = 'err';
     if (op === 'tracert') {
       const last = r.hops[r.hops.length - 1];
-      text = 'Итог: ' + r.hops.map((x) => x.from || '*').join(' → ');
+      text = 'Итог: ' + r.hops.map((x) => x.from || '*').join(' -> ');
       cls = last && last.done ? 'ok' : 'err';
     } else if (find('dns-fail')) text = 'Итог: DNS не дал адрес (' + find('dns-fail').reason + ')';
     else if (find('local-err')) text = 'Итог: ' + find('local-err').text;
@@ -961,7 +961,7 @@
       return h('div', { class: 'lab-log__row is-hop', style: { '--kc': KIND_COLOR[ev.kind] }, onClick: (e) => pickRow(e.currentTarget, ev) },
         h('span', { class: 'lab-log__tick' }, ev.tick),
         h('span', { class: 'lab-log__kind' }, KIND_TEXT[ev.kind]),
-        h('span', null, h('b', null, (a ? a.name : '?') + ' → ' + (b ? b.name : '?')), ' ' + ev.label));
+        h('span', null, h('b', null, (a ? a.name : '?') + ' -> ' + (b ? b.name : '?')), ' ' + ev.label));
     }
     const d = ev.dev ? net.dev(ev.dev) : null;
     return h('div', { class: 'lab-log__row is-' + ev.level + (ev.frame ? ' is-click' : ''), onClick: ev.frame ? (e) => pickRow(e.currentTarget, ev) : null },
@@ -1057,7 +1057,7 @@
     let where;
     if (ev.type === 'hop') {
       const a = net.dev(ev.from), b = net.dev(ev.to);
-      where = (a ? a.name : '?') + ' → ' + (b ? b.name : '?');
+      where = (a ? a.name : '?') + ' -> ' + (b ? b.name : '?');
     } else {
       const d = net.dev(ev.dev);
       where = 'на ' + (d ? d.name : '?');
@@ -1090,7 +1090,8 @@
     }, 900);
   }
 
-  function animate(r) {
+  // mul: во сколько раз быстрее обычного (показ проверок задачи идёт ускоренно)
+  function animate(r, mul) {
     const events = r.events.slice();
     const total = events.length;
     const maxRows = 400;
@@ -1117,18 +1118,22 @@
         }
       };
 
+      // У каждой анимации свой маркер: прерванная не должна трогать ту, что запустили следом
+      let done = false;
       const finish = () => {
+        if (done) return;
+        done = true;
         while (i < events.length) reveal(events[i++], true);
         pills.forEach((p) => p.el.remove());
         E.gLinks.querySelectorAll('.is-busy').forEach((x) => x.classList.remove('is-busy'));
-        S.anim = null;
+        if (S.anim === me) S.anim = null;
         E.log.scrollTop = E.log.scrollHeight;
         resolve();
       };
 
       const frame = (now) => {
-        if (!S.anim) return;
-        t += (now - last) * S.speed;
+        if (done || S.anim !== me) return;
+        t += (now - last) * S.speed * (mul || 1);
         last = now;
         const tick = t / TICK_MS;
         let added = false;
@@ -1155,7 +1160,8 @@
         requestAnimationFrame(frame);
       };
 
-      S.anim = { finish };
+      const me = { finish };
+      S.anim = me;
       requestAnimationFrame((now) => { last = now; frame(now); });
     });
   }
@@ -1163,6 +1169,24 @@
   function stopAnim() {
     if (S.anim) S.anim.finish();
   }
+
+  // Проиграть готовый результат симуляции (например, записанный проверкой задачи) с заголовком в журнале
+  function play(r, title, mul) {
+    stopAnim();
+    clearLog(true);
+    E.log.append(h('div', { class: 'lab-log__row is-head' }, title));
+    chip('run');
+    return animate(r, mul).then(() => { E.chip.hidden = true; return r; });
+  }
+
+  // Иконки интерфейса: шеврон (свернуть и развернуть) и крестик
+  const UI_ICONS = { chevron: 'M4 6l4 4 4-4', close: 'M4 4l8 8M12 4l-8 8' };
+  function icon(name, cls) {
+    return s('svg', { class: 'lab-ico' + (cls ? ' ' + cls : ''), viewBox: '0 0 16 16', width: 14, height: 14, 'aria-hidden': 'true' },
+      s('path', { d: UI_ICONS[name], fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+  }
+  // Заголовок раскрывающегося блока: шеврон вместо стандартного треугольника
+  function foldSummary(text) { return h('summary', null, icon('chevron', 'lab-ico--fold'), h('span', null, text)); }
 
   /* ===== Экспорт и импорт ===== */
   function exportFile() {
@@ -1203,6 +1227,7 @@
     changed, refreshed, save, hint, runOp, renderAll, setNet, closeMenus,
     select(id) { select(id); },
     fit() { fit(); },
+    play, stopAnim, icon, foldSummary,
   };
 
   function boot() {

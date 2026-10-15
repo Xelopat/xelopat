@@ -93,7 +93,7 @@
         q.item.name + ': L' + l.n + ', ' + l.name.toLowerCase() + ' уровень.',
         q.item.note ? h('div', { class: 'quiz-fb__note' }, q.item.note) : null,
         q.item.defense ? h('div', { class: 'quiz-fb__note' }, 'Защита: ' + q.item.defense) : null,
-        h('button', { type: 'button', class: 'quiz-fb__link', onClick: () => api.go('layers', l.n) }, 'открыть уровень →')));
+        h('button', { type: 'button', class: 'quiz-fb__link', onClick: () => api.go('layers', l.n) }, 'открыть уровень ->')));
       els.next.hidden = false;
       els.next.focus({ preventScroll: true });
     } else {
@@ -128,7 +128,7 @@
       els.card = h('div', { class: 'quiz-card' });
       els.answers = h('div', { class: 'quiz-answers' });
       els.feedback = h('div', { class: 'quiz-feedback', 'aria-live': 'polite' });
-      els.next = h('button', { type: 'button', class: 'btn btn--primary', hidden: true, onClick: nextQuestion }, 'Следующий вопрос →');
+      els.next = h('button', { type: 'button', class: 'btn btn--primary', hidden: true, onClick: nextQuestion }, 'Следующий вопрос ->');
       const reset = h('button', { type: 'button', class: 'btn', onClick: () => {
         Object.assign(score, { right: 0, total: 0, streak: 0, best: score.best });
         bag = [];

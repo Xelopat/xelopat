@@ -318,7 +318,7 @@
           }), addErr);
           c.append(h('div', { class: 'wcard' + (LAB.ifUp(itf) ? '' : ' is-off') },
             h('div', { class: 'wcard__head' },
-              h('b', null, itf.name), h('span', { class: 'wcard__sub' }, '→ ' + peerName(dev, k)), ifState(itf),
+              h('b', null, itf.name), h('span', { class: 'wcard__sub' }, '-> ' + peerName(dev, k)), ifState(itf),
               toggle(!itf.down, (on) => { itf.down = !on; ui.changed(); toast(w, itf.name + (on ? ': включён' : ': выключен')); }, 'вкл.')),
             h('div', { class: 'wgrid' }, field('IP-адрес', ipIn), field('Маска', mask), field('DHCP relay', helper)),
             h('div', { class: 'wrow wrow--end' }, err, btn('Сохранить', save, true)),
@@ -478,7 +478,7 @@
         c.append(
           h('div', { class: 'wface-wrap' }, h('div', { class: 'wface__label' }, dev.name), face),
           h('div', { class: 'wcard' },
-            h('div', { class: 'wcard__head' }, h('b', null, itf.name), h('span', { class: 'wcard__sub' }, '→ ' + peerName(dev, selIdx)), ifState(itf),
+            h('div', { class: 'wcard__head' }, h('b', null, itf.name), h('span', { class: 'wcard__sub' }, '-> ' + peerName(dev, selIdx)), ifState(itf),
               role && dev.stp.on ? pill('STP: ' + STP_ROLE[role][0], STP_ROLE[role][1]) : null,
               toggle(!itf.down, (on) => { itf.down = !on; ui.changed(); }, 'вкл.')),
             h('div', { class: 'wgrid' }, field('Режим', mode), fields, field('Описание', desc)),
@@ -610,7 +610,7 @@
       }, true)));
     }
     const arp = Object.entries(ui.S.sim.tables(dev).arp);
-    box.append(h('details', { class: 'wdetails' }, h('summary', null, 'ARP-таблица (' + arp.length + ')'),
+    box.append(h('details', { class: 'wdetails' }, ui.foldSummary('ARP-таблица (' + arp.length + ')'),
       table(['IP-адрес', 'MAC-адрес'], arp.map(([a, m]) => h('tr', null, h('td', null, a), h('td', null, h('code', null, m)))), 'Пусто')));
   };
 

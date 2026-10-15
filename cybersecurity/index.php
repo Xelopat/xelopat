@@ -18,7 +18,7 @@ cs_head('Кибербезопасность');
               <span class="tool-card__tag"><?= cs_h($t[3]) ?></span>
               <span class="tool-card__title"><?= cs_h($t[1]) ?></span>
               <p class="tool-card__desc"><?= cs_h($t[2]) ?></p>
-              <span class="tool-card__go">открыть →</span>
+              <span class="tool-card__go">открыть -&gt;</span>
             </a>
           <?php endforeach; ?>
         </div>

@@ -643,3 +643,15 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 @media (max-width: 720px){
   .lab-task{ max-height:calc(100% - 120px); }
 }
+
+/* ===== Иконки сворачивания ===== */
+.lab-ico{ display:block; flex:0 0 auto; transition:transform .15s ease; }
+.lab-ico--closed{ transform:rotate(-90deg); }
+.lab-task__ic{ display:inline-flex; align-items:center; justify-content:center; }
+details > summary{ list-style:none; display:flex; align-items:center; gap:6px; }
+details > summary::-webkit-details-marker{ display:none; }
+details > summary .lab-ico--fold{ transform:rotate(-90deg); }
+details[open] > summary .lab-ico--fold{ transform:none; }
+.lab-task__checks li.is-run{ color:var(--text); }
+.lab-task__checks li.is-run .lab-task__mark{ color:var(--accent); animation:chipDot 1s ease-in-out infinite; }
+.lab-task__checks li.is-run small{ color:var(--muted); font-family:var(--mono); }

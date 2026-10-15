@@ -49,7 +49,7 @@
     h,
     shuffle,
     layer: (n) => data.layers.find((l) => l.n === Number(n)),
-    layers: () => data.layers.slice(), // L7 → L1
+    layers: () => data.layers.slice(), // L7 -> L1
     on(ev, fn) { (listeners[ev] = listeners[ev] || []).push(fn); },
     emit(ev, payload) { (listeners[ev] || []).forEach((fn) => fn(payload)); },
     // Открыть вкладку (с записью в историю браузера)

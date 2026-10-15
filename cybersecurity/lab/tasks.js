@@ -1,7 +1,8 @@
 // Учебные задачи: от кабеля до филиала с VLAN, NAT, OSPF и ACL.
 // Новая задача: LAB.registerTask({ id, level, title, goal, know, hints: [], solution, build(b), checks: [{ text, test(c) }] }).
 // test возвращает true, если условие выполнено, или строку с причиной, почему нет.
-// Проверка идёт на копии сети: настройки на холсте она не трогает.
+// Проверка идёт на копии сети: настройки на холсте она не трогает. Каждая операция (ping, DHCP, HTTP…)
+// записывается в runs, чтобы после проверки проиграть её на холсте.
 (function () {
   const ip = LAB.ip;
 
@@ -37,12 +38,18 @@
       if (x.type === 'ttl') return 'TTL истёк в пути (петля маршрутизации?)';
       return 'нет ответа';
     };
+    const runs = [];
+    let note = '';
+    const rec = (title, r) => { runs.push({ check: ctx.cur, title: title + note, r }); return r; };
     const ctx = {
-      net: c, sim, dev,
-      ping(a, b) { const r = why(sim.ping(dev(a).id, b)); return r === true ? true : a + ' → ' + b + ': ' + r; },
-      noPing(a, b) { return why(sim.ping(dev(a).id, b)) === true ? a + ' всё ещё пингует ' + b : true; },
+      net: c, sim, dev, runs, cur: 0,
+      ping(a, b) { const r = why(rec('ping ' + a + ' -> ' + b, sim.ping(dev(a).id, b))); return r === true ? true : a + ' -> ' + b + ': ' + r; },
+      noPing(a, b) { return why(rec('ping ' + a + ' -> ' + b + ' (должен не пройти)', sim.ping(dev(a).id, b))) === true ? a + ' всё ещё пингует ' + b : true; },
+      tracert(a, b) { return rec('traceroute ' + a + ' -> ' + b, sim.tracert(dev(a).id, b)); },
+      // DHCP как подготовка к следующей проверке: не показываем
+      prep(a) { sim.dhcp(dev(a).id); },
       http(a, url, title) {
-        const r = sim.http(dev(a).id, url);
+        const r = rec('HTTP ' + a + ' -> ' + url, sim.http(dev(a).id, url));
         const x = r.results.find((y) => y.type === 'http');
         if (x) {
           if (x.status !== 200) return url + ': HTTP ' + x.status;
@@ -53,9 +60,9 @@
         const w = why(r);
         return a + ' не открыл ' + url + ': ' + (w === true ? 'нет ответа' : w);
       },
-      noHttp(a, url) { const r = sim.http(dev(a).id, url); return r.results.some((y) => y.type === 'http') ? a + ' всё ещё открывает ' + url : true; },
+      noHttp(a, url) { const r = rec('HTTP ' + a + ' -> ' + url + ' (должен не открыться)', sim.http(dev(a).id, url)); return r.results.some((y) => y.type === 'http') ? a + ' всё ещё открывает ' + url : true; },
       dhcp(a, cidr) {
-        const r = sim.dhcp(dev(a).id);
+        const r = rec('DHCP на ' + a, sim.dhcp(dev(a).id));
         const x = r.results.find((y) => y.type === 'dhcp');
         if (!x) { const e = r.results.find((y) => y.type === 'local-err'); return a + ' не получил адрес по DHCP' + (e ? ': ' + e.text : ''); }
         if (cidr && !ip.inCidr(x.ip, cidr)) return a + ' получил ' + x.ip + ', а нужен адрес из ' + cidr;
@@ -63,7 +70,7 @@
         return true;
       },
       dns(a, name, want) {
-        const r = sim.dnsLookup(dev(a).id, name);
+        const r = rec('DNS ' + a + ': ' + name, sim.dnsLookup(dev(a).id, name));
         const x = r.results.find((y) => y.type === 'dns');
         if (!x) { const w = why(r); return a + ' не узнал адрес ' + name + ': ' + (w === true ? 'нет ответа' : w); }
         if (want && x.ip !== want) return name + ' = ' + x.ip + ', а должно быть ' + want;
@@ -73,7 +80,7 @@
         const A = dev(a), B = dev(b);
         return c.links.some((l) => (l.a.dev === A.id && l.b.dev === B.id) || (l.a.dev === B.id && l.b.dev === A.id)) ? true : a + ' и ' + b + ' не соединены кабелем';
       },
-      noStorm(a, b) { return sim.ping(dev(a).id, b).storm ? 'в сети широковещательный шторм' : true; },
+      noStorm(a, b) { return rec('ping ' + a + ' -> ' + b + ' (нет ли шторма)', sim.ping(dev(a).id, b)).storm ? 'в сети широковещательный шторм' : true; },
       lif(a, name) {
         const l = LAB.lifs(dev(a)).find((x) => x.name.toLowerCase() === name.toLowerCase());
         if (!l) throw new Error('у ' + a + ' нет интерфейса ' + name);
@@ -85,7 +92,8 @@
         const was = itf.down;
         itf.down = true;
         sim.reset();
-        try { return fn(); } finally { itf.down = was; sim.reset(); }
+        note = ', кабель ' + a + ' ' + port + ' выключен';
+        try { return fn(); } finally { itf.down = was; note = ''; sim.reset(); }
       },
       all(list) { for (const r of list) if (r !== true) return r; return true; },
       ip: ip,
@@ -95,7 +103,8 @@
 
   LAB.checkTask = function (task, net) {
     const c = makeCtx(net);
-    return task.checks.map((ch) => {
+    const out = task.checks.map((ch, k) => {
+      c.cur = k;
       try {
         const r = ch.test(c);
         return { text: ch.text, ok: r === true, why: r === true ? '' : typeof r === 'string' ? r : 'не выполнено' };
@@ -103,6 +112,8 @@
         return { text: ch.text, ok: false, why: e.message };
       }
     });
+    out.runs = c.runs;
+    return out;
   };
 
   LAB.buildTask = function (task) {
@@ -234,12 +245,12 @@
     goal: 'Цепочка R1, R2, R3: адреса есть, маршрутов нет. Пропиши статические маршруты так, чтобы PC-A и SRV-C видели друг друга, а traceroute шёл через все три маршрутизатора.',
     know: 'Статический маршрут: «чтобы попасть в сеть X, отдай пакет соседу Y». Сосед должен быть в подключённой сети. Нужны маршруты до сетей, которых маршрутизатор не видит напрямую.',
     hints: ['R1 не знает про 10.3.0.0/24, R3 не знает про 10.1.0.0/24, а R2 не знает ни ту, ни другую.', 'R1: 10.3.0.0/24 через 10.0.12.2. R2: 10.1.0.0/24 через 10.0.12.1 и 10.3.0.0/24 через 10.0.23.2. R3: 10.1.0.0/24 через 10.0.23.1.'],
-    solution: 'R1: 10.3.0.0/24 → 10.0.12.2. R2: 10.1.0.0/24 → 10.0.12.1, 10.3.0.0/24 → 10.0.23.2. R3: 10.1.0.0/24 → 10.0.23.1.',
+    solution: 'R1: 10.3.0.0/24 -> 10.0.12.2. R2: 10.1.0.0/24 -> 10.0.12.1, 10.3.0.0/24 -> 10.0.23.2. R3: 10.1.0.0/24 -> 10.0.23.1.',
     build(b) { LAB.chain3(b); },
     checks: [
       { text: 'PC-A пингует SRV-C', test: (c) => c.ping('PC-A', '10.3.0.10') },
       { text: 'SRV-C пингует PC-A', test: (c) => c.ping('SRV-C', '10.1.0.10') },
-      { text: 'traceroute идёт через R1, R2, R3', test: (c) => { const t = c.sim.tracert(c.dev('PC-A').id, '10.3.0.10'); return t.hops.length === 4 && t.hops[3].done ? true : 'хопов ' + t.hops.length + ', а должно быть 4 (три маршрутизатора и сервер)'; } },
+      { text: 'traceroute идёт через R1, R2, R3', test: (c) => { const t = c.tracert('PC-A', '10.3.0.10'); return t.hops.length === 4 && t.hops[3].done ? true : 'хопов ' + t.hops.length + ', а должно быть 4 (три маршрутизатора и сервер)'; } },
     ],
   });
 
@@ -297,7 +308,7 @@
     goal: 'Блок 10.20.0.0/24 нужно поделить на четыре сети: A (до 100 узлов, за R1), B (до 50, за R1), C (до 20, за R2) и канал между R1 и R2. Подбери маски без лишнего расхода, настрой адреса, шлюзы и маршруты. Узел в каждой сети должен пинговать остальные.',
     know: 'Сначала самые большие сети. 100 узлов: /25 (126 адресов). 50: /26 (62). 20: /27 (30). Канал точка-точка: /30 (2 адреса). Подсети не должны пересекаться.',
     hints: ['A 10.20.0.0/25, B 10.20.0.128/26, C 10.20.0.192/27, канал 10.20.0.224/30.', 'На R1 маршрут в сеть C через R2, на R2 маршрут по умолчанию через R1 (или два маршрута в A и B).'],
-    solution: 'A 10.20.0.0/25 (R1 G0/0 .1), B 10.20.0.128/26 (R1 G0/2 .129), C 10.20.0.192/27 (R2 G0/1 .193), канал 10.20.0.224/30 (R1 .225, R2 .226). R1: 10.20.0.192/27 → .226. R2: 0.0.0.0/0 → .225.',
+    solution: 'A 10.20.0.0/25 (R1 G0/0 .1), B 10.20.0.128/26 (R1 G0/2 .129), C 10.20.0.192/27 (R2 G0/1 .193), канал 10.20.0.224/30 (R1 .225, R2 .226). R1: 10.20.0.192/27 -> .226. R2: 0.0.0.0/0 -> .225.',
     build(b) {
       const r1 = b.add('router', -150, -40, { name: 'R1' });
       const r2 = b.add('router', 200, -40, { name: 'R2' });
@@ -346,7 +357,7 @@
     checks: [
       { text: 'PC1 получает адрес из 192.168.1.100–150', test: (c) => { const r = c.dhcp('PC1', '192.168.1.0/24'); if (r !== true) return r; const n = ip.parse(c.last.ip); return n >= ip.parse('192.168.1.100') && n <= ip.parse('192.168.1.150') ? true : 'адрес ' + c.last.ip + ' вне диапазона 100–150'; } },
       { text: 'PC2 получает адрес', test: (c) => c.dhcp('PC2', '192.168.1.0/24') },
-      { text: 'После этого PC1 пингует SRV', test: (c) => { c.dhcp('PC1'); return c.ping('PC1', '192.168.1.5'); } },
+      { text: 'После этого PC1 пингует SRV', test: (c) => { c.prep('PC1'); return c.ping('PC1', '192.168.1.5'); } },
     ],
   });
 
@@ -359,7 +370,7 @@
     build(b) { LAB.servicesNet(b, { relay: false }); },
     checks: [
       { text: 'PC1 получает адрес из 192.168.10.0/24', test: (c) => c.dhcp('PC1', '192.168.10.0/24') },
-      { text: 'PC1 открывает http://site.lab', test: (c) => { c.dhcp('PC1'); return c.http('PC1', 'http://site.lab'); } },
+      { text: 'PC1 открывает http://site.lab', test: (c) => { c.prep('PC1'); return c.http('PC1', 'http://site.lab'); } },
     ],
   });
 
@@ -368,7 +379,7 @@
     goal: 'Принтер PRN получает адрес по DHCP, и каждый раз может прийти другой. Сделай так, чтобы PRN всегда получал 192.168.10.50, а обычные компьютеры продолжали получать адреса из пула.',
     know: 'Резервирование (static lease) связывает MAC-адрес клиента с конкретным адресом. Клиент по-прежнему получает адрес по DHCP, но всегда один и тот же. Так делают для принтеров и камер.',
     hints: ['MAC принтера видно на виде L2 под его значком и в окне «Сеть».', 'NS1, «Службы», DHCP, «Резервирование»: MAC принтера и 192.168.10.50.'],
-    solution: 'На NS1 резервирование MAC PRN → 192.168.10.50.',
+    solution: 'На NS1 резервирование MAC PRN -> 192.168.10.50.',
     build(b) {
       LAB.servicesNet(b);
       const sw = b.net.devices.find((d) => d.type === 'switch');
@@ -383,7 +394,7 @@
   T({
     id: 'dns', level: 4, title: 'Имена вместо адресов',
     goal: 'У PC1 и PC2 адреса заданы вручную, а сайт открывается только по IP. Сделай так, чтобы с PC1 открывался http://portal.lab, а с PC2 работал ping portal.lab.',
-    know: 'DNS-сервер хранит записи «имя → адрес». Клиент спрашивает его перед подключением, поэтому у клиента должен быть указан адрес DNS-сервера. Запись A: имя и IPv4-адрес.',
+    know: 'DNS-сервер хранит записи «имя -> адрес». Клиент спрашивает его перед подключением, поэтому у клиента должен быть указан адрес DNS-сервера. Запись A: имя и IPv4-адрес.',
     hints: ['Нужна запись portal.lab на NS1 (адрес веб-сервера 10.0.0.20).', 'И на PC1 и PC2 в поле DNS-сервер: 10.0.0.10.'],
     solution: 'NS1: запись portal.lab = 10.0.0.20. PC1, PC2: DNS 10.0.0.10.',
     build(b) {
@@ -410,8 +421,8 @@
     },
     checks: [
       { text: 'Веб-сервер на INTRA запущен', test: (c) => c.dev('INTRA').services.http.on ? true : 'служба выключена' },
-      { text: 'intra.lab = 192.168.10.80', test: (c) => { c.dhcp('PC1'); return c.dns('PC1', 'intra.lab', '192.168.10.80'); } },
-      { text: 'С PC1 открывается «Отдел продаж»', test: (c) => { c.dhcp('PC1'); return c.http('PC1', 'http://intra.lab', 'Отдел продаж'); } },
+      { text: 'intra.lab = 192.168.10.80', test: (c) => { c.prep('PC1'); return c.dns('PC1', 'intra.lab', '192.168.10.80'); } },
+      { text: 'С PC1 открывается «Отдел продаж»', test: (c) => { c.prep('PC1'); return c.http('PC1', 'http://intra.lab', 'Отдел продаж'); } },
     ],
   });
 
@@ -546,7 +557,7 @@
     goal: 'Офис уже выходит в интернет через PAT. Теперь клиенты снаружи должны открывать сайт офиса (OFFICE-WEB, 192.168.1.80) по адресу http://198.51.100.2. Проверять будем с GUEST в интернете.',
     know: 'Снаружи видно только внешний адрес R1. Статический NAT (проброс порта) говорит: всё, что пришло на внешний адрес на TCP-порт 80, отдавай внутреннему серверу на его порт 80. Ответ сервера пойдёт обратно через ту же трансляцию.',
     hints: ['R1, «NAT», «Проброс портов»: TCP, внешний порт 80, внутренний адрес 192.168.1.80, порт 80.'],
-    solution: 'R1: статический NAT tcp 80 → 192.168.1.80:80.',
+    solution: 'R1: статический NAT tcp 80 -> 192.168.1.80:80.',
     build(b) { LAB.natNet(b, { r1: { nat: { 'G0/0': 'inside', 'G0/1': 'outside' }, routes: [['0.0.0.0/0', '198.51.100.1']] } }); },
     checks: [
       { text: 'GUEST открывает http://198.51.100.2 и видит сайт офиса', test: (c) => c.http('GUEST', 'http://198.51.100.2', 'Сайт офиса') },
@@ -655,12 +666,12 @@
       b.link(b.add('pc', 320, 140, { name: 'GUEST1', dhcp: true }), s2, null, 'Fa0/4');
     },
     checks: [
-      { text: 'Петли нет: шторма не возникает', test: (c) => { c.dhcp('STAFF1'); return c.noStorm('STAFF1', '192.168.10.5'); } },
+      { text: 'Петли нет: шторма не возникает', test: (c) => { c.prep('STAFF1'); return c.noStorm('STAFF1', '192.168.10.5'); } },
       { text: 'STAFF1 и STAFF2 получают адреса из 192.168.10.0/24', test: (c) => c.all([c.dhcp('STAFF1', '192.168.10.0/24'), c.dhcp('STAFF2', '192.168.10.0/24')]) },
       { text: 'GUEST1 получает адрес из 192.168.20.0/24', test: (c) => c.dhcp('GUEST1', '192.168.20.0/24') },
-      { text: 'Все открывают http://example.lab', test: (c) => { ['STAFF1', 'STAFF2', 'GUEST1'].forEach((n) => c.dhcp(n)); return c.all(['STAFF1', 'STAFF2', 'GUEST1'].map((n) => c.http(n, 'http://example.lab'))); } },
-      { text: 'Гость не достаёт до сотрудников и SRV', test: (c) => { ['STAFF1', 'GUEST1'].forEach((n) => c.dhcp(n)); return c.all([c.noPing('GUEST1', c.dev('STAFF1').ifaces[0].ip), c.noPing('GUEST1', '192.168.10.5')]); } },
-      { text: 'Сотрудники пингуют друг друга и SRV', test: (c) => { ['STAFF1', 'STAFF2'].forEach((n) => c.dhcp(n)); return c.all([c.ping('STAFF1', c.dev('STAFF2').ifaces[0].ip), c.ping('STAFF2', '192.168.10.5')]); } },
+      { text: 'Все открывают http://example.lab', test: (c) => { ['STAFF1', 'STAFF2', 'GUEST1'].forEach((n) => c.prep(n)); return c.all(['STAFF1', 'STAFF2', 'GUEST1'].map((n) => c.http(n, 'http://example.lab'))); } },
+      { text: 'Гость не достаёт до сотрудников и SRV', test: (c) => { ['STAFF1', 'GUEST1'].forEach((n) => c.prep(n)); return c.all([c.noPing('GUEST1', c.dev('STAFF1').ifaces[0].ip), c.noPing('GUEST1', '192.168.10.5')]); } },
+      { text: 'Сотрудники пингуют друг друга и SRV', test: (c) => { ['STAFF1', 'STAFF2'].forEach((n) => c.prep(n)); return c.all([c.ping('STAFF1', c.dev('STAFF2').ifaces[0].ip), c.ping('STAFF2', '192.168.10.5')]); } },
     ],
   });
 })();

@@ -289,7 +289,7 @@ window.OSI_DATA = {
   ],
 
   mnemonics: [
-    { dir: 'L7 → L1', text: 'All People Seem To Need Data Processing' },
-    { dir: 'L1 → L7', text: 'Please Do Not Throw Sausage Pizza Away' },
+    { dir: 'L7 -> L1', text: 'All People Seem To Need Data Processing' },
+    { dir: 'L1 -> L7', text: 'Please Do Not Throw Sausage Pizza Away' },
   ],
 };

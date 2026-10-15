@@ -159,7 +159,7 @@
       els.progress = h('span');
 
       els.prev = h('button', { type: 'button', class: 'btn', onClick: () => { stop(); go(step - 1); } }, '← назад');
-      els.next = h('button', { type: 'button', class: 'btn btn--primary', onClick: () => { stop(); go(step + 1); } }, 'дальше →');
+      els.next = h('button', { type: 'button', class: 'btn btn--primary', onClick: () => { stop(); go(step + 1); } }, 'дальше ->');
       els.play = h('button', { type: 'button', class: 'btn', onClick: togglePlay });
       const reset = h('button', { type: 'button', class: 'btn', onClick: () => { stop(); picked = null; go(0); } }, 'сначала');
 

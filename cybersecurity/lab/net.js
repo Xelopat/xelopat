@@ -35,7 +35,7 @@
     norm(s) { const n = ip.parse(s); return n == null ? '' : ip.str(n); },
     mask(prefix) { return prefix === 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) >>> 0; },
     maskStr(prefix) { return ip.str(ip.mask(prefix)); },
-    // «24», «/24» или «255.255.255.0» → 24
+    // «24», «/24» или «255.255.255.0» -> 24
     parsePrefix(s) {
       s = String(s == null ? '' : s).trim();
       if (/^\/?\d{1,2}$/.test(s)) { const p = Number(s.replace('/', '')); return p <= 32 ? p : null; }
@@ -52,7 +52,7 @@
       return ip.net(x, prefix) === ip.net(y, prefix);
     },
     netStr(a, prefix) { return ip.str(ip.net(ip.parse(a), prefix)) + '/' + prefix; },
-    // «192.168.1.10/24» или «192.168.1.10 255.255.255.0» → { ip, prefix }
+    // «192.168.1.10/24» или «192.168.1.10 255.255.255.0» -> { ip, prefix }
     parseCidr(s) {
       const parts = String(s == null ? '' : s).trim().split(/\s*\/\s*|\s+/);
       if (parts.length !== 2) return null;
@@ -431,7 +431,7 @@
         if (set && set.size < 200) set.forEach((v) => all.add(v));
         (i.subs || []).forEach((sb) => all.add(sb.vlan));
       }));
-      // Что видно на конце кабеля: тег (0 = без тега) → ключ сегмента
+      // Что видно на конце кабеля: тег (0 = без тега) -> ключ сегмента
       const att = (devId, i) => {
         const d = this.dev(devId);
         const kind = this.type(d).kind;
@@ -584,14 +584,14 @@
       d = app.op === 'request'
         ? { kind: 'http', label: 'HTTP GET ' + app.path }
         : { kind: 'http', label: 'HTTP ' + app.status + ' ' + (app.status === 200 ? 'OK' : 'Not Found') };
-    } else if (p.proto === 'tcp') d = { kind: 'tcp', label: 'TCP [' + p.tcp.flags + '] ' + p.src + ':' + p.tcp.sport + ' → ' + p.dst + ':' + p.tcp.dport };
+    } else if (p.proto === 'tcp') d = { kind: 'tcp', label: 'TCP [' + p.tcp.flags + '] ' + p.src + ':' + p.tcp.sport + ' -> ' + p.dst + ':' + p.tcp.dport };
     else {
       const t = p.icmp && p.icmp.type;
-      if (t === 'echo-request') d = { kind: 'req', label: 'ICMP эхо-запрос ' + p.src + ' → ' + p.dst + ', TTL ' + p.ttl };
-      else if (t === 'echo-reply') d = { kind: 'rep', label: 'ICMP эхо-ответ ' + p.src + ' → ' + p.dst + ', TTL ' + p.ttl };
-      else if (t === 'time-exceeded') d = { kind: 'err', label: 'ICMP: TTL истёк (' + p.src + ' → ' + p.dst + ')' };
-      else if (t === 'unreachable') d = { kind: 'err', label: 'ICMP: ' + (p.icmp.code === 'admin' ? 'запрещено ACL' : 'недоступно') + ' (' + p.src + ' → ' + p.dst + ')' };
-      else d = { kind: 'req', label: 'IP ' + p.src + ' → ' + p.dst };
+      if (t === 'echo-request') d = { kind: 'req', label: 'ICMP эхо-запрос ' + p.src + ' -> ' + p.dst + ', TTL ' + p.ttl };
+      else if (t === 'echo-reply') d = { kind: 'rep', label: 'ICMP эхо-ответ ' + p.src + ' -> ' + p.dst + ', TTL ' + p.ttl };
+      else if (t === 'time-exceeded') d = { kind: 'err', label: 'ICMP: TTL истёк (' + p.src + ' -> ' + p.dst + ')' };
+      else if (t === 'unreachable') d = { kind: 'err', label: 'ICMP: ' + (p.icmp.code === 'admin' ? 'запрещено ACL' : 'недоступно') + ' (' + p.src + ' -> ' + p.dst + ')' };
+      else d = { kind: 'req', label: 'IP ' + p.src + ' -> ' + p.dst };
     }
     d.label += tag;
     return d;
@@ -812,7 +812,7 @@
 
     aclDrop(tick, dev, lif, dir, rule, pkt, frame) {
       const txt = rule.implicit ? 'ни одно правило не подошло, в конце списка неявный deny any' : 'правило «' + LAB.aclText(rule) + '»';
-      this.log(tick, dev, 3, 'ACL ' + (dir === 'in' ? 'на входе' : 'на выходе') + ' ' + lif.name + ': пакет ' + pkt.src + ' → ' + pkt.dst + ' запрещён, ' + txt, 'err', frame);
+      this.log(tick, dev, 3, 'ACL ' + (dir === 'in' ? 'на входе' : 'на выходе') + ' ' + lif.name + ': пакет ' + pkt.src + ' -> ' + pkt.dst + ' запрещён, ' + txt, 'err', frame);
       const isErr = pkt.icmp && (pkt.icmp.type === 'unreachable' || pkt.icmp.type === 'time-exceeded');
       if (!isErr && pkt.src !== '0.0.0.0') {
         this.ipSend(tick, dev, { src: null, dst: pkt.src, ttl: this.net.type(dev).ttl, proto: 'icmp', icmp: { type: 'unreachable', code: 'admin', id: pkt.icmp ? pkt.icmp.id : undefined } });
@@ -870,7 +870,7 @@
       const sport = l4src(pkt);
       const st = (dev.natStatic || []).find((s) => s.proto === pkt.proto && s.ip === pkt.src && (s.lport || s.port) === sport);
       if (st) {
-        this.log(tick, dev, 3, 'статический NAT: ' + pkt.src + ':' + sport + ' → ' + pub + ':' + st.port, 'info');
+        this.log(tick, dev, 3, 'статический NAT: ' + pkt.src + ':' + sport + ' -> ' + pub + ':' + st.port, 'info');
         pkt.src = pub;
         setSrc(pkt, st.port);
         return;
@@ -881,9 +881,9 @@
         ext = sport;
         while (tb.nat[pkt.proto + '|' + ext] || (dev.natStatic || []).some((s) => s.proto === pkt.proto && s.port === ext)) ext = ext >= 65000 ? 1024 : ext + 1;
         tb.nat[pkt.proto + '|' + ext] = { proto: pkt.proto, ip: pkt.src, port: sport, ext, pub };
-        this.log(tick, dev, 3, 'NAT (PAT): ' + pkt.src + ':' + sport + ' → ' + pub + ':' + ext + ', запись в таблице трансляций', 'info');
+        this.log(tick, dev, 3, 'NAT (PAT): ' + pkt.src + ':' + sport + ' -> ' + pub + ':' + ext + ', запись в таблице трансляций', 'info');
       } else {
-        this.log(tick, dev, 3, 'NAT: ' + pkt.src + ':' + sport + ' → ' + pub + ':' + ext + ' (трансляция уже есть)', 'dim');
+        this.log(tick, dev, 3, 'NAT: ' + pkt.src + ':' + sport + ' -> ' + pub + ':' + ext + ' (трансляция уже есть)', 'dim');
       }
       pkt.src = pub;
       setSrc(pkt, ext);
@@ -897,7 +897,7 @@
       if (st) {
         q.dst = st.ip;
         setDst(q, st.lport || st.port);
-        this.log(tick, dev, 3, 'статический NAT: ' + p.dst + ':' + port + ' → ' + q.dst + ':' + (st.lport || st.port), 'info', frame);
+        this.log(tick, dev, 3, 'статический NAT: ' + p.dst + ':' + port + ' -> ' + q.dst + ':' + (st.lport || st.port), 'info', frame);
         return q;
       }
       const m = port != null && this.tables(dev).nat[p.proto + '|' + port];
@@ -981,7 +981,7 @@
       const r = this.route(dev, q.dst);
       if (!r.error) {
         const how = r.code === 'O' ? ' (маршрут OSPF)' : r.code === 'S' ? ' (статический маршрут)' : ' (сеть подключена напрямую)';
-        this.log(tick, dev, 3, 'маршрут до ' + q.dst + ': через ' + r.lif.name + (r.via ? ' на ' + r.nh : '') + how + ', TTL ' + p.ttl + ' → ' + q.ttl, 'info', frame);
+        this.log(tick, dev, 3, 'маршрут до ' + q.dst + ': через ' + r.lif.name + (r.via ? ' на ' + r.nh : '') + how + ', TTL ' + p.ttl + ' -> ' + q.ttl, 'info', frame);
       }
       this.ipSend(tick, dev, q);
     }
@@ -1265,7 +1265,7 @@
       return this.finish();
     }
 
-    // DHCP-клиент: DISCOVER → OFFER → REQUEST → ACK. При успехе адрес сразу записывается в настройки узла
+    // DHCP-клиент: DISCOVER -> OFFER -> REQUEST -> ACK. При успехе адрес сразу записывается в настройки узла
     dhcp(srcId) {
       this.begin(srcId);
       const dev = this.net.dev(srcId);
@@ -1299,13 +1299,13 @@
         this.results.push({ type: 'local-err', text: 'кабель не подключён' });
         return this.finish();
       }
-      this.log(0, dev, 7, 'адреса пока нет: шлю DHCP DISCOVER всем (0.0.0.0 → 255.255.255.255)', 'info');
+      this.log(0, dev, 7, 'адреса пока нет: шлю DHCP DISCOVER всем (0.0.0.0 -> 255.255.255.255)', 'info');
       bcast(0, { type: 'dhcp', op: 'discover', xid, chaddr: itf.mac });
       this.drain();
       return this.finish();
     }
 
-    // HTTP: DNS (если имя) → TCP-рукопожатие → GET → ответ → закрытие соединения
+    // HTTP: DNS (если имя) -> TCP-рукопожатие -> GET -> ответ -> закрытие соединения
     http(srcId, url) {
       this.begin(srcId);
       const dev = this.net.dev(srcId);
