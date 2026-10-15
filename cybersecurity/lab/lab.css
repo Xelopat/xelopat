@@ -552,3 +552,94 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 @media (prefers-reduced-motion: reduce){
   .lab-log__row, .lab-pdu__box, .lw, .wtoast{ animation:none; }
 }
+
+/* ===== Транки, STP ===== */
+.lab-stage[data-view="l2"] .lab-link.is-trunk .lab-link__line{ stroke-width:5; }
+.lab-link.is-blocked .lab-link__line{ stroke-dasharray:2 6; opacity:.75; }
+.lab-port.is-warn{ fill:#d9a55a; }
+.lab-legend__row.is-note{ color:var(--muted); }
+.lab-legend__row i.is-trunk{ height:6px; background:#8f95a8; }
+.lab-legend__row i.is-blocked{ height:3px; background:repeating-linear-gradient(90deg, #8f95a8 0 3px, transparent 3px 7px); }
+
+/* ===== Задачи ===== */
+.lab-btn--accent{ border-color:#4a4a5c; color:var(--text); font-weight:600; }
+.lab-linkbtn{ border:none; background:none; padding:0; color:var(--accent); font:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+.lab-task{
+  position:absolute; left:10px; top:10px; z-index:6;
+  width:min(390px, calc(100% - 20px)); max-height:calc(100% - 70px);
+  display:flex; flex-direction:column;
+  background:rgba(27,27,34,.97); border:1px solid var(--line); border-radius:6px;
+  box-shadow:0 14px 34px rgba(0,0,0,.4);
+}
+.lab-task[hidden]{ display:none; }
+.lab-task.is-ok{ border-color:#3f6b5d; }
+.lab-task__head{ display:flex; align-items:center; gap:8px; padding:8px 8px 8px 12px; border-bottom:1px solid #2a2a34; }
+.lab-task.is-collapsed .lab-task__head{ border-bottom:none; }
+.lab-task__lvl{ font-family:var(--mono); font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; }
+.lab-task__title{ flex:1; min-width:0; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lab-task__done{ color:var(--green); font-weight:700; }
+.lab-task__ic{ border:none; background:transparent; color:var(--muted); font-size:13px; width:26px; height:24px; border-radius:3px; cursor:pointer; }
+.lab-task__ic:hover{ color:var(--text); background:#26262f; }
+.lab-task__body{ overflow:auto; padding:10px 12px; display:flex; flex-direction:column; gap:10px; scrollbar-width:thin; scrollbar-color:#3a3a48 transparent; }
+.lab-task__goal{ margin:0; font-size:12.5px; line-height:1.55; color:var(--text); }
+.lab-task__know{ font-size:12px; color:var(--text-2); line-height:1.55; border-left:2px solid #33333f; padding-left:10px; }
+.lab-task__know summary{ cursor:pointer; color:var(--muted); font-family:var(--mono); font-size:11px; }
+.lab-task__know p{ margin:6px 0 0; }
+.lab-task__checks{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:5px; }
+.lab-task__checks li{ display:flex; gap:8px; font-size:12px; color:var(--text-2); line-height:1.45; }
+.lab-task__checks li small{ display:block; color:var(--danger); font-size:11px; }
+.lab-task__checks li.is-ok{ color:var(--text); }
+.lab-task__checks.is-stale li small{ opacity:.6; }
+.lab-task__mark{ font-family:var(--mono); width:12px; flex:0 0 auto; color:var(--muted); }
+.lab-task__checks li.is-ok .lab-task__mark{ color:var(--green); }
+.lab-task__checks li.is-bad .lab-task__mark{ color:var(--danger); }
+.lab-task__note{ margin:0; font-size:11px; color:var(--muted); }
+.lab-task__hints{ margin:0; padding-left:18px; font-size:12px; color:#d9c38a; line-height:1.5; }
+.lab-task__hints li + li{ margin-top:4px; }
+.lab-task__win{ font-size:12.5px; color:var(--green); }
+.lab-task__actions{ display:flex; flex-wrap:wrap; gap:6px; padding:8px 12px 10px; border-top:1px solid #2a2a34; }
+.lab-task__actions .btn{ padding:6px 14px; font-size:12px; }
+.lab-task__actions .lab-btn{ padding:5px 10px; font-size:12px; }
+
+.lab-tasks{ width:min(460px, calc(100% - 20px)); }
+.lab-tasks__head{ display:flex; align-items:center; gap:10px; }
+.lab-tasks__head b{ font-size:14px; }
+.lab-tasks__head span{ flex:1; font-family:var(--mono); font-size:11px; color:var(--muted); }
+.lab-tasks__bar{ height:4px; background:#26262f; border-radius:2px; overflow:hidden; }
+.lab-tasks__bar i{ display:block; height:100%; background:var(--green); }
+.lab-tasks__acc{ margin:0; font-size:11.5px; color:var(--muted); line-height:1.5; }
+.lab-tasks__acc a{ color:var(--accent); }
+.lab-tasks__list{ display:flex; flex-direction:column; gap:12px; }
+.lab-tasks__lvl p{ margin:2px 0 6px; font-size:11.5px; color:var(--muted); line-height:1.45; }
+.lab-tasks__lvlhead{ display:flex; justify-content:space-between; gap:8px; font-size:12.5px; }
+.lab-tasks__lvlhead span{ font-family:var(--mono); font-size:11px; color:var(--muted); }
+.lab-tasks__item{ display:flex; gap:8px; width:100%; text-align:left; border:none; background:transparent; color:var(--text-2); border-radius:3px; padding:5px 8px; font:inherit; font-size:12.5px; cursor:pointer; }
+.lab-tasks__item:hover{ background:#26262f; color:var(--text); }
+.lab-tasks__item.is-cur{ box-shadow:inset 2px 0 0 var(--accent); color:var(--text); }
+.lab-tasks__item.is-done{ color:var(--text); }
+.lab-tasks__mark{ font-family:var(--mono); width:12px; color:var(--muted); }
+.lab-tasks__item.is-done .lab-tasks__mark{ color:var(--green); }
+.lab-tasks__final{ margin:0; font-size:12.5px; color:var(--green); line-height:1.5; }
+.lab-tasks__reset{ margin:0; font-size:11px; }
+
+/* ===== Веб-интерфейс: подынтерфейсы, ACL, порты ===== */
+.wsub-if{ border:1px solid #2a2a34; border-radius:4px; padding:8px 10px; display:flex; flex-direction:column; gap:8px; background:#191920; }
+.wsub-if__head{ display:flex; align-items:center; gap:10px; }
+.wsub-if__head b{ font-family:var(--mono); font-size:12px; }
+.wsub-if__head .wx{ margin-left:auto; }
+.wsub-add{ align-items:center; }
+.wrow > .wsub-add__vlan{ flex:0 0 90px; }
+.wacl td{ vertical-align:middle; }
+.wacl__n{ width:34px; font-family:var(--mono); font-size:11px; color:var(--muted); }
+.wacl code{ font-size:11.5px; }
+.wacl code.is-deny{ color:#e08a8a; }
+.wacl code.is-permit{ color:#7fd0b2; }
+.wacl__ops{ white-space:nowrap; text-align:right; }
+.wacl__ops .wx:disabled{ opacity:.3; cursor:default; }
+.wacl__implicit code{ color:var(--muted); }
+.wport.is-trunk .wport__vlan{ color:var(--text-2); font-weight:700; }
+.wport.is-blk .wport__led{ background:#d9a55a; }
+.wf__ro{ display:block; padding:7px 9px; font-size:12px; color:var(--text-2); }
+@media (max-width: 720px){
+  .lab-task{ max-height:calc(100% - 120px); }
+}

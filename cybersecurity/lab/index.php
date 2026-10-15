@@ -2,7 +2,7 @@
 require __DIR__ . '/../includes/layout.php';
 
 // Порядок важен: ядро, типы и схемы, интерфейс, окна последними
-$lab_scripts = ['lab/net.js', 'lab/types.js', 'lab/presets.js', 'lab/ui.js', 'lab/windows.js', 'lab/maps.js'];
+$lab_scripts = ['lab/net.js', 'lab/types.js', 'lab/presets.js', 'lab/tasks.js', 'lab/ui.js', 'lab/windows.js', 'lab/maps.js', 'lab/tasks-ui.js'];
 
 $head = '<link rel="stylesheet" href="' . cs_h(cs_asset('lab/lab.css')) . '">';
 foreach ($lab_scripts as $s) {

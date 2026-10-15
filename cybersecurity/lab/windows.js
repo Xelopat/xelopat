@@ -172,8 +172,10 @@
   }
 
   /* ===== Элементы форм ===== */
-  function maskSelect(prefix) {
+  // withDefault: добавить /0 для маршрута по умолчанию
+  function maskSelect(prefix, withDefault) {
     const sel = h('select', { class: 'wf__in wf__mask' });
+    if (withDefault) sel.append(h('option', { value: 0, selected: prefix === 0 }, '/0 0.0.0.0 (всё)'));
     for (let p = 8; p <= 32; p++) sel.append(h('option', { value: p, selected: p === prefix }, '/' + p + ' ' + ip.maskStr(p)));
     return sel;
   }
@@ -235,22 +237,41 @@
   const PAGES = {};
 
   /* --- Маршрутизатор --- */
+  const lifAddr = (l) => (l.cfg.ip ? l.cfg.ip + '/' + l.cfg.prefix : '—');
+  function lifState(l) {
+    if (l.cfg.down || l.itf.down) return pill('выключен', 'off');
+    if (!l.itf.link) return pill('нет кабеля', 'dim');
+    return pill('up', 'ok');
+  }
+  // Проверить адрес для интерфейса маршрутизатора: формат, не адрес сети, сеть не занята другим интерфейсом
+  function lifAddrError(dev, cfg, v, p) {
+    if (!v) return '';
+    if (!ip.valid(v)) return 'Неверный IP-адрес';
+    const bad = ip.hostError(v, p);
+    if (bad) return 'Нельзя: ' + bad;
+    const clash = LAB.lifs(dev).find((x) => x.cfg !== cfg && x.cfg.ip && (ip.same(x.cfg.ip, v, p) || ip.same(x.cfg.ip, v, x.cfg.prefix)));
+    return clash ? 'Эта сеть уже на ' + clash.name + ': у каждого интерфейса своя сеть' : '';
+  }
+
   PAGES.router = (w, dev, root) => {
+    const sim = ui.S.sim;
     webApp(w, dev, root, 'RouterOS-lite', {
       overview: { title: 'Обзор', render(c) {
-        const name = inp(dev.name);
-        const upN = dev.ifaces.filter((i) => i.ip && LAB.ifUp(i)).length;
+        const ls = LAB.lifs(dev);
+        const upN = ls.filter((l) => l.cfg.ip && LAB.lifUp(l)).length;
+        const rt = sim.routeTable(dev);
         c.append(
           h('div', { class: 'wstats' },
-            h('div', null, h('b', null, upN + ' / ' + dev.ifaces.length), h('span', null, 'интерфейсов в работе')),
-            h('div', null, h('b', null, dev.routes.length), h('span', null, 'статических маршрутов')),
-            h('div', null, h('b', null, Object.keys(ui.S.sim.tables(dev).arp).length), h('span', null, 'записей ARP'))),
-          h('div', { class: 'wrow' }, field('Имя устройства', name), btn('Сохранить', () => { if (name.value.trim()) { dev.name = name.value.trim().slice(0, 24); ui.changed(); toast(w, 'Имя сохранено'); } }, true)),
-          table(['Интерфейс', 'Адрес', 'Сосед', 'Состояние'], dev.ifaces.map((i, k) => h('tr', null,
-            h('td', null, h('b', null, i.name)), h('td', null, i.ip ? i.ip + '/' + i.prefix : '—'), h('td', null, peerName(dev, k)), h('td', null, ifState(i))))));
+            h('div', null, h('b', null, upN + ' / ' + ls.length), h('span', null, 'интерфейсов в работе')),
+            h('div', null, h('b', null, rt.filter((r) => r.code !== 'C').length), h('span', null, 'маршрутов S и O')),
+            h('div', null, h('b', null, Object.keys(sim.tables(dev).arp).length), h('span', null, 'записей ARP'))),
+          table(['Интерфейс', 'Адрес', 'Сосед', 'Роль', 'Состояние'], ls.map((l) => h('tr', null,
+            h('td', null, h('b', null, l.name)), h('td', null, lifAddr(l)), h('td', null, l.vlan ? 'VLAN ' + l.vlan : peerName(dev, l.i)),
+            h('td', null, [l.cfg.nat ? 'NAT ' + l.cfg.nat : '', l.cfg.ospf ? 'OSPF' : '', (l.cfg.aclIn.length || l.cfg.aclOut.length) ? 'ACL' : ''].filter(Boolean).join(', ') || '—'),
+            h('td', null, lifState(l))))));
       } },
       ifaces: { title: 'Интерфейсы', render(c) {
-        c.append(h('p', { class: 'wnote' }, 'У каждого интерфейса маршрутизатора своя сеть. DHCP relay пересылает широковещательные DHCP-запросы из этой сети на сервер в другой сети.'));
+        c.append(h('p', { class: 'wnote' }, 'У каждого интерфейса своя сеть. DHCP relay пересылает широковещательные DHCP-запросы из этой сети на сервер в другой сети. Подынтерфейс (G0/0.10) принимает кадры с тегом VLAN: так один кабель обслуживает несколько VLAN.'));
         dev.ifaces.forEach((itf, k) => {
           const ipIn = inp(itf.ip, '192.168.1.1');
           const mask = maskSelect(itf.prefix);
@@ -258,16 +279,9 @@
           const err = errBox();
           const save = () => {
             err.textContent = '';
-            const v = ipIn.value.trim();
-            const p = Number(mask.value);
-            if (v) {
-              if (!ip.valid(v)) { err.textContent = 'Неверный IP-адрес'; return; }
-              const bad = ip.hostError(v, p);
-              if (bad) { err.textContent = 'Нельзя: ' + bad; return; }
-              const clash = dev.ifaces.find((x, j) => j !== k && x.ip && (ip.same(x.ip, v, p) || ip.same(x.ip, v, x.prefix)));
-              if (clash) { err.textContent = 'Эта сеть уже на ' + clash.name + ': у каждого интерфейса должна быть своя сеть'; return; }
-            }
-            const hv = helper.value.trim();
+            const v = ipIn.value.trim(), p = Number(mask.value), hv = helper.value.trim();
+            const e = lifAddrError(dev, itf, v, p);
+            if (e) { err.textContent = e; return; }
             if (hv && !ip.valid(hv)) { err.textContent = 'Relay: неверный адрес сервера'; return; }
             itf.ip = v ? ip.norm(v) : '';
             itf.prefix = p;
@@ -275,29 +289,58 @@
             ui.changed();
             toast(w, itf.name + ': сохранено');
           };
+          // Подынтерфейсы этого порта
+          const subs = itf.subs.map((sb, j) => {
+            const sIp = inp(sb.ip, '192.168.10.1'), sMask = maskSelect(sb.prefix), sHelp = inp(sb.helper, 'IP DHCP-сервера'), sErr = errBox();
+            return h('div', { class: 'wsub-if' },
+              h('div', { class: 'wsub-if__head' }, h('b', null, itf.name + '.' + sb.vlan), h('span', { class: 'wcard__sub' }, 'тег VLAN ' + sb.vlan),
+                h('button', { type: 'button', class: 'wx', title: 'Удалить подынтерфейс', onClick: () => { itf.subs.splice(j, 1); ui.changed(); } }, '×')),
+              h('div', { class: 'wgrid' }, field('IP-адрес', sIp), field('Маска', sMask), field('DHCP relay', sHelp)),
+              h('div', { class: 'wrow wrow--end' }, sErr, btn('Сохранить', () => {
+                sErr.textContent = '';
+                const v = sIp.value.trim(), p = Number(sMask.value), hv = sHelp.value.trim();
+                const e = lifAddrError(dev, sb, v, p);
+                if (e) { sErr.textContent = e; return; }
+                if (hv && !ip.valid(hv)) { sErr.textContent = 'Relay: неверный адрес'; return; }
+                sb.ip = v ? ip.norm(v) : ''; sb.prefix = p; sb.helper = hv ? ip.norm(hv) : '';
+                ui.changed();
+                toast(w, itf.name + '.' + sb.vlan + ': сохранено');
+              })));
+          });
+          const nv = h('input', { class: 'wf__in wsub-add__vlan', type: 'number', min: 1, max: 4094, placeholder: 'VLAN' });
+          const addErr = errBox();
+          const addSub = h('div', { class: 'wrow wsub-add' }, nv, btn('+ подынтерфейс', () => {
+            const v = Math.round(Number(nv.value));
+            if (!(v >= 1 && v <= 4094)) { addErr.textContent = 'VLAN от 1 до 4094'; return; }
+            if (itf.subs.some((x) => x.vlan === v)) { addErr.textContent = 'Такой подынтерфейс уже есть'; return; }
+            itf.subs.push(LAB.normSub({ vlan: v }));
+            ui.changed();
+          }), addErr);
           c.append(h('div', { class: 'wcard' + (LAB.ifUp(itf) ? '' : ' is-off') },
             h('div', { class: 'wcard__head' },
               h('b', null, itf.name), h('span', { class: 'wcard__sub' }, '→ ' + peerName(dev, k)), ifState(itf),
               toggle(!itf.down, (on) => { itf.down = !on; ui.changed(); toast(w, itf.name + (on ? ': включён' : ': выключен')); }, 'вкл.')),
             h('div', { class: 'wgrid' }, field('IP-адрес', ipIn), field('Маска', mask), field('DHCP relay', helper)),
-            h('div', { class: 'wrow wrow--end' }, err, btn('Сохранить', save, true))));
+            h('div', { class: 'wrow wrow--end' }, err, btn('Сохранить', save, true)),
+            subs, addSub));
         });
       } },
       routes: { title: 'Маршрутизация', render(c) {
-        const rows = LAB.routeTable(dev);
+        const rows = sim.routeTable(dev);
+        const codeTitle = { C: 'подключена', S: 'статический', O: 'OSPF' };
         c.append(table(['', 'Сеть', 'Куда отдать', ''], rows.map((r) => h('tr', { class: r.code === 'S' && !r.iface ? 'is-bad' : '' },
-          h('td', null, h('span', { class: 'wcode wcode--' + r.code, title: r.code === 'C' ? 'подключена' : 'статический' }, r.code)),
+          h('td', null, h('span', { class: 'wcode wcode--' + r.code, title: codeTitle[r.code] }, r.code)),
           h('td', null, r.net),
-          h('td', null, r.code === 'C' ? 'напрямую, ' + r.iface : r.via + (r.iface ? ' через ' + r.iface : ' (сосед недостижим)')),
+          h('td', null, r.code === 'C' ? 'напрямую, ' + r.iface : r.via + (r.iface ? ' через ' + r.iface : ' (сосед недостижим)') + (r.code === 'O' ? ', метрика ' + r.cost : '')),
           h('td', null, r.code === 'S' ? h('button', { type: 'button', class: 'wx', title: 'Удалить', onClick: () => { dev.routes.splice(r.idx, 1); ui.changed(); } }, '×') : null))),
         'Пусто: задай адреса интерфейсам и подключи кабели.'));
         const net = inp('', '10.3.0.0');
-        const mask = maskSelect(24);
+        const mask = maskSelect(24, true);
         const via = inp('', '10.0.12.2');
         const err = errBox();
         c.append(h('div', { class: 'wcard' },
           h('div', { class: 'wcard__head' }, h('b', null, 'Добавить статический маршрут')),
-          h('div', { class: 'wgrid' }, field('Сеть назначения', net), field('Маска', mask), field('Следующий хоп', via, 'IP соседа в подключённой сети')),
+          h('div', { class: 'wgrid' }, field('Сеть назначения', net, '0.0.0.0 с маской /0: маршрут по умолчанию'), field('Маска', mask), field('Следующий хоп', via, 'IP соседа в подключённой сети')),
           h('div', { class: 'wrow wrow--end' }, err, btn('Добавить', () => {
             if (!ip.valid(net.value)) { err.textContent = 'Неверная сеть'; return; }
             if (!ip.valid(via.value)) { err.textContent = 'Неверный следующий хоп'; return; }
@@ -306,45 +349,183 @@
             ui.changed();
             toast(w, 'Маршрут добавлен');
           }, true))),
-        h('p', { class: 'wnote' }, 'C: сеть подключена к интерфейсу. S: «чтобы попасть в эту сеть, отдай пакет соседу». Выбирается самый длинный подходящий префикс; 0.0.0.0/0 это маршрут по умолчанию.'));
+        h('p', { class: 'wnote' }, 'C: сеть подключена к интерфейсу. S: статический, «чтобы попасть в эту сеть, отдай пакет соседу». O: выучен по OSPF. Выбирается самый длинный подходящий префикс, при равенстве C, затем S, затем O.'));
+      } },
+      ospf: { title: 'OSPF', render(c) {
+        const topo = sim.refreshTopo();
+        const ls = LAB.lifs(dev).filter((l) => l.cfg.ip);
+        c.append(h('p', { class: 'wnote' }, 'Включи OSPF на интерфейсах: маршрутизатор найдёт соседей в этих сетях, расскажет им о своих сетях и выучит чужие. Сеть с узлами тоже включай, иначе о ней никто не узнает.'),
+          ls.length ? table(['Интерфейс', 'Сеть', 'OSPF'], ls.map((l) => h('tr', null,
+            h('td', null, h('b', null, l.name)), h('td', null, ip.netStr(l.cfg.ip, l.cfg.prefix)),
+            h('td', null, toggle(l.cfg.ospf, (on) => { l.cfg.ospf = on; ui.changed(); }))))) : h('p', { class: 'wempty' }, 'Сначала задай адреса интерфейсам.'),
+          h('div', { class: 'wrow' }, toggle(!!dev.ospfDef, (on) => { dev.ospfDef = on; ui.changed(); }, 'Распространять маршрут по умолчанию (default-information originate)')),
+          h('p', { class: 'wnote' }, 'Работает, если на этом маршрутизаторе есть статический 0.0.0.0/0: соседи получат маршрут по умолчанию в его сторону.'),
+          h('div', { class: 'wsub' }, 'Соседи'),
+          table(['Сосед', 'Его адрес', 'Через'], (topo.ospf.nbrs[dev.id] || []).map((n) => h('tr', null, h('td', null, n.dev.name), h('td', null, n.ip), h('td', null, n.lif.name))), 'Соседей нет: OSPF должен быть включён на обоих концах канала.'),
+          h('div', { class: 'wsub' }, 'Выученные маршруты'),
+          table(['Сеть', 'Через', 'Метрика'], (topo.ospf.routes[dev.id] || []).map((r) => h('tr', null, h('td', null, r.net + '/' + r.prefix), h('td', null, r.via + ' (' + r.lif.name + ')'), h('td', null, r.cost))), 'Пока ничего.'));
+      } },
+      nat: { title: 'NAT', render(c) {
+        const ls = LAB.lifs(dev).filter((l) => l.cfg.ip);
+        c.append(h('p', { class: 'wnote' }, 'PAT: пакеты из inside-сетей уходят через outside-интерфейс с его адресом, а ответ возвращается по номеру порта. Внутренним сетям обычно нужен ещё маршрут по умолчанию к провайдеру.'),
+          ls.length ? table(['Интерфейс', 'Адрес', 'Роль NAT'], ls.map((l) => {
+            const sel = h('select', { class: 'wf__in', onChange: (e) => { l.cfg.nat = e.target.value; ui.changed(); } },
+              [['', 'нет'], ['inside', 'inside (внутренняя сеть)'], ['outside', 'outside (наружу)']].map(([v, t]) => h('option', { value: v, selected: l.cfg.nat === v }, t)));
+            return h('tr', null, h('td', null, h('b', null, l.name)), h('td', null, lifAddr(l)), h('td', null, sel));
+          })) : h('p', { class: 'wempty' }, 'Сначала задай адреса интерфейсам.'));
+        // Проброс портов
+        const proto = h('select', { class: 'wf__in' }, ['tcp', 'udp'].map((p) => h('option', { value: p }, p.toUpperCase())));
+        const port = h('input', { class: 'wf__in', type: 'number', min: 1, max: 65535, value: 80 });
+        const addr = inp('', '192.168.1.80');
+        const lport = h('input', { class: 'wf__in', type: 'number', min: 1, max: 65535, value: 80 });
+        const err = errBox();
+        c.append(h('div', { class: 'wsub' }, 'Проброс портов (статический NAT)'),
+          table(['Снаружи', 'Внутрь', ''], dev.natStatic.map((s, k) => h('tr', null,
+            h('td', null, s.proto.toUpperCase() + ' :' + s.port), h('td', null, s.ip + ':' + s.lport),
+            h('td', null, h('button', { type: 'button', class: 'wx', onClick: () => { dev.natStatic.splice(k, 1); ui.changed(); } }, '×')))), 'Нет пробросов.'),
+          h('div', { class: 'wgrid' }, field('Протокол', proto), field('Внешний порт', port), field('Внутренний адрес', addr), field('Внутренний порт', lport)),
+          h('div', { class: 'wrow wrow--end' }, err, btn('Добавить проброс', () => {
+            const pp = Math.round(Number(port.value)), lp = Math.round(Number(lport.value));
+            if (!(pp >= 1 && pp <= 65535) || !(lp >= 1 && lp <= 65535)) { err.textContent = 'Порт от 1 до 65535'; return; }
+            if (!ip.valid(addr.value)) { err.textContent = 'Неверный внутренний адрес'; return; }
+            if (dev.natStatic.some((s) => s.proto === proto.value && s.port === pp)) { err.textContent = 'Этот внешний порт уже проброшен'; return; }
+            dev.natStatic.push({ proto: proto.value, port: pp, ip: ip.norm(addr.value), lport: lp });
+            ui.changed();
+            toast(w, 'Проброс добавлен');
+          }, true)));
+        const tr = Object.values(sim.tables(dev).nat);
+        c.append(h('div', { class: 'wsub' }, 'Таблица трансляций'),
+          table(['Протокол', 'Внутри', 'Снаружи'], tr.map((m) => h('tr', null, h('td', null, m.proto), h('td', null, m.ip + ':' + m.port), h('td', null, m.pub + ':' + m.ext))), 'Пусто: появится, когда кто-то изнутри выйдет наружу.'));
+      } },
+      acl: { title: 'ACL', render(c) {
+        const ls = LAB.lifs(dev);
+        if (!w.acl || !ls.some((l) => l.name === w.acl.lif)) w.acl = { lif: (ls.find((l) => l.cfg.ip) || ls[0]).name, dir: 'in' };
+        const cur = ls.find((l) => l.name === w.acl.lif);
+        const key = w.acl.dir === 'in' ? 'aclIn' : 'aclOut';
+        const list = cur.cfg[key];
+        const pick = h('select', { class: 'wf__in', onChange: (e) => { w.acl.lif = e.target.value; render(w); } },
+          ls.map((l) => h('option', { value: l.name, selected: l === cur }, l.name + (l.cfg.ip ? ' (' + l.cfg.ip + ')' : '') + ((l.cfg.aclIn.length || l.cfg.aclOut.length) ? ', есть ACL' : ''))));
+        const dir = h('div', { class: 'wseg' },
+          h('button', { type: 'button', class: w.acl.dir === 'in' ? 'active' : '', onClick: () => { w.acl.dir = 'in'; render(w); } }, 'На входе (in)'),
+          h('button', { type: 'button', class: w.acl.dir === 'out' ? 'active' : '', onClick: () => { w.acl.dir = 'out'; render(w); } }, 'На выходе (out)'));
+        const move = (k, d) => { const r = list.splice(k, 1)[0]; list.splice(k + d, 0, r); ui.changed(); };
+        c.append(h('p', { class: 'wnote' }, 'Правила проверяются сверху вниз до первого совпадения. Если список не пустой, в конце неявный deny any: всё, что не разрешено, запрещено. На входе список видит пакеты, пришедшие в интерфейс, на выходе: пакеты, которые маршрутизатор туда отправляет.'),
+          h('div', { class: 'wrow' }, field('Интерфейс', pick), dir),
+          list.length ? h('table', { class: 'wtable wacl' }, h('tbody', null, list.map((r, k) => h('tr', null,
+            h('td', { class: 'wacl__n' }, String((k + 1) * 10)),
+            h('td', null, h('code', { class: r.action === 'deny' ? 'is-deny' : 'is-permit' }, LAB.aclText(r))),
+            h('td', { class: 'wacl__ops' },
+              h('button', { type: 'button', class: 'wx', title: 'Выше', disabled: k === 0, onClick: () => move(k, -1) }, '↑'),
+              h('button', { type: 'button', class: 'wx', title: 'Ниже', disabled: k === list.length - 1, onClick: () => move(k, 1) }, '↓'),
+              h('button', { type: 'button', class: 'wx', title: 'Удалить', onClick: () => { list.splice(k, 1); ui.changed(); } }, '×')))),
+            h('tr', { class: 'wacl__implicit' }, h('td', null, ''), h('td', null, h('code', null, 'deny ip any any (неявно)')), h('td', null, ''))))
+            : h('p', { class: 'wempty' }, 'Списка нет: на ' + cur.name + ' ' + (w.acl.dir === 'in' ? 'на входе' : 'на выходе') + ' пропускается всё.'));
+        const act = h('select', { class: 'wf__in' }, h('option', { value: 'deny' }, 'deny (запретить)'), h('option', { value: 'permit' }, 'permit (разрешить)'));
+        const proto = h('select', { class: 'wf__in' }, LAB.ACL_PROTOS.map((p) => h('option', { value: p }, p === 'ip' ? 'ip (всё)' : p)));
+        const src = inp('any', 'any или 192.168.50.0/24');
+        const dst = inp('any', 'any или 10.0.0.10/32');
+        const port = h('input', { class: 'wf__in', type: 'number', min: 0, max: 65535, placeholder: 'любой' });
+        const err = errBox();
+        const okCidr = (v) => v === 'any' || !!ip.parseCidr(v) || ip.valid(v);
+        c.append(h('div', { class: 'wcard' },
+          h('div', { class: 'wcard__head' }, h('b', null, 'Добавить правило в конец')),
+          h('div', { class: 'wgrid' }, field('Действие', act), field('Протокол', proto), field('Откуда', src, 'any, сеть с маской или адрес'), field('Куда', dst), field('Порт назначения', port, 'для tcp и udp: 80 это HTTP, 53 DNS')),
+          h('div', { class: 'wrow wrow--end' }, err, btn('Добавить', () => {
+            const s = src.value.trim() || 'any', d = dst.value.trim() || 'any';
+            if (!okCidr(s) || !okCidr(d)) { err.textContent = 'Адрес: any, 192.168.1.0/24 или 10.0.0.10'; return; }
+            const norm = (v) => (v === 'any' ? 'any' : ip.parseCidr(v) ? (() => { const x = ip.parseCidr(v); return ip.str(ip.net(ip.parse(x.ip), x.prefix)) + '/' + x.prefix; })() : ip.norm(v) + '/32');
+            list.push(LAB.normRule({ action: act.value, proto: proto.value, src: norm(s), dst: norm(d), port: Number(port.value) || 0 }));
+            ui.changed();
+          }, true))));
       } },
       arp: { title: 'ARP', render(c) {
-        const arp = Object.entries(ui.S.sim.tables(dev).arp);
+        const arp = Object.entries(sim.tables(dev).arp);
         c.append(table(['IP-адрес', 'MAC-адрес'], arp.map(([a, m]) => h('tr', null, h('td', null, a), h('td', null, h('code', null, m)))), 'Пусто: заполнится после первого обмена.'),
-          h('div', { class: 'wrow' }, btn('Очистить ARP', () => { ui.S.sim.tables(dev).arp = {}; render(w); })));
+          h('div', { class: 'wrow' }, btn('Очистить ARP', () => { sim.tables(dev).arp = {}; render(w); })));
       } },
     });
   };
 
   /* --- Коммутатор --- */
+  const STP_ROLE = { root: ['корневой', 'ok'], desig: ['назначенный', 'ok'], blocked: ['заблокирован', 'off'] };
   PAGES.switch = (w, dev, root) => {
+    const stp = ui.S.net.stpInfo();
     webApp(w, dev, root, 'SwitchOS-lite', {
       ports: { title: 'Порты и VLAN', render(c) {
         const selIdx = w.port != null ? w.port : 0;
-        const face = h('div', { class: 'wface' }, dev.ifaces.map((itf, k) => h('button', {
-          type: 'button', class: 'wport' + (k === selIdx ? ' active' : '') + (itf.down ? ' is-down' : LAB.ifUp(itf) ? ' is-up' : ''),
-          style: { '--vc': vlanColor(itf.vlan || 1) }, title: itf.name + ', VLAN ' + (itf.vlan || 1),
-          onClick: () => { w.port = k; render(w); },
-        }, h('span', { class: 'wport__led' }), h('span', { class: 'wport__num' }, k + 1), h('span', { class: 'wport__vlan' }, 'v' + (itf.vlan || 1)))));
+        const face = h('div', { class: 'wface' }, dev.ifaces.map((itf, k) => {
+          const trunk = itf.mode === 'trunk';
+          const blocked = stp.blocked.has(dev.id + ':' + k);
+          return h('button', {
+            type: 'button', class: 'wport' + (k === selIdx ? ' active' : '') + (itf.down ? ' is-down' : LAB.ifUp(itf) ? ' is-up' : '') + (trunk ? ' is-trunk' : '') + (blocked ? ' is-blk' : ''),
+            style: { '--vc': trunk ? '#9aa0b4' : vlanColor(itf.vlan || 1) }, title: itf.name + (trunk ? ', trunk' : ', VLAN ' + (itf.vlan || 1)) + (blocked ? ', заблокирован STP' : ''),
+            onClick: () => { w.port = k; render(w); },
+          }, h('span', { class: 'wport__led' }), h('span', { class: 'wport__num' }, k + 1), h('span', { class: 'wport__vlan' }, trunk ? 'T' : 'v' + (itf.vlan || 1)));
+        }));
         const itf = dev.ifaces[selIdx];
+        const mode = h('select', { class: 'wf__in', onChange: (e) => { itf.mode = e.target.value; ui.changed(); } },
+          h('option', { value: 'access', selected: itf.mode !== 'trunk' }, 'access (один VLAN)'),
+          h('option', { value: 'trunk', selected: itf.mode === 'trunk' }, 'trunk (несколько VLAN, 802.1Q)'));
         const vlan = h('input', { class: 'wf__in', type: 'number', min: 1, max: 4094, value: itf.vlan || 1 });
+        const allowed = inp(itf.allowed, 'все');
+        const native = h('input', { class: 'wf__in', type: 'number', min: 1, max: 4094, value: itf.native || 1 });
         const desc = inp(itf.desc || '', 'например, бухгалтерия');
         const err = errBox();
+        const fields = itf.mode === 'trunk'
+          ? [field('Разрешённые VLAN', allowed, 'пусто: все, или список: 10,20,30-35'), field('Native VLAN', native, 'кадры этого VLAN идут без тега')]
+          : [field('VLAN', vlan, 'порты с одним VLAN видят друг друга')];
+        const role = stp.role[dev.id + ':' + selIdx];
         c.append(
           h('div', { class: 'wface-wrap' }, h('div', { class: 'wface__label' }, dev.name), face),
           h('div', { class: 'wcard' },
             h('div', { class: 'wcard__head' }, h('b', null, itf.name), h('span', { class: 'wcard__sub' }, '→ ' + peerName(dev, selIdx)), ifState(itf),
+              role && dev.stp.on ? pill('STP: ' + STP_ROLE[role][0], STP_ROLE[role][1]) : null,
               toggle(!itf.down, (on) => { itf.down = !on; ui.changed(); }, 'вкл.')),
-            h('div', { class: 'wgrid' }, field('VLAN (access)', vlan, 'порты с одним VLAN видят друг друга'), field('Описание', desc)),
+            h('div', { class: 'wgrid' }, field('Режим', mode), fields, field('Описание', desc)),
             h('div', { class: 'wrow wrow--end' }, err, btn('Сохранить', () => {
-              const v = Math.round(Number(vlan.value));
-              if (!(v >= 1 && v <= 4094)) { err.textContent = 'VLAN от 1 до 4094'; return; }
-              itf.vlan = v;
-              itf.desc = desc.value.trim().slice(0, 60);
+              const d = desc.value.trim().slice(0, 60);
+              if (itf.mode === 'trunk') {
+                const n = Math.round(Number(native.value));
+                if (!(n >= 1 && n <= 4094)) { err.textContent = 'Native VLAN от 1 до 4094'; return; }
+                const a = allowed.value.trim();
+                if (a && !/^(all|все)$/i.test(a) && !LAB.parseVlanList(a).size) { err.textContent = 'Список VLAN: 10,20 или 30-35'; return; }
+                itf.native = n;
+                itf.allowed = a;
+              } else {
+                const v = Math.round(Number(vlan.value));
+                if (!(v >= 1 && v <= 4094)) { err.textContent = 'VLAN от 1 до 4094'; return; }
+                itf.vlan = v;
+              }
+              itf.desc = d;
               ui.changed();
-              toast(w, itf.name + ': VLAN ' + v);
+              toast(w, itf.name + ': сохранено');
             }, true))),
-          h('p', { class: 'wnote' }, 'Цвет полоски под портом это его VLAN. Кадры не переходят между VLAN внутри коммутатора: для этого нужен маршрутизатор.'));
+          h('p', { class: 'wnote' }, 'Цвет полоски под портом это его VLAN, «T» значит транк. Между коммутаторами и к маршрутизатору с подынтерфейсами нужен транк: по нему кадры идут с тегом VLAN.'));
+      } },
+      stp: { title: 'STP', render(c) {
+        const b = stp.bridge[dev.id];
+        const prio = h('select', { class: 'wf__in', onChange: (e) => { dev.stp.priority = Number(e.target.value); ui.changed(); } },
+          Array.from({ length: 16 }, (_, k) => k * 4096).map((p) => h('option', { value: p, selected: p === dev.stp.priority }, String(p))));
+        c.append(
+          h('div', { class: 'wrow' }, toggle(dev.stp.on, (on) => { dev.stp.on = on; ui.changed(); toast(w, on ? 'STP включён' : 'STP выключен'); }, dev.stp.on ? 'STP включён' : 'STP выключен')),
+          h('div', { class: 'wgrid' }, field('Приоритет моста', prio, 'меньше значит важнее: корнем станет коммутатор с наименьшим приоритетом'), field('MAC моста', h('code', { class: 'wf__ro' }, dev.ifaces[0].mac))));
+        if (!dev.stp.on) {
+          c.append(h('p', { class: 'wnote' }, 'Без STP любая петля из кабелей устроит широковещательный шторм: кадры будут ходить по кругу бесконечно.'));
+          return;
+        }
+        if (b) {
+          const rootDev = ui.S.net.dev(b.root);
+          c.append(h('div', { class: 'wstats' },
+            h('div', null, h('b', null, b.isRoot ? 'я' : rootDev ? rootDev.name : '?'), h('span', null, 'корневой мост')),
+            h('div', null, h('b', null, b.isRoot ? 0 : b.cost), h('span', null, 'стоимость пути до корня')),
+            h('div', null, h('b', null, b.rootPort != null ? dev.ifaces[b.rootPort].name : '—'), h('span', null, 'корневой порт'))));
+        }
+        c.append(table(['Порт', 'Сосед', 'Роль'], dev.ifaces.map((itf, k) => {
+          const r = stp.role[dev.id + ':' + k];
+          if (!r) return null;
+          return h('tr', null, h('td', null, h('b', null, itf.name)), h('td', null, peerName(dev, k)), h('td', null, pill(STP_ROLE[r][0], STP_ROLE[r][1])));
+        }).filter(Boolean), 'Нет подключённых портов.'),
+        h('p', { class: 'wnote' }, 'Корневой порт ведёт к корню кратчайшим путём. Назначенный пересылает кадры в свой сегмент. Заблокированный молчит, пока не понадобится: так кольцо становится деревом.'));
       } },
       mac: { title: 'Таблица MAC', render(c) {
         const rows = Object.entries(ui.S.sim.tables(dev).mac);
@@ -353,12 +534,12 @@
         h('div', { class: 'wrow' }, btn('Очистить таблицу', () => { ui.S.sim.tables(dev).mac = {}; render(w); })));
       } },
       overview: { title: 'Обзор', render(c) {
-        const name = inp(dev.name);
         const by = {};
-        dev.ifaces.forEach((i) => { (by[i.vlan || 1] = by[i.vlan || 1] || []).push(i.name); });
+        const trunks = [];
+        dev.ifaces.forEach((i) => { if (i.mode === 'trunk') trunks.push(i.name); else (by[i.vlan || 1] = by[i.vlan || 1] || []).push(i.name); });
         c.append(
-          h('div', { class: 'wrow' }, field('Имя устройства', name), btn('Сохранить', () => { if (name.value.trim()) { dev.name = name.value.trim().slice(0, 24); ui.changed(); toast(w, 'Имя сохранено'); } }, true)),
-          table(['VLAN', 'Порты'], Object.keys(by).sort((a, b) => a - b).map((v) => h('tr', null, h('td', null, h('span', { class: 'wvlan', style: { '--vc': vlanColor(v) } }, v)), h('td', null, by[v].join(', '))))));
+          table(['VLAN', 'Порты'], Object.keys(by).sort((a, b) => a - b).map((v) => h('tr', null, h('td', null, h('span', { class: 'wvlan', style: { '--vc': vlanColor(v) } }, v)), h('td', null, by[v].join(', '))))),
+          trunks.length ? h('p', { class: 'wnote' }, 'Транки: ' + trunks.join(', ')) : null);
       } },
     });
   };
@@ -458,29 +639,38 @@
       })), dErr,
       h('p', { class: 'wnote' }, 'Клиенты узнают адрес этого сервера из поля DNS в своих настройках или из DHCP.'))));
 
-    // DHCP
-    const pool = sv.dhcp.pool;
-    const pStart = inp(pool.start, '192.168.10.100'), pEnd = inp(pool.end, '192.168.10.150'), pMask = maskSelect(pool.prefix);
-    const pGw = inp(pool.gateway, '192.168.10.1'), pDns = inp(pool.dns, '10.0.0.10'), pErr = errBox();
+    // DHCP: пулы (по одному на каждую сеть клиентов), резервирования, аренды
+    const pErr = errBox();
     const rMac = h('input', { class: 'wf__in', placeholder: 'MAC клиента', list: 'labMacs-' + dev.id, spellcheck: 'false' });
     const rIp = inp('', 'адрес для него');
     const macs = h('datalist', { id: 'labMacs-' + dev.id }, ui.S.net.devices.filter((d) => LAB.types[d.type].kind === 'host' && d.id !== dev.id).map((d) => h('option', { value: d.ifaces[0].mac }, d.name)));
     const leases = Object.entries(ui.S.sim.tables(dev).leases);
     const nameByMac = (m) => { const d = ui.S.net.devices.find((x) => x.ifaces.some((i) => i.mac === m)); return d ? d.name : ''; };
+    const poolCard = (pool, k) => {
+      const pStart = inp(pool.start, '192.168.10.100'), pEnd = inp(pool.end, '192.168.10.150'), pMask = maskSelect(pool.prefix);
+      const pGw = inp(pool.gateway, '192.168.10.1'), pDns = inp(pool.dns, '10.0.0.10'), err = errBox();
+      return h('div', { class: 'wsub-if' },
+        h('div', { class: 'wsub-if__head' }, h('b', null, 'Пул ' + (k + 1)), h('span', { class: 'wcard__sub' }, pool.start ? ip.netStr(pool.start, pool.prefix) : 'не настроен'),
+          sv.dhcp.pools.length > 1 ? h('button', { type: 'button', class: 'wx', title: 'Удалить пул', onClick: () => { sv.dhcp.pools.splice(k, 1); ui.changed(); } }, '×') : null),
+        h('div', { class: 'wgrid' }, field('С адреса', pStart), field('По адрес', pEnd), field('Маска', pMask), field('Шлюз для клиентов', pGw), field('DNS для клиентов', pDns)),
+        h('div', { class: 'wrow wrow--end' }, err, btn('Сохранить пул', () => {
+          err.textContent = '';
+          if (!ip.valid(pStart.value) || !ip.valid(pEnd.value)) { err.textContent = 'Укажи начало и конец пула'; return; }
+          const p = Number(pMask.value);
+          if (!ip.same(pStart.value, pEnd.value, p)) { err.textContent = 'Начало и конец пула в разных сетях'; return; }
+          if (ip.parse(pStart.value) > ip.parse(pEnd.value)) { err.textContent = 'Начало пула больше конца'; return; }
+          if (pGw.value && !ip.valid(pGw.value)) { err.textContent = 'Неверный шлюз'; return; }
+          if (pDns.value && !ip.valid(pDns.value)) { err.textContent = 'Неверный DNS'; return; }
+          if (sv.dhcp.pools.some((o, j) => j !== k && o.start && ip.same(o.start, pStart.value, Math.min(p, o.prefix)))) { err.textContent = 'Пул для этой сети уже есть'; return; }
+          Object.assign(pool, { start: ip.norm(pStart.value), end: ip.norm(pEnd.value), prefix: p, gateway: ip.norm(pGw.value), dns: ip.norm(pDns.value) });
+          ui.changed();
+          toast(w, 'Пул сохранён');
+        }, true)));
+    };
     wrap.append(card('dhcp', 'DHCP-сервер', 'isc-dhcp-server, udp/67: раздаёт адреса', h('div', null,
-      h('div', { class: 'wgrid' }, field('Пул: с', pStart), field('по', pEnd), field('Маска', pMask), field('Шлюз для клиентов', pGw), field('DNS для клиентов', pDns)),
-      h('div', { class: 'wrow wrow--end' }, pErr, btn('Сохранить пул', () => {
-        pErr.textContent = '';
-        if (!ip.valid(pStart.value) || !ip.valid(pEnd.value)) { pErr.textContent = 'Укажи начало и конец пула'; return; }
-        const p = Number(pMask.value);
-        if (!ip.same(pStart.value, pEnd.value, p)) { pErr.textContent = 'Начало и конец пула в разных сетях'; return; }
-        if (ip.parse(pStart.value) > ip.parse(pEnd.value)) { pErr.textContent = 'Начало пула больше конца'; return; }
-        if (pGw.value && !ip.valid(pGw.value)) { pErr.textContent = 'Неверный шлюз'; return; }
-        if (pDns.value && !ip.valid(pDns.value)) { pErr.textContent = 'Неверный DNS'; return; }
-        Object.assign(pool, { start: ip.norm(pStart.value), end: ip.norm(pEnd.value), prefix: p, gateway: ip.norm(pGw.value), dns: ip.norm(pDns.value) });
-        ui.changed();
-        toast(w, 'Пул сохранён');
-      }, true)),
+      sv.dhcp.pools.map(poolCard),
+      h('div', { class: 'wrow' }, btn('+ пул для другой сети', () => { sv.dhcp.pools.push(LAB.defaultPool()); ui.changed(); })),
+      h('p', { class: 'wnote' }, 'Сервер выбирает пул по сети клиента: в своей сети по своему адресу, из чужих сетей по адресу relay (giaddr) на маршрутизаторе.'),
       h('div', { class: 'wsub' }, 'Резервирование: всегда выдавать этому MAC один и тот же адрес'),
       table(['MAC', 'Адрес', ''], sv.dhcp.reservations.map((r, k) => h('tr', null, h('td', null, h('code', null, r.mac), ' ', h('small', null, nameByMac(r.mac))), h('td', null, r.ip),
         h('td', null, h('button', { type: 'button', class: 'wx', onClick: () => { sv.dhcp.reservations.splice(k, 1); ui.changed(); } }, '×')))), 'Резервирований нет'),
@@ -490,7 +680,7 @@
         if (!ip.valid(rIp.value)) { pErr.textContent = 'Неверный адрес резервирования'; return; }
         sv.dhcp.reservations = sv.dhcp.reservations.filter((r) => r.mac !== m).concat({ mac: m, ip: ip.norm(rIp.value) });
         ui.changed();
-      })),
+      })), pErr,
       h('div', { class: 'wsub' }, 'Выданные адреса (аренды)'),
       table(['Клиент', 'Адрес'], leases.map(([m, a]) => h('tr', null, h('td', null, nameByMac(m) || h('code', null, m)), h('td', null, a))), 'Пока никому ничего не выдано'))));
 
@@ -573,12 +763,12 @@
       if (local) { add('Сеть недоступна: ' + local.text, 'err'); return out; }
       const res = r.results[0];
       if (res && res.type === 'reply') add('Ответ от ' + res.from + ': TTL ' + res.ttl + ', время ' + (0.3 + Math.random() * 2).toFixed(1) + ' мс', 'ok');
-      else if (res && res.type === 'unreach') add(res.from + ' сообщает: сеть назначения недоступна', 'err');
+      else if (res && res.type === 'unreach') add(res.from + (res.admin ? ' сообщает: доступ запрещён (ACL)' : ' сообщает: сеть назначения недоступна'), 'err');
       else if (res && res.type === 'arp-fail') add('Узел недоступен: на ARP-запрос никто не ответил (узла нет в этой сети или он в другом VLAN)', 'err');
       else add('Превышено время ожидания: ответ не вернулся, в журнале видно, где пропал пакет', 'err');
     } else if (op === 'tracert') {
       if (dnsFail) { add('Не удалось узнать адрес ' + dst + ': ' + dnsFail.reason, 'err'); return out; }
-      r.hops.forEach((x) => add(String(x.ttl).padStart(2) + '   ' + (x.from ? x.from + '   ' + (0.5 + x.ttl * 0.7).toFixed(1) + ' мс' + (x.unreach ? '   сеть недоступна' : '') : '*   ответа нет' + (x.error ? ' (' + x.error + ')' : '')),
+      r.hops.forEach((x) => add(String(x.ttl).padStart(2) + '   ' + (x.from ? x.from + '   ' + (0.5 + x.ttl * 0.7).toFixed(1) + ' мс' + (x.unreach ? (x.admin ? '   запрещено ACL' : '   сеть недоступна') : '') : '*   ответа нет' + (x.error ? ' (' + x.error + ')' : '')),
         x.done ? 'ok' : x.from && !x.unreach ? '' : 'err'));
       if (!r.hops.length) add('Маршрут не найден', 'err');
     } else {

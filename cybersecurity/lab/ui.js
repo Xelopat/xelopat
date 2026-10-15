@@ -31,7 +31,8 @@
     cam: { x: 0, y: 0, k: 1 },
     speed: 1,
     anim: null,
-    preset: null,
+    preset: null,       // id схемы-примера
+    task: null,         // id открытой задачи (tasks.js)
     map: null,          // { id, name } карты на сервере, если она открыта
   };
   const E = {};
@@ -108,7 +109,7 @@
 
   /* ===== Хранение в браузере ===== */
   function save() {
-    try { localStorage.setItem(STORE, JSON.stringify({ net: S.net, preset: S.preset, view: S.view, map: S.map })); } catch (e) { /* без хранилища просто не запоминаем */ }
+    try { localStorage.setItem(STORE, JSON.stringify({ net: S.net, preset: S.preset, task: S.task, view: S.view, map: S.map })); } catch (e) { /* без хранилища просто не запоминаем */ }
   }
   function load() {
     try {
@@ -117,6 +118,7 @@
       const data = JSON.parse(raw);
       S.net = LAB.Net.from(data.net);
       S.preset = data.preset || null;
+      S.task = data.task && LAB.tasks.some((t) => t.id === data.task) ? data.task : null;
       S.map = data.map && data.map.id ? data.map : null;
       if (VIEWS[data.view]) S.view = data.view;
       return true;
@@ -125,7 +127,7 @@
     }
   }
 
-  function setNet(net, presetId, map) {
+  function setNet(net, presetId, map, taskId) {
     stopAnim();
     closeMenus();
     if (LAB.Win) LAB.Win.closeAll();
@@ -133,12 +135,14 @@
     S.sim = new LAB.Sim(net);
     S.sel = null;
     S.preset = presetId || null;
+    S.task = taskId || null;
     S.map = map || null;
     clearLog();
     save();
     renderAll();
     fit();
     fillTry();
+    if (LAB.TasksUI) LAB.TasksUI.render();
   }
 
   function loadPreset(id) {
@@ -152,6 +156,7 @@
     S.sim.reset();
     save();
     renderAll();
+    if (LAB.TasksUI) LAB.TasksUI.stale();
   }
 
   // Узел сам поменял свои настройки (DHCP): сохранить и перерисовать без сброса таблиц
@@ -200,9 +205,12 @@
 
   // Подпись порта: в L1 видны все, в L2 и L3 только важные (VLAN, адрес маршрутизатора),
   // остальные появляются при наведении на кабель или выделении устройства
-  function portLabel(d, itf) {
+  function portLabel(d, itf, blocked) {
     const kind = kindOf(d);
     if (S.view === 'l1') return { text: itf.name, key: true };
+    if (S.view === 'l2' && blocked) return { text: itf.name + ' STP ✕', key: true, warn: true };
+    if (S.view === 'l2' && kind === 'switch' && itf.mode === 'trunk') return { text: itf.name + ' trunk', key: true };
+    if (S.view === 'l2' && kind === 'router' && itf.subs && itf.subs.length) return { text: itf.name + ' .' + itf.subs.map((x) => x.vlan).join(' .'), key: true };
     if (S.view === 'l2' && kind === 'switch' && (itf.vlan || 1) !== 1) return { text: itf.name + ' v' + itf.vlan, key: true };
     if (S.view === 'l3' && kind === 'router') return { text: itf.ip ? '.' + itf.ip.split('.').pop() : 'без IP', key: true };
     return { text: itf.name, key: false };
@@ -221,7 +229,9 @@
 
   function renderGraph() {
     const net = S.net;
-    const dom = S.view === 'l1' ? null : net.domains();
+    const stp = net.stpInfo();
+    S.stpView = stp;
+    const dom = S.view === 'l1' ? null : net.domains(stp);
     E.gLinks.replaceChildren();
     E.gNodes.replaceChildren();
     E.nodeEls = new Map();
@@ -232,14 +242,19 @@
     net.links.forEach((l) => {
       const a = net.dev(l.a.dev), b = net.dev(l.b.dev);
       const down = net.linkDown(l);
+      const blkA = stp.blocked.has(l.a.dev + ':' + l.a.i), blkB = stp.blocked.has(l.b.dev + ':' + l.b.i);
+      const trunk = !!(dom && dom.linkTags[l.id] && dom.linkTags[l.id].length);
       const color = down ? '#55394a' : dom ? domainColor(dom.linkDomain[l.id]) : '#6a6c80';
       const gm = linkGeom(l);
       const hit = s('line', { class: 'lab-link__hit', x1: gm.x1, y1: gm.y1, x2: gm.x2, y2: gm.y2 });
       const line = s('line', { class: 'lab-link__line', x1: gm.x1, y1: gm.y1, x2: gm.x2, y2: gm.y2, stroke: color });
-      const la = portLabel(a, a.ifaces[l.a.i]), lb = portLabel(b, b.ifaces[l.b.i]);
-      const ta = s('text', { class: 'lab-port' + (la.key ? ' is-key' : '') + (a.ifaces[l.a.i].down ? ' is-down' : ''), x: gm.pa.x, y: gm.pa.y, 'text-anchor': 'middle' }, la.text);
-      const tb = s('text', { class: 'lab-port' + (lb.key ? ' is-key' : '') + (b.ifaces[l.b.i].down ? ' is-down' : ''), x: gm.pb.x, y: gm.pb.y, 'text-anchor': 'middle' }, lb.text);
-      const g = s('g', { class: 'lab-link' + (S.sel === 'link:' + l.id ? ' is-sel' : '') + (down ? ' is-down' : ''), 'data-link': l.id }, hit, line, ta, tb);
+      const la = portLabel(a, a.ifaces[l.a.i], blkA), lb = portLabel(b, b.ifaces[l.b.i], blkB);
+      const ta = s('text', { class: 'lab-port' + (la.key ? ' is-key' : '') + (la.warn ? ' is-warn' : '') + (a.ifaces[l.a.i].down ? ' is-down' : ''), x: gm.pa.x, y: gm.pa.y, 'text-anchor': 'middle' }, la.text);
+      const tb = s('text', { class: 'lab-port' + (lb.key ? ' is-key' : '') + (lb.warn ? ' is-warn' : '') + (b.ifaces[l.b.i].down ? ' is-down' : ''), x: gm.pb.x, y: gm.pb.y, 'text-anchor': 'middle' }, lb.text);
+      const cls = 'lab-link' + (S.sel === 'link:' + l.id ? ' is-sel' : '') + (down ? ' is-down' : '') + (blkA || blkB ? ' is-blocked' : '') + (trunk && S.view === 'l2' ? ' is-trunk' : '');
+      const g = s('g', { class: cls, 'data-link': l.id }, hit, line, ta, tb);
+      if (trunk && S.view !== 'l1') g.append(s('title', null, 'Транк 802.1Q: VLAN ' + dom.linkTags[l.id].join(', ') + ' с тегом, без тега native'));
+      if (blkA || blkB) g.append(s('title', null, 'Порт заблокирован STP: запасной путь, включится при обрыве'));
       E.linkEls.set(l.id, { g, hit, line, ta, tb });
       linksFrag.append(g);
     });
@@ -341,8 +356,15 @@
     if (S.view === 'l2') {
       if (kind === 'host') return { text: i0.mac };
       if (kind === 'switch') {
-        const vl = [...new Set(d.ifaces.filter((i) => i.link).map((i) => i.vlan || 1))].sort((a, b) => a - b);
-        return { text: 'VLAN ' + (vl.length ? vl.join(', ') : '1') };
+        const vl = [...new Set(d.ifaces.filter((i) => i.link && i.mode !== 'trunk').map((i) => i.vlan || 1))].sort((a, b) => a - b);
+        const tr = d.ifaces.some((i) => i.link && i.mode === 'trunk');
+        const b = S.stpView && S.stpView.bridge[d.id];
+        const root = b && b.isRoot && S.net.devices.filter((x) => x.stp && x.stp.on).length > 1;
+        return { text: 'VLAN ' + (vl.length ? vl.join(', ') : tr ? '—' : '1') + (tr ? ', trunk' : '') + (root ? ', корень STP' : '') + (d.stp && !d.stp.on ? ', без STP' : '') };
+      }
+      if (kind === 'router') {
+        const subs = d.ifaces.reduce((n, i) => n + (i.subs ? i.subs.length : 0), 0);
+        return subs ? { text: subs + ' подынтерф.' } : null;
       }
       return null;
     }
@@ -351,8 +373,9 @@
       return { text: i0.ip + '/' + i0.prefix };
     }
     if (kind === 'router') {
-      const n = d.ifaces.filter((i) => i.ip && LAB.ifUp(i)).length;
-      return { text: n + ' сет' + (n === 1 ? 'ь' : n > 1 && n < 5 ? 'и' : 'ей') + ', ' + d.routes.length + ' маршр.' };
+      const n = LAB.lifs(d).filter((l) => l.cfg.ip && LAB.lifUp(l)).length;
+      const extra = [d.ifaces.some((i) => i.ospf || (i.subs || []).some((x) => x.ospf)) ? 'OSPF' : '', LAB.lifs(d).some((l) => l.cfg.nat) ? 'NAT' : '', LAB.lifs(d).some((l) => l.cfg.aclIn.length || l.cfg.aclOut.length) ? 'ACL' : ''].filter(Boolean);
+      return { text: n + ' сет' + (n === 1 ? 'ь' : n > 1 && n < 5 ? 'и' : 'ей') + ', ' + d.routes.length + ' маршр.' + (extra.length ? ', ' + extra.join(' ') : '') };
     }
     return null;
   }
@@ -376,6 +399,8 @@
       return h('div', { class: 'lab-legend__row' }, h('i', { style: { background: domainColor(n) } }), text);
     });
     if (dom.info.length > 12) rows.push(h('div', { class: 'lab-legend__row' }, 'и ещё ' + (dom.info.length - 12)));
+    if (S.view === 'l2' && Object.values(dom.linkTags).some((t) => t.length)) rows.push(h('div', { class: 'lab-legend__row is-note' }, h('i', { class: 'is-trunk' }), 'транк 802.1Q'));
+    if (S.view === 'l2' && dom.stp.blocked.size) rows.push(h('div', { class: 'lab-legend__row is-note' }, h('i', { class: 'is-blocked' }), 'заблокировано STP'));
     E.legend.append(...rows);
   }
 
@@ -405,13 +430,15 @@
     const views = h('div', { class: 'lab-group lab-seg-ctl' },
       Object.entries(VIEWS).map(([id, v]) => (E.viewBtns[id] = h('button', { type: 'button', title: v.title, onClick: () => setView(id) }, v.label))));
 
-    E.presetSel = h('select', { class: 'lab-select', 'aria-label': 'Готовые схемы', onChange: (e) => { if (e.target.value) loadPreset(e.target.value); e.target.value = ''; } },
-      h('option', { value: '' }, 'Готовые схемы'),
-      LAB.presets.map((p) => h('option', { value: p.id }, (p.task ? 'Задача: ' : '') + p.title.replace(/^Задача: /, ''))));
+    E.presetSel = h('select', { class: 'lab-select', 'aria-label': 'Схемы-примеры', title: 'Готовые схемы: посмотреть, как всё работает', onChange: (e) => { if (e.target.value) loadPreset(e.target.value); e.target.value = ''; } },
+      h('option', { value: '' }, 'Схемы'),
+      LAB.presets.map((p) => h('option', { value: p.id }, p.title)));
+    E.tasksBtn = h('button', { type: 'button', class: 'lab-btn lab-btn--accent', 'data-pop-toggle': '', title: 'Задачи с проверкой: от кабеля до филиала', onClick: (e) => { e.stopPropagation(); if (LAB.TasksUI) LAB.TasksUI.toggle(); } }, 'Задачи');
     const file = h('input', { type: 'file', accept: '.json,application/json', hidden: true, onChange: importFile });
     E.mapsBtn = h('button', { type: 'button', class: 'lab-btn', 'data-pop-toggle': '', onClick: (e) => { e.stopPropagation(); if (LAB.Maps) LAB.Maps.toggle(); }, title: 'Сохранённые карты в аккаунте' }, 'Мои карты');
     E.fullBtn = iconBtn('full', 'На весь экран (Esc чтобы выйти)', toggleFull);
     const files = h('div', { class: 'lab-group lab-group--end' },
+      E.tasksBtn,
       E.presetSel,
       E.mapsBtn,
       iconBtn('export', 'Экспорт: скачать схему в JSON', exportFile),
@@ -764,7 +791,8 @@
         h('li', null, h('b', null, 'Удалить'), ': правой кнопкой по кабелю или устройству, или выдели и нажми Delete. На телефоне: тап по кабелю и ✕, или долгое нажатие.'),
         h('li', null, 'Левой кнопкой двигать устройства и холст, колесо масштабирует, Delete удаляет выделенное.'),
         h('li', null, 'Виды L1, L2, L3: кабели, широковещательные домены, подсети. Полоска у устройства: его уровни OSI, при обработке кадра она подсвечивается.'),
-        h('li', null, h('b', null, 'Журнал'), ' внизу справа: ping с любого узла и разбор каждого кадра по уровням.'))),
+        h('li', null, h('b', null, 'Журнал'), ' внизу справа: ping с любого узла и разбор каждого кадра по уровням.'),
+        h('li', null, h('b', null, 'Задачи'), ' вверху: курс от кабеля до филиала с VLAN, NAT, OSPF и ACL, с автоматической проверкой. «Схемы» это готовые примеры.'))),
     h('div', { class: 'lab-info__sec lab-info__stat' }, 'Устройств: ' + S.net.devices.length + ' из ' + MAX_DEVICES + ', кабелей: ' + S.net.links.length));
   }
 
@@ -912,7 +940,7 @@
     } else {
       const res = r.results[0];
       if (res && res.type === 'reply') { text = 'Итог: ответ от ' + res.from + ', TTL ' + res.ttl; cls = 'ok'; }
-      else if (res && res.type === 'unreach') text = 'Итог: ' + res.from + ' сообщает, что сеть недоступна';
+      else if (res && res.type === 'unreach') text = 'Итог: ' + res.from + (res.admin ? ' запретил это по ACL' : ' сообщает, что сеть недоступна');
       else if (res && res.type === 'arp-fail') text = 'Итог: на ARP-запрос никто не ответил';
       else text = 'Итог: ответ не пришёл';
     }
@@ -1012,8 +1040,8 @@
           p.app ? appBox(p.app) : null,
           p.app ? null : 'Служебный сегмент без данных: ' + ({ SYN: 'просьба открыть соединение', 'SYN, ACK': 'согласие открыть соединение', ACK: 'подтверждение', 'FIN, ACK': 'закрытие соединения' }[p.tcp.flags] || 'управление соединением') + '.');
       } else {
-        const icmpNames = { 'echo-request': '8, эхо-запрос', 'echo-reply': '0, эхо-ответ', 'time-exceeded': '11, время жизни истекло', unreachable: '3, назначение недоступно' };
-        l4 = box(3, 'ICMP', [['Тип', icmpNames[p.icmp.type] || p.icmp.type]], null, 'Выше L3 у ping ничего нет: ICMP живёт на сетевом уровне, без портов.');
+        const icmpNames = { 'echo-request': '8, эхо-запрос', 'echo-reply': '0, эхо-ответ', 'time-exceeded': '11, время жизни истекло', unreachable: p.icmp.code === 'admin' ? '3, код 13: запрещено администратором (ACL)' : '3, назначение недоступно' };
+        l4 = box(3, 'ICMP', [['Тип', icmpNames[p.icmp.type] || p.icmp.type], p.icmp.id != null ? ['Идентификатор', String(p.icmp.id)] : null].filter(Boolean), null, 'Выше L3 у ping ничего нет: ICMP живёт на сетевом уровне, без портов. Идентификатор нужен, чтобы сопоставить ответ запросу (его же NAT использует вместо порта).');
       }
       inner = box(3, 'IPv4-пакет', [
         ['IP отправителя', p.src + (p.src === '0.0.0.0' ? ' (адреса ещё нет)' : '')], ['IP получателя', p.dst + (p.dst === '255.255.255.255' ? ' (всем)' : '')],
@@ -1023,8 +1051,9 @@
     const frameBox = box(2, 'Ethernet-кадр', [
       ['MAC получателя', f.dst === LAB.BCAST ? f.dst + ' (всем)' : f.dst],
       ['MAC отправителя', f.src],
+      f.vlan ? ['Тег 802.1Q', 'VLAN ' + f.vlan + ' (кадр идёт по транку)'] : null,
       ['EtherType', f.type === 'arp' ? '0x0806 (ARP)' : '0x0800 (IPv4)'],
-    ], inner);
+    ].filter(Boolean), inner);
     let where;
     if (ev.type === 'hop') {
       const a = net.dev(ev.from), b = net.dev(ev.to);
@@ -1173,6 +1202,7 @@
     S, E, h, s, LC, typeOf, kindOf, miniIcon, MAX_DEVICES,
     changed, refreshed, save, hint, runOp, renderAll, setNet, closeMenus,
     select(id) { select(id); },
+    fit() { fit(); },
   };
 
   function boot() {
@@ -1206,6 +1236,7 @@
 
     buildToolbar();
     bindStage();
+    if (LAB.TasksUI) LAB.TasksUI.init();
 
     if (load()) {
       S.sim = new LAB.Sim(S.net);

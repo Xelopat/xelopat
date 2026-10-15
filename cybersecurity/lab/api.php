@@ -13,6 +13,8 @@ declare(strict_types=1);
 // POST { action: 'save', id?, name, gz | data } → { id, name }
 // POST { action: 'rename', id, name }
 // POST { action: 'delete', id }
+// GET  ?action=progress            → { user, progress: { done: { taskId: время } } }
+// POST { action: 'progress', done: { taskId: время } } → объединяет с сохранённым, возвращает итог
 
 require_once __DIR__ . '/../../auth/lib.php';
 
@@ -65,6 +67,7 @@ function lab_db(): PDO {
         data BLOB NOT NULL
     )');
     $pdo->exec('CREATE INDEX IF NOT EXISTS maps_uid ON maps(uid, updated)');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS progress (uid TEXT PRIMARY KEY, data TEXT NOT NULL, updated INTEGER NOT NULL)');
     return $pdo;
 }
 
@@ -88,6 +91,26 @@ function lab_map_json(array $in): string {
     return $json;
 }
 
+// Пройденные задачи: { id: время прохождения }. Чужие ключи и мусор отбрасываем
+function lab_done($v): array {
+    $out = [];
+    if (!is_array($v)) return $out;
+    foreach ($v as $id => $t) {
+        if (count($out) >= 300) break;
+        if (!is_string($id) || !preg_match('/^[a-z0-9-]{1,40}$/', $id)) continue;
+        $t = (int)$t;
+        $out[$id] = $t > 0 && $t < 4102444800 ? $t : time();
+    }
+    return $out;
+}
+
+function lab_progress(PDO $db, string $uid): array {
+    $st = $db->prepare('SELECT data FROM progress WHERE uid = ?');
+    $st->execute([$uid]);
+    $data = json_decode((string)$st->fetchColumn(), true);
+    return ['done' => lab_done($data['done'] ?? [])];
+}
+
 if (!class_exists('PDO') || !in_array('sqlite', PDO::getAvailableDrivers(), true)) {
     lab_out(['error' => 'На сервере нет SQLite'], 500);
 }
@@ -103,6 +126,11 @@ if ($method === 'GET' && $action === 'list') {
     $st->execute([(string)$user['id']]);
     $maps = array_map(fn($r) => ['id' => $r['id'], 'name' => $r['name'], 'devices' => (int)$r['devices'], 'updated' => (int)$r['updated']], $st->fetchAll(PDO::FETCH_ASSOC));
     lab_out(['user' => ['name' => (string)$user['username']], 'limits' => $limits, 'maps' => $maps]);
+}
+
+if ($method === 'GET' && $action === 'progress') {
+    if (!$user) lab_out(['user' => null, 'progress' => null]);
+    lab_out(['user' => ['name' => (string)$user['username']], 'progress' => lab_progress(lab_db(), (string)$user['id'])]);
 }
 
 if (!$user) lab_out(['error' => 'Нужно войти на xelopat.ru'], 401);
@@ -180,6 +208,20 @@ if ($act === 'delete') {
     $st = $db->prepare('DELETE FROM maps WHERE id = ? AND uid = ?');
     $st->execute([(string)($in['id'] ?? ''), $uid]);
     lab_out(['ok' => true]);
+}
+
+if ($act === 'progress') {
+    // Объединяем: задача, решённая хоть где-то, остаётся решённой; время берём самое раннее
+    $db->beginTransaction();
+    $cur = lab_progress($db, $uid)['done'];
+    foreach (lab_done($in['done'] ?? []) as $id => $t) {
+        $cur[$id] = isset($cur[$id]) ? min($cur[$id], $t) : $t;
+    }
+    $cur = lab_done($cur);
+    $st = $db->prepare('INSERT OR REPLACE INTO progress (uid, data, updated) VALUES (?, ?, ?)');
+    $st->execute([$uid, json_encode(['done' => (object)$cur]), time()]);
+    $db->commit();
+    lab_out(['progress' => ['done' => (object)$cur]]);
 }
 
 lab_out(['error' => 'Неизвестное действие'], 400);
