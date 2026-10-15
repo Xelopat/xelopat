@@ -1,10 +1,11 @@
-// Задачи: список по уровням, карточка текущей задачи с проверкой и подсказками, прогресс.
+// Задачи и схемы: списки (задачи по уровням, схемы по темам), карточка открытой задачи или схемы, прогресс.
+// Карточку можно скрыть крестиком: тогда слева вверху остаётся кнопка, которая возвращает условия.
 // Прогресс хранится в браузере, а у вошедших на xelopat.ru ещё и в аккаунте (api.php?action=progress):
 // при входе локальный и серверный прогресс объединяются.
 (function () {
   const STORE = 'cs-lab:progress';
   let ui, h;
-  let pop = null, card = null;
+  let pop = null, spop = null, card = null, pill = null;
   const st = {
     done: {},          // id -> время прохождения (секунды)
     hints: {},         // id -> сколько подсказок открыто
@@ -14,6 +15,7 @@
     revealed: 0,       // сколько условий уже показано
     stale: false,      // после проверки схему меняли
     collapsed: false,
+    hidden: false,     // карточка скрыта, вместо неё кнопка «Задача: …»
     showKnow: false,
     syncing: false,
   };
@@ -29,10 +31,11 @@
       st.done = d.done && typeof d.done === 'object' ? d.done : {};
       st.hints = d.hints && typeof d.hints === 'object' ? d.hints : {};
       st.collapsed = !!d.collapsed;
+      st.hidden = !!d.hidden;
     } catch (e) { /* без хранилища начинаем с нуля */ }
   }
   function saveLocal() {
-    try { localStorage.setItem(STORE, JSON.stringify({ done: st.done, hints: st.hints, collapsed: st.collapsed })); } catch (e) { /* не страшно */ }
+    try { localStorage.setItem(STORE, JSON.stringify({ done: st.done, hints: st.hints, collapsed: st.collapsed, hidden: st.hidden })); } catch (e) { /* не страшно */ }
   }
 
   async function api(params, body) {
@@ -86,18 +89,38 @@
     ui.stopAnim();
   }
 
+  function show() { st.hidden = false; saveLocal(); renderCard(); }
+
   function start(id) {
     const t = task(id);
     if (!t) return;
-    stopPlay();
     const S = ui.S;
+    // Эта задача уже открыта: просто вернуть её условия, схему не трогать
+    if (S.task === id) { closePop(); show(); return; }
+    stopPlay();
     const own = !S.task && !S.preset && S.net.devices.length;
     if (own && !confirm('Открыть задачу «' + t.title + '»? Схема на холсте будет заменена (сохрани её в «Мои карты», если она нужна).')) return;
     st.results = null;
     st.stale = false;
     st.collapsed = false;
+    st.hidden = false;
     st.showKnow = !st.done[id];
     ui.setNet(LAB.buildTask(t), null, null, t.id);
+    closePop();
+    renderCard();
+  }
+
+  function openScheme(id) {
+    const p = LAB.presets.find((x) => x.id === id);
+    if (!p) return;
+    const S = ui.S;
+    if (S.preset === id) { closePop(); show(); return; }
+    stopPlay();
+    const own = !S.task && !S.preset && S.net.devices.length;
+    if (own && !confirm('Открыть схему «' + p.title + '»? Схема на холсте будет заменена (сохрани её в «Мои карты», если она нужна).')) return;
+    st.hidden = false;
+    st.collapsed = false;
+    ui.loadPreset(id);
     closePop();
     renderCard();
   }
@@ -138,12 +161,22 @@
     updateBtn();
   }
 
-  /* ===== Карточка задачи ===== */
+  /* ===== Карточка задачи или схемы ===== */
+  const hideBtn = () => h('button', { type: 'button', class: 'lab-task__ic', title: 'Скрыть (вернуть: кнопка слева вверху)', onClick: () => { st.hidden = true; saveLocal(); renderCard(); } }, ui.icon('close'));
+  const foldBtn = () => h('button', { type: 'button', class: 'lab-task__ic', title: st.collapsed ? 'Развернуть' : 'Свернуть', 'aria-expanded': st.collapsed ? 'false' : 'true', onClick: () => { st.collapsed = !st.collapsed; saveLocal(); renderCard(); } }, ui.icon('chevron', st.collapsed ? 'lab-ico--closed' : ''));
+
   function renderCard() {
     if (!card) return;
     const t = cur();
-    card.hidden = !t;
-    if (!t) return;
+    const p = !t && ui.S.preset ? LAB.presets.find((x) => x.id === ui.S.preset) : null;
+    card.hidden = (!t && !p) || st.hidden;
+    pill.hidden = (!t && !p) || !st.hidden;
+    if (t || p) {
+      pill.replaceChildren(ui.icon('chevron', 'lab-ico--closed'), h('span', null, (t ? 'Задача: ' : 'Схема: ') + (t || p).title));
+      pill.title = t ? 'Показать условия задачи' : 'Показать описание схемы';
+    }
+    if (card.hidden) return;
+    if (!t) { renderScheme(p); return; }
     const solved = !!st.done[t.id];
     const allOk = !st.play && st.results && st.results.every((r) => r.ok);
     card.className = 'lab-task' + (st.collapsed ? ' is-collapsed' : '') + (allOk ? ' is-ok' : '');
@@ -151,8 +184,7 @@
       h('span', { class: 'lab-task__lvl' }, 'Уровень ' + t.level),
       h('b', { class: 'lab-task__title' }, t.title),
       solved ? h('span', { class: 'lab-task__done', title: 'Решена' }, '✓') : null,
-      h('button', { type: 'button', class: 'lab-task__ic', title: st.collapsed ? 'Развернуть' : 'Свернуть', 'aria-expanded': st.collapsed ? 'false' : 'true', onClick: () => { st.collapsed = !st.collapsed; saveLocal(); renderCard(); } }, ui.icon('chevron', st.collapsed ? 'lab-ico--closed' : '')),
-      h('button', { type: 'button', class: 'lab-task__ic', title: 'Выйти из задачи', onClick: () => { stopPlay(); ui.S.task = null; ui.save(); renderCard(); updateBtn(); } }, ui.icon('close')));
+      foldBtn(), hideBtn());
     if (st.collapsed) { card.replaceChildren(head); return; }
 
     const nHints = Math.min(st.hints[t.id] || 0, t.hints.length);
@@ -188,6 +220,45 @@
     card.replaceChildren(head, h('div', { class: 'lab-task__body' }, body), actions);
   }
 
+  function renderScheme(p) {
+    const grp = (LAB.presetGroups || []).find((g) => g.id === p.group);
+    card.className = 'lab-task lab-task--scheme' + (st.collapsed ? ' is-collapsed' : '');
+    const head = h('div', { class: 'lab-task__head' },
+      h('span', { class: 'lab-task__lvl' }, grp ? grp.title : 'Схема'),
+      h('b', { class: 'lab-task__title' }, p.title),
+      foldBtn(), hideBtn());
+    if (st.collapsed) { card.replaceChildren(head); return; }
+    const actions = h('div', { class: 'lab-task__actions' },
+      p.try ? h('button', { type: 'button', class: 'btn btn--primary', onClick: () => ui.tryPreset(p) }, ui.tryLabel(p)) : null,
+      h('button', { type: 'button', class: 'lab-btn', 'data-pop-toggle': '', onClick: (e) => { e.stopPropagation(); LAB.TasksUI.toggleSchemes(); } }, 'Все схемы'),
+      h('button', { type: 'button', class: 'lab-btn lab-btn--quiet', title: 'Вернуть схему к исходному виду', onClick: () => { if (confirm('Вернуть схему к исходному виду? Твои изменения пропадут.')) { ui.loadPreset(p.id); renderCard(); } } }, 'Заново'));
+    card.replaceChildren(head, h('div', { class: 'lab-task__body' }, h('p', { class: 'lab-task__goal' }, p.desc)), actions);
+  }
+
+  // Первая фраза описания: для подписи в списке
+  const firstSentence = (t) => { const m = String(t).match(/^.*?[.:](\s|$)/); return m ? m[0].trim() : t; };
+
+  /* ===== Список схем ===== */
+  function renderSchemes() {
+    if (!spop || spop.hidden) return;
+    const groups = LAB.presetGroups || [{ id: undefined, title: 'Схемы', desc: '' }];
+    spop.replaceChildren(
+      h('div', { class: 'lab-tasks__head' },
+        h('b', null, 'Схемы'),
+        h('span', null, 'готовые примеры, без проверки'),
+        h('button', { type: 'button', class: 'lab-task__ic', title: 'Закрыть', onClick: closePop }, ui.icon('close'))),
+      h('div', { class: 'lab-tasks__list' }, groups.map((g) => {
+        const list = LAB.presets.filter((p) => p.group === g.id);
+        if (!list.length) return null;
+        return h('section', { class: 'lab-tasks__lvl' },
+          h('div', { class: 'lab-tasks__lvlhead' }, h('b', null, g.title), h('span', null, String(list.length))),
+          g.desc ? h('p', null, g.desc) : null,
+          list.map((p) => h('button', { type: 'button', class: 'lab-tasks__item lab-tasks__item--scheme' + (ui.S.preset === p.id ? ' is-cur' : ''), onClick: () => openScheme(p.id) },
+            h('span', { class: 'lab-tasks__mark' }, ui.S.preset === p.id ? '•' : '○'),
+            h('span', null, p.title, h('small', null, firstSentence(p.desc))))));
+      })));
+  }
+
   /* ===== Список задач ===== */
   function renderPop() {
     if (!pop || pop.hidden) return;
@@ -219,7 +290,7 @@
       } }, 'сбросить прогресс в браузере')) : null);
   }
 
-  function closePop() { if (pop) pop.hidden = true; }
+  function closePop() { if (pop) pop.hidden = true; if (spop) spop.hidden = true; }
   function updateBtn() { if (ui && ui.E.tasksBtn) ui.E.tasksBtn.textContent = 'Задачи ' + doneCount() + '/' + tasks().length; }
   function renderAll() { renderPop(); renderCard(); updateBtn(); }
 
@@ -229,8 +300,10 @@
       h = ui.h;
       loadLocal();
       card = h('div', { class: 'lab-task', hidden: true });
+      pill = h('button', { type: 'button', class: 'lab-task-pill', hidden: true, onClick: show });
       pop = h('div', { class: 'lab-pop lab-tasks', hidden: true });
-      ui.E.stage.append(card, pop);
+      spop = h('div', { class: 'lab-pop lab-tasks lab-schemes', hidden: true });
+      ui.E.stage.append(card, pill, pop, spop);
       renderAll();
       sync();
     },
@@ -241,6 +314,13 @@
       pop.hidden = false;
       renderPop();
       if (st.user === null) sync();
+    },
+    toggleSchemes() {
+      const showIt = spop.hidden;
+      ui.closeMenus();
+      if (!showIt) return;
+      spop.hidden = false;
+      renderSchemes();
     },
     // Схема изменилась: результат последней проверки устарел
     stale() { if (st.results && !st.stale) { st.stale = true; renderCard(); } },

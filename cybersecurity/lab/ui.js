@@ -450,16 +450,14 @@
     const views = h('div', { class: 'lab-group lab-seg-ctl' },
       Object.entries(VIEWS).map(([id, v]) => (E.viewBtns[id] = h('button', { type: 'button', title: v.title, onClick: () => setView(id) }, v.label))));
 
-    E.presetSel = h('select', { class: 'lab-select', 'aria-label': 'Схемы-примеры', title: 'Готовые схемы: посмотреть, как всё работает', onChange: (e) => { if (e.target.value) loadPreset(e.target.value); e.target.value = ''; } },
-      h('option', { value: '' }, 'Схемы'),
-      LAB.presets.map((p) => h('option', { value: p.id }, p.title)));
+    E.schemesBtn = h('button', { type: 'button', class: 'lab-btn', 'data-pop-toggle': '', title: 'Готовые схемы: посмотреть, как всё работает', onClick: (e) => { e.stopPropagation(); if (LAB.TasksUI) LAB.TasksUI.toggleSchemes(); } }, 'Схемы');
     E.tasksBtn = h('button', { type: 'button', class: 'lab-btn lab-btn--accent', 'data-pop-toggle': '', title: 'Задачи с проверкой: от кабеля до филиала', onClick: (e) => { e.stopPropagation(); if (LAB.TasksUI) LAB.TasksUI.toggle(); } }, 'Задачи');
     const file = h('input', { type: 'file', accept: '.json,application/json', hidden: true, onChange: importFile });
     E.mapsBtn = h('button', { type: 'button', class: 'lab-btn', 'data-pop-toggle': '', onClick: (e) => { e.stopPropagation(); if (LAB.Maps) LAB.Maps.toggle(); }, title: 'Сохранённые карты в аккаунте' }, 'Мои карты');
     E.fullBtn = iconBtn('full', 'На весь экран (Esc чтобы выйти)', toggleFull);
     const files = h('div', { class: 'lab-group lab-group--end' },
       E.tasksBtn,
-      E.presetSel,
+      E.schemesBtn,
       E.mapsBtn,
       iconBtn('export', 'Экспорт: скачать схему в JSON', exportFile),
       iconBtn('import', 'Импорт: загрузить схему из JSON', () => file.click()),
@@ -794,8 +792,7 @@
     const p = LAB.presets.find((x) => x.id === S.preset);
     E.info.replaceChildren();
     if (p) {
-      const op = p.try && (p.try[2] || 'ping');
-      const label = !p.try ? '' : op === 'dhcp' ? 'dhclient на ' + p.try[0] : op === 'http' ? 'открыть ' + p.try[1] + ' с ' + p.try[0] : 'ping ' + p.try[1] + ' с ' + p.try[0];
+      const label = tryLabel(p);
       E.info.append(h('div', { class: 'lab-info__sec' },
         h('div', { class: 'lab-info__label' }, p.task ? 'Задача' : 'Схема'),
         h('b', null, p.title),
@@ -814,6 +811,15 @@
         h('li', null, h('b', null, 'Журнал'), ' внизу справа: ping с любого узла и разбор каждого кадра по уровням.'),
         h('li', null, h('b', null, 'Задачи'), ' вверху: курс от кабеля до филиала с VLAN, NAT, OSPF и ACL, с автоматической проверкой. «Схемы» это готовые примеры.'))),
     h('div', { class: 'lab-info__sec lab-info__stat' }, 'Устройств: ' + S.net.devices.length + ' из ' + MAX_DEVICES + ', кабелей: ' + S.net.links.length));
+  }
+
+  // Подпись кнопки «попробовать» у схемы
+  function tryLabel(p) {
+    if (!p.try) return '';
+    const op = p.try[2] || 'ping';
+    if (op === 'dhcp') return 'Получить адрес на ' + p.try[0];
+    if (op === 'http') return 'Открыть ' + p.try[1] + ' с ' + p.try[0];
+    return (op === 'tracert' ? 'traceroute ' : 'ping ') + p.try[1] + ' с ' + p.try[0];
   }
 
   function tryPreset(p) {
@@ -1247,7 +1253,7 @@
     changed, refreshed, save, hint, runOp, renderAll, setNet, closeMenus,
     select(id) { select(id); },
     fit() { fit(); },
-    play, stopAnim, icon, foldSummary,
+    play, stopAnim, icon, foldSummary, loadPreset, tryPreset, tryLabel,
   };
 
   function boot() {

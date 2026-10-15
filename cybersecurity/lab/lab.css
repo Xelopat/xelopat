@@ -669,3 +669,15 @@ details[open] > summary .lab-ico--fold{ transform:none; }
 .wcard.is-edit{ border-color:#55556a; }
 .wx--edit{ font-size:13px; }
 .wx--edit:hover{ color:var(--accent); }
+
+/* Кнопка вместо скрытой карточки задачи или схемы */
+.lab-task-pill{
+  position:absolute; left:10px; top:10px; z-index:6;
+  display:inline-flex; align-items:center; gap:7px; max-width:min(340px, calc(100% - 120px));
+  background:rgba(27,27,34,.95); border:1px solid var(--line); border-radius:4px;
+  padding:6px 10px; color:var(--text-2); font:inherit; font-size:12px; cursor:pointer;
+}
+.lab-task-pill[hidden]{ display:none; }
+.lab-task-pill span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lab-task-pill:hover{ color:var(--text); border-color:#55556a; }
+.lab-tasks__item--scheme small{ display:block; margin-top:2px; font-size:11px; color:var(--muted); line-height:1.4; }
