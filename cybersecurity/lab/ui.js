@@ -203,27 +203,46 @@
   /* ===== Граф ===== */
   function domainColor(n) { return DOMAIN_COLORS[n % DOMAIN_COLORS.length]; }
 
-  // Подпись порта: в L1 видны все, в L2 и L3 только важные (VLAN, адрес маршрутизатора),
-  // остальные появляются при наведении на кабель или выделении устройства
+  // Подпись порта: в L1 видны все, в L2 и L3 только важные (VLAN, адреса маршрутизатора),
+  // остальные появляются при наведении на кабель или выделении устройства.
+  // У маршрутизатора на кабеле полный адрес каждого интерфейса: «G0/0 192.168.1.1/24», у подынтерфейсов по строке
   function portLabel(d, itf, blocked) {
     const kind = kindOf(d);
-    if (S.view === 'l1') return { text: itf.name, key: true };
-    if (S.view === 'l2' && blocked) return { text: itf.name + ' STP ✕', key: true, warn: true };
-    if (S.view === 'l2' && kind === 'switch' && itf.mode === 'trunk') return { text: itf.name + ' trunk', key: true };
-    if (S.view === 'l2' && kind === 'router' && itf.subs && itf.subs.length) return { text: itf.name + ' .' + itf.subs.map((x) => x.vlan).join(' .'), key: true };
-    if (S.view === 'l2' && kind === 'switch' && (itf.vlan || 1) !== 1) return { text: itf.name + ' v' + itf.vlan, key: true };
-    if (S.view === 'l3' && kind === 'router') return { text: itf.ip ? '.' + itf.ip.split('.').pop() : 'без IP', key: true };
-    return { text: itf.name, key: false };
+    if (S.view === 'l1') return { lines: [itf.name], key: true };
+    if (S.view === 'l2' && blocked) return { lines: [itf.name + ' STP ✕'], key: true, warn: true };
+    if (kind === 'router') {
+      const lines = [];
+      if (itf.ip || !(itf.subs && itf.subs.length)) lines.push(itf.name + ' ' + (itf.ip ? itf.ip + '/' + itf.prefix : 'без IP'));
+      (itf.subs || []).forEach((sb) => lines.push(itf.name + '.' + sb.vlan + ' ' + (sb.ip ? sb.ip + '/' + sb.prefix : 'без IP')));
+      return { lines, key: true, addr: true };
+    }
+    if (S.view === 'l2' && kind === 'switch' && itf.mode === 'trunk') return { lines: [itf.name + ' trunk'], key: true };
+    if (S.view === 'l2' && kind === 'switch' && (itf.vlan || 1) !== 1) return { lines: [itf.name + ' v' + itf.vlan], key: true };
+    return { lines: [itf.name], key: false };
+  }
+
+  // Подпись из нескольких строк, центрированная по вертикали вокруг точки
+  function portText(cls, pos, lines) {
+    const t = s('text', { class: cls, x: pos.x, y: pos.y, 'text-anchor': 'middle' });
+    lines.forEach((ln, k) => t.append(s('tspan', { x: pos.x, dy: k ? '1.2em' : (-(lines.length - 1) * 0.6) + 'em' }, ln)));
+    return t;
+  }
+  function placeText(t, pos) {
+    t.setAttribute('x', pos.x);
+    t.setAttribute('y', pos.y);
+    for (const sp of t.children) sp.setAttribute('x', pos.x);
   }
 
   function linkGeom(l) {
     const a = S.net.dev(l.a.dev), b = S.net.dev(l.b.dev);
     const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-    const t = Math.min(0.42, 44 / len);
+    // Длинные подписи адресов маршрутизатора уводим дальше от значка
+    const far = (d) => (S.view !== 'l1' && kindOf(d) === 'router' ? 78 : 44);
+    const ta = Math.min(0.42, far(a) / len), tb = Math.min(0.42, far(b) / len);
     return {
       x1: a.x, y1: a.y, x2: b.x, y2: b.y,
-      pa: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t + 3 },
-      pb: { x: b.x + (a.x - b.x) * t, y: b.y + (a.y - b.y) * t + 3 },
+      pa: { x: a.x + (b.x - a.x) * ta, y: a.y + (b.y - a.y) * ta + 3 },
+      pb: { x: b.x + (a.x - b.x) * tb, y: b.y + (a.y - b.y) * tb + 3 },
     };
   }
 
@@ -249,8 +268,9 @@
       const hit = s('line', { class: 'lab-link__hit', x1: gm.x1, y1: gm.y1, x2: gm.x2, y2: gm.y2 });
       const line = s('line', { class: 'lab-link__line', x1: gm.x1, y1: gm.y1, x2: gm.x2, y2: gm.y2, stroke: color });
       const la = portLabel(a, a.ifaces[l.a.i], blkA), lb = portLabel(b, b.ifaces[l.b.i], blkB);
-      const ta = s('text', { class: 'lab-port' + (la.key ? ' is-key' : '') + (la.warn ? ' is-warn' : '') + (a.ifaces[l.a.i].down ? ' is-down' : ''), x: gm.pa.x, y: gm.pa.y, 'text-anchor': 'middle' }, la.text);
-      const tb = s('text', { class: 'lab-port' + (lb.key ? ' is-key' : '') + (lb.warn ? ' is-warn' : '') + (b.ifaces[l.b.i].down ? ' is-down' : ''), x: gm.pb.x, y: gm.pb.y, 'text-anchor': 'middle' }, lb.text);
+      const cl = (x, itf) => 'lab-port' + (x.key ? ' is-key' : '') + (x.warn ? ' is-warn' : '') + (x.addr ? ' is-addr' : '') + (itf.down ? ' is-down' : '');
+      const ta = portText(cl(la, a.ifaces[l.a.i]), gm.pa, la.lines);
+      const tb = portText(cl(lb, b.ifaces[l.b.i]), gm.pb, lb.lines);
       const cls = 'lab-link' + (S.sel === 'link:' + l.id ? ' is-sel' : '') + (down ? ' is-down' : '') + (blkA || blkB ? ' is-blocked' : '') + (trunk && S.view === 'l2' ? ' is-trunk' : '');
       const g = s('g', { class: cls, 'data-link': l.id }, hit, line, ta, tb);
       if (trunk && S.view !== 'l1') g.append(s('title', null, 'Транк 802.1Q: VLAN ' + dom.linkTags[l.id].join(', ') + ' с тегом, без тега native'));
@@ -316,8 +336,8 @@
       if (!el) return;
       const gm = linkGeom(l);
       [el.hit, el.line].forEach((ln) => { ln.setAttribute('x1', gm.x1); ln.setAttribute('y1', gm.y1); ln.setAttribute('x2', gm.x2); ln.setAttribute('y2', gm.y2); });
-      el.ta.setAttribute('x', gm.pa.x); el.ta.setAttribute('y', gm.pa.y);
-      el.tb.setAttribute('x', gm.pb.x); el.tb.setAttribute('y', gm.pb.y);
+      placeText(el.ta, gm.pa);
+      placeText(el.tb, gm.pb);
     });
     if (S.sel && S.sel.startsWith('link:')) drawLinkDel();
   }

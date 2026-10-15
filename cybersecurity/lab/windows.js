@@ -328,27 +328,40 @@
       routes: { title: 'Маршрутизация', render(c) {
         const rows = sim.routeTable(dev);
         const codeTitle = { C: 'подключена', S: 'статический', O: 'OSPF' };
-        c.append(table(['', 'Сеть', 'Куда отдать', ''], rows.map((r) => h('tr', { class: r.code === 'S' && !r.iface ? 'is-bad' : '' },
+        // Редактируемый маршрут: его строка подсвечена, форма ниже заполнена его значениями
+        const edit = w.routeEdit != null && dev.routes[w.routeEdit] ? w.routeEdit : null;
+        if (edit == null) w.routeEdit = null;
+        c.append(table(['', 'Сеть', 'Куда отдать', ''], rows.map((r) => h('tr', { class: (r.code === 'S' && !r.iface ? 'is-bad' : '') + (r.code === 'S' && r.idx === edit ? ' is-edit' : '') },
           h('td', null, h('span', { class: 'wcode wcode--' + r.code, title: codeTitle[r.code] }, r.code)),
           h('td', null, r.net),
           h('td', null, r.code === 'C' ? 'напрямую, ' + r.iface : r.via + (r.iface ? ' через ' + r.iface : ' (сосед недостижим)') + (r.code === 'O' ? ', метрика ' + r.cost : '')),
-          h('td', null, r.code === 'S' ? h('button', { type: 'button', class: 'wx', title: 'Удалить', onClick: () => { dev.routes.splice(r.idx, 1); ui.changed(); } }, '×') : null))),
+          h('td', { class: 'wacl__ops' }, r.code === 'S' ? [
+            h('button', { type: 'button', class: 'wx wx--edit', title: 'Изменить', onClick: () => { w.routeEdit = r.idx; render(w); } }, '✎'),
+            h('button', { type: 'button', class: 'wx', title: 'Удалить', onClick: () => { dev.routes.splice(r.idx, 1); w.routeEdit = null; ui.changed(); } }, '×'),
+          ] : null))),
         'Пусто: задай адреса интерфейсам и подключи кабели.'));
-        const net = inp('', '10.3.0.0');
-        const mask = maskSelect(24, true);
-        const via = inp('', '10.0.12.2');
+        const cur = edit != null ? dev.routes[edit] : null;
+        const net = inp(cur ? cur.net : '', '10.3.0.0');
+        const mask = maskSelect(cur ? cur.prefix : 24, true);
+        const via = inp(cur ? cur.via : '', '10.0.12.2');
         const err = errBox();
-        c.append(h('div', { class: 'wcard' },
-          h('div', { class: 'wcard__head' }, h('b', null, 'Добавить статический маршрут')),
+        const apply = () => {
+          if (!ip.valid(net.value)) { err.textContent = 'Неверная сеть'; return; }
+          if (!ip.valid(via.value)) { err.textContent = 'Неверный следующий хоп'; return; }
+          const p = Number(mask.value);
+          const r = { net: ip.str(ip.net(ip.parse(net.value), p)), prefix: p, via: ip.norm(via.value) };
+          if (dev.routes.some((x, k) => k !== edit && x.net === r.net && x.prefix === r.prefix && x.via === r.via)) { err.textContent = 'Такой маршрут уже есть'; return; }
+          if (cur) dev.routes[edit] = r; else dev.routes.push(r);
+          w.routeEdit = null;
+          ui.changed();
+          toast(w, cur ? 'Маршрут изменён' : 'Маршрут добавлен');
+        };
+        c.append(h('div', { class: 'wcard' + (cur ? ' is-edit' : '') },
+          h('div', { class: 'wcard__head' }, h('b', null, cur ? 'Изменить маршрут ' + cur.net + '/' + cur.prefix : 'Добавить статический маршрут')),
           h('div', { class: 'wgrid' }, field('Сеть назначения', net, '0.0.0.0 с маской /0: маршрут по умолчанию'), field('Маска', mask), field('Следующий хоп', via, 'IP соседа в подключённой сети')),
-          h('div', { class: 'wrow wrow--end' }, err, btn('Добавить', () => {
-            if (!ip.valid(net.value)) { err.textContent = 'Неверная сеть'; return; }
-            if (!ip.valid(via.value)) { err.textContent = 'Неверный следующий хоп'; return; }
-            const p = Number(mask.value);
-            dev.routes.push({ net: ip.str(ip.net(ip.parse(net.value), p)), prefix: p, via: ip.norm(via.value) });
-            ui.changed();
-            toast(w, 'Маршрут добавлен');
-          }, true))),
+          h('div', { class: 'wrow wrow--end' }, err,
+            cur ? btn('Отмена', () => { w.routeEdit = null; render(w); }) : null,
+            btn(cur ? 'Сохранить' : 'Добавить', apply, true))),
         h('p', { class: 'wnote' }, 'C: сеть подключена к интерфейсу. S: статический, «чтобы попасть в эту сеть, отдай пакет соседу». O: выучен по OSPF. Выбирается самый длинный подходящий префикс, при равенстве C, затем S, затем O.'));
       } },
       ospf: { title: 'OSPF', render(c) {

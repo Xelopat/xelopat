@@ -1,10 +1,17 @@
 /* Сетевая лаборатория. Цвета уровней OSI те же, что на странице модели OSI */
 
-.page--lab{ padding:12px 0 24px; }
+/* Лаборатория занимает ровно окно под шапкой: холст тянется на всё оставшееся место, прокрутки страницы нет.
+   1px это нижняя рамка шапки, она не входит в --header-h */
+.page--lab{
+  padding:12px 0; min-height:0; box-sizing:border-box;
+  height:calc(100vh - var(--header-h) - 1px);
+  height:calc(100dvh - var(--header-h) - 1px);
+  display:flex; flex-direction:column;
+}
 .page--lab::before{ display:none; }
-.page-wrap--lab{ width:calc(100% - 24px); z-index:auto; }
+.page-wrap--lab{ width:calc(100% - 24px); z-index:auto; flex:1; min-height:0; display:flex; flex-direction:column; }
 
-.lab{ display:flex; flex-direction:column; gap:10px; }
+.lab{ display:flex; flex-direction:column; gap:10px; flex:1; min-height:0; }
 .lab .panel{ border-radius:6px; }
 .lab .btn, .lab .input{ border-radius:4px; }
 html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
@@ -52,8 +59,8 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 /* ===== Холст ===== */
 .lab-stage{
   position:relative;
-  height:calc(100vh - var(--header-h) - 76px);
-  min-height:460px;
+  flex:1;
+  min-height:320px;
   background:var(--panel-2);
   border:1px solid var(--line);
   border-radius:6px;
@@ -533,7 +540,9 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 }
 @media (max-width: 720px){
   .page-wrap--lab{ width:calc(100% - 16px); }
-  .lab-stage{ height:66vh; min-height:380px; }
+  .page--lab{ height:auto; display:block; padding-bottom:16px; }
+  .page-wrap--lab, .lab{ display:flex; }
+  .lab-stage{ flex:none; height:66vh; min-height:380px; }
   .lab-group--end{ margin-left:0; }
   .lab-hint{ top:10px; max-width:calc(100% - 20px); font-size:11px; }
   .lab-legend{ bottom:48px; }
@@ -655,3 +664,8 @@ details[open] > summary .lab-ico--fold{ transform:none; }
 .lab-task__checks li.is-run{ color:var(--text); }
 .lab-task__checks li.is-run .lab-task__mark{ color:var(--accent); animation:chipDot 1s ease-in-out infinite; }
 .lab-task__checks li.is-run small{ color:var(--muted); font-family:var(--mono); }
+.lab-port.is-addr{ fill:#c4c8d6; font-size:10px; }
+.wtable tr.is-edit td{ background:#24242e; }
+.wcard.is-edit{ border-color:#55556a; }
+.wx--edit{ font-size:13px; }
+.wx--edit:hover{ color:var(--accent); }
