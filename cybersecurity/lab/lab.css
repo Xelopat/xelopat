@@ -350,7 +350,8 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 .wcard__head{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .wcard__head b{ font-family:var(--mono); font-size:13px; }
 .wcard__sub{ font-size:11.5px; color:var(--muted); flex:1; min-width:0; }
-.wgrid{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px 10px; }
+/* Колонки не уже 170px: иначе маска «/24 255.255.255.0» обрезается, на узком окне поля переносятся */
+.wgrid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(170px,1fr)); gap:8px 10px; }
 .wgrid--2{ grid-template-columns:repeat(2, minmax(0,1fr)); }
 .wrow{ display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap; }
 .wrow > .wf__in{ flex:1 1 120px; width:auto; }
@@ -364,7 +365,7 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
   padding:7px 9px; color:var(--text); font-family:var(--mono); font-size:12px; outline:none;
 }
 .wf__in:focus{ border-color:var(--green); box-shadow:0 0 0 3px rgba(97,209,173,.12); }
-.wf__mask{ font-size:11.5px; }
+.wf__mask{ font-size:11.5px; padding-right:4px; }
 .wf__area{ resize:vertical; min-height:70px; font-family:var(--sans); font-size:13px; line-height:1.5; }
 .wf__err{ font-size:11.5px; color:var(--danger); }
 .wf__err:empty{ display:none; }
@@ -546,7 +547,7 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
   .wa{ grid-template-columns:1fr; }
   .wa__nav{ flex-direction:row; flex-wrap:wrap; border-right:none; border-bottom:1px solid #2a2a34; }
   .wa__brand{ display:none; }
-  .wgrid, .wgrid--2, .wlease, .wstats{ grid-template-columns:1fr 1fr; }
+  .wgrid--2, .wlease, .wstats{ grid-template-columns:1fr 1fr; }
 }
 @media (prefers-reduced-motion: reduce){
   .lab-log__row, .lab-pdu__box, .lw, .wtoast{ animation:none; }

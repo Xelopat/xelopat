@@ -174,7 +174,7 @@
   /* ===== Элементы форм ===== */
   function maskSelect(prefix) {
     const sel = h('select', { class: 'wf__in wf__mask' });
-    for (let p = 8; p <= 32; p++) sel.append(h('option', { value: p, selected: p === prefix }, '/' + p + '  ' + ip.maskStr(p)));
+    for (let p = 8; p <= 32; p++) sel.append(h('option', { value: p, selected: p === prefix }, '/' + p + ' ' + ip.maskStr(p)));
     return sel;
   }
   function inp(value, ph, cls) { return h('input', { class: 'wf__in' + (cls ? ' ' + cls : ''), value: value || '', placeholder: ph || '', spellcheck: 'false' }); }
