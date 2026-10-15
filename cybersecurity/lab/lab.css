@@ -583,7 +583,6 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 .lab-task[hidden]{ display:none; }
 .lab-task.is-ok{ border-color:#3f6b5d; }
 .lab-task__head{ display:flex; align-items:center; gap:8px; padding:8px 8px 8px 12px; border-bottom:1px solid #2a2a34; }
-.lab-task.is-collapsed .lab-task__head{ border-bottom:none; }
 .lab-task__lvl{ font-family:var(--mono); font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; }
 .lab-task__title{ flex:1; min-width:0; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .lab-task__done{ color:var(--green); font-weight:700; }

@@ -1205,8 +1205,8 @@
     return animate(r, mul).then(() => { E.chip.hidden = true; return r; });
   }
 
-  // Иконки интерфейса: шеврон (свернуть и развернуть) и крестик
-  const UI_ICONS = { chevron: 'M4 6l4 4 4-4', close: 'M4 4l8 8M12 4l-8 8' };
+  // Иконки интерфейса: шеврон (раскрыть блок), крестик, свернуть окно и развернуть его
+  const UI_ICONS = { chevron: 'M4 6l4 4 4-4', close: 'M4 4l8 8M12 4l-8 8', minimize: 'M3.5 12h9', restore: 'M3.5 4.5h9v7h-9z' };
   function icon(name, cls) {
     return s('svg', { class: 'lab-ico' + (cls ? ' ' + cls : ''), viewBox: '0 0 16 16', width: 14, height: 14, 'aria-hidden': 'true' },
       s('path', { d: UI_ICONS[name], fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));

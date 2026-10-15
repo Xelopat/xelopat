@@ -14,7 +14,6 @@
     play: null,        // идёт показ проверки: { skip, title, task }
     revealed: 0,       // сколько условий уже показано
     stale: false,      // после проверки схему меняли
-    collapsed: false,
     hidden: false,     // карточка скрыта, вместо неё кнопка «Задача: …»
     showKnow: false,
     syncing: false,
@@ -30,12 +29,11 @@
       const d = JSON.parse(localStorage.getItem(STORE) || '{}');
       st.done = d.done && typeof d.done === 'object' ? d.done : {};
       st.hints = d.hints && typeof d.hints === 'object' ? d.hints : {};
-      st.collapsed = !!d.collapsed;
       st.hidden = !!d.hidden;
     } catch (e) { /* без хранилища начинаем с нуля */ }
   }
   function saveLocal() {
-    try { localStorage.setItem(STORE, JSON.stringify({ done: st.done, hints: st.hints, collapsed: st.collapsed, hidden: st.hidden })); } catch (e) { /* не страшно */ }
+    try { localStorage.setItem(STORE, JSON.stringify({ done: st.done, hints: st.hints, hidden: st.hidden })); } catch (e) { /* не страшно */ }
   }
 
   async function api(params, body) {
@@ -102,7 +100,6 @@
     if (own && !confirm('Открыть задачу «' + t.title + '»? Схема на холсте будет заменена (сохрани её в «Мои карты», если она нужна).')) return;
     st.results = null;
     st.stale = false;
-    st.collapsed = false;
     st.hidden = false;
     st.showKnow = !st.done[id];
     ui.setNet(LAB.buildTask(t), null, null, t.id);
@@ -119,7 +116,6 @@
     const own = !S.task && !S.preset && S.net.devices.length;
     if (own && !confirm('Открыть схему «' + p.title + '»? Схема на холсте будет заменена (сохрани её в «Мои карты», если она нужна).')) return;
     st.hidden = false;
-    st.collapsed = false;
     ui.loadPreset(id);
     closePop();
     renderCard();
@@ -162,8 +158,8 @@
   }
 
   /* ===== Карточка задачи или схемы ===== */
-  const hideBtn = () => h('button', { type: 'button', class: 'lab-task__ic', title: 'Скрыть (вернуть: кнопка слева вверху)', onClick: () => { st.hidden = true; saveLocal(); renderCard(); } }, ui.icon('close'));
-  const foldBtn = () => h('button', { type: 'button', class: 'lab-task__ic', title: st.collapsed ? 'Развернуть' : 'Свернуть', 'aria-expanded': st.collapsed ? 'false' : 'true', onClick: () => { st.collapsed = !st.collapsed; saveLocal(); renderCard(); } }, ui.icon('chevron', st.collapsed ? 'lab-ico--closed' : ''));
+  // Свернуть карточку в маленькую кнопку слева вверху
+  const hideBtn = () => h('button', { type: 'button', class: 'lab-task__ic', title: 'Свернуть', 'aria-label': 'Свернуть', onClick: () => { st.hidden = true; saveLocal(); renderCard(); } }, ui.icon('minimize'));
 
   function renderCard() {
     if (!card) return;
@@ -172,20 +168,19 @@
     card.hidden = (!t && !p) || st.hidden;
     pill.hidden = (!t && !p) || !st.hidden;
     if (t || p) {
-      pill.replaceChildren(ui.icon('chevron', 'lab-ico--closed'), h('span', null, (t ? 'Задача: ' : 'Схема: ') + (t || p).title));
-      pill.title = t ? 'Показать условия задачи' : 'Показать описание схемы';
+      pill.replaceChildren(ui.icon('restore'), h('span', null, (t ? 'Задача: ' : 'Схема: ') + (t || p).title));
+      pill.title = t ? 'Развернуть условия задачи' : 'Развернуть описание схемы';
     }
     if (card.hidden) return;
     if (!t) { renderScheme(p); return; }
     const solved = !!st.done[t.id];
     const allOk = !st.play && st.results && st.results.every((r) => r.ok);
-    card.className = 'lab-task' + (st.collapsed ? ' is-collapsed' : '') + (allOk ? ' is-ok' : '');
+    card.className = 'lab-task' + (allOk ? ' is-ok' : '');
     const head = h('div', { class: 'lab-task__head' },
       h('span', { class: 'lab-task__lvl' }, 'Уровень ' + t.level),
       h('b', { class: 'lab-task__title' }, t.title),
       solved ? h('span', { class: 'lab-task__done', title: 'Решена' }, '✓') : null,
-      foldBtn(), hideBtn());
-    if (st.collapsed) { card.replaceChildren(head); return; }
+      hideBtn());
 
     const nHints = Math.min(st.hints[t.id] || 0, t.hints.length);
     const body = [
@@ -222,12 +217,11 @@
 
   function renderScheme(p) {
     const grp = (LAB.presetGroups || []).find((g) => g.id === p.group);
-    card.className = 'lab-task lab-task--scheme' + (st.collapsed ? ' is-collapsed' : '');
+    card.className = 'lab-task lab-task--scheme';
     const head = h('div', { class: 'lab-task__head' },
       h('span', { class: 'lab-task__lvl' }, grp ? grp.title : 'Схема'),
       h('b', { class: 'lab-task__title' }, p.title),
-      foldBtn(), hideBtn());
-    if (st.collapsed) { card.replaceChildren(head); return; }
+      hideBtn());
     const actions = h('div', { class: 'lab-task__actions' },
       p.try ? h('button', { type: 'button', class: 'btn btn--primary', onClick: () => ui.tryPreset(p) }, ui.tryLabel(p)) : null,
       h('button', { type: 'button', class: 'lab-btn', 'data-pop-toggle': '', onClick: (e) => { e.stopPropagation(); LAB.TasksUI.toggleSchemes(); } }, 'Все схемы'),
