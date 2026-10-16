@@ -11,7 +11,8 @@
 //   nat: { порт или подынтерфейс: 'inside' | 'outside' }, natStatic: [['tcp', 80, 'внутр. ip', 80]],
 //   ospf: true | [порты], ospfDef: true,
 //   acl: { порт: { in: ['deny icmp 10.0.0.0/24 any', ...], out: [...] } },
-//   services: { dns, dhcp: { on, pools: [...] }, http } })
+//   mail: { address, pass, smtp, pop } (почтовый клиент узла),
+//   services: { dns: { on, records: [{ type?: 'MX', name, ip }] }, dhcp: { on, pools: [...] }, http, mail: { on, domain, users } } })
 // b.link(a, b, портA?, портB?) — без портов берутся первые свободные.
 (function () {
   const ip = LAB.ip;
@@ -203,6 +204,36 @@
     return { r1, pc1, pc2, srv, web };
   };
 
+  // Две компании с почтой: alpha.lab и beta.lab, общий DNS-сервер NS в «интернете» между ними
+  LAB.mailNet = function (b, o) {
+    o = o || {};
+    const r = b.add('router', 0, -40, { name: 'R1', ifs: { 'G0/0': '10.1.0.1/24', 'G0/1': '10.2.0.1/24', 'G0/2': '10.9.0.1/24' } });
+    const s1 = b.add('switch', -260, 80, { name: 'SW-ALPHA' });
+    const s2 = b.add('switch', 260, 80, { name: 'SW-BETA' });
+    b.link(r, s1, 'G0/0'); b.link(r, s2, 'G0/1');
+    const recs = [{ name: 'mail.alpha.lab', ip: '10.1.0.25' }, { name: 'mail.beta.lab', ip: '10.2.0.25' }];
+    if (o.mx !== false) recs.push({ type: 'MX', name: 'alpha.lab', ip: 'mail.alpha.lab' }, { type: 'MX', name: 'beta.lab', ip: 'mail.beta.lab' });
+    b.link(b.add('server', 0, -230, { name: 'NS', ip: '10.9.0.53/24', gw: '10.9.0.1', services: { dns: { on: true, records: recs } } }), r, null, 'G0/2');
+    b.link(b.add('server', -400, 240, { name: 'MAIL-ALPHA', ip: '10.1.0.25/24', gw: '10.1.0.1', dns: '10.9.0.53',
+      services: { mail: { on: true, domain: 'alpha.lab', users: [{ user: 'ivan', pass: 'alpha1' }, { user: 'anna', pass: 'alpha2' }] } } }), s1);
+    b.link(b.add('pc', -150, 260, { name: 'IVAN', ip: '10.1.0.10/24', gw: '10.1.0.1', dns: '10.9.0.53',
+      mail: { address: 'ivan@alpha.lab', pass: 'alpha1', smtp: 'mail.alpha.lab', pop: 'mail.alpha.lab' } }), s1);
+    b.link(b.add('server', 400, 240, { name: 'MAIL-BETA', ip: '10.2.0.25/24', gw: '10.2.0.1', dns: '10.9.0.53',
+      services: { mail: { on: true, domain: 'beta.lab', users: [{ user: 'olga', pass: 'beta1' }] } } }), s2);
+    b.link(b.add('pc', 150, 260, { name: 'OLGA', ip: '10.2.0.10/24', gw: '10.2.0.1', dns: '10.9.0.53',
+      mail: { address: 'olga@beta.lab', pass: 'beta1', smtp: 'mail.beta.lab', pop: 'mail.beta.lab' } }), s2);
+  };
+
+  LAB.registerPreset({
+    id: 'mail',
+    group: 'services',
+    theory: 'mail',
+    title: 'Почта между компаниями',
+    desc: 'У alpha.lab и beta.lab свои почтовые серверы, общий DNS-сервер NS знает их MX-записи. Отправь письмо с IVAN на olga@beta.lab (вкладка «Почта»): MAIL-ALPHA спросит DNS, кто принимает почту beta.lab, и перешлёт письмо по SMTP. Потом забери почту на OLGA по POP3.',
+    try: ['IVAN', 'olga@beta.lab', 'mail'],
+    build(b) { LAB.mailNet(b); },
+  });
+
   LAB.registerPreset({
     id: 'services',
     theory: 'dhcp-relay',
@@ -303,6 +334,7 @@
         if (o.gw) d.gateway = o.gw;
         if (o.dns) d.dns = o.dns;
         if (o.dhcp) d.dhcp = true;
+        if (o.mail && d.mail) d.mail = LAB.normMailClient(o.mail);
         Object.entries(o.ifs || {}).forEach(([port, cidr]) => {
           const itf = d.ifaces.find((i) => i.name === port);
           const c = ip.parseCidr(cidr);
@@ -345,6 +377,8 @@
             if (pools) d.services.dhcp.pools = pools.map((p) => Object.assign(LAB.defaultPool(), p));
             if (!d.services.dhcp.reservations) d.services.dhcp.reservations = [];
           } else if (k === 'http') d.services.http = LAB.normHttp(v);
+          else if (k === 'mail') d.services.mail = LAB.normMail(v);
+          else if (k === 'dns') d.services.dns = { on: !!v.on, records: (v.records || []).map((r) => ({ type: r.type === 'MX' ? 'MX' : 'A', name: r.name, ip: r.ip })) };
           else Object.assign(d.services[k], v);
         });
         return d;

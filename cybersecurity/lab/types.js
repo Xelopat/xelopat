@@ -7,7 +7,7 @@
 
   LAB.registerType({
     type: 'pc', title: 'ПК', kind: 'host', prefix: 'PC', icon: 'pc',
-    ports: ['eth0'], layers: [1, 7], color: '#ff8f8f', ttl: 64, web: ['net', 'diag', 'browser'],
+    ports: ['eth0'], layers: [1, 7], color: '#ff8f8f', ttl: 64, web: ['net', 'diag', 'browser', 'mail'],
     hint: 'Конечный узел: работает на всех 7 уровнях. Нужны IP, маска и шлюз.',
   });
   LAB.registerType({

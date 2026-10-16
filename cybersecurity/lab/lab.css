@@ -723,3 +723,24 @@ details[open] > summary .lab-ico--fold{ transform:none; }
 .wbr__page a{ color:#1a5fb4; text-decoration:underline; cursor:pointer; }
 .wbr__page ul, .wbr__page ol{ padding-left:22px; }
 .wbr__page.is-404 h1{ color:#b33; }
+
+/* ===== Почтовый клиент ===== */
+.wmail{ padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+.wmail__bar{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.wmail__acc{ margin-left:auto; border:none; background:none; color:var(--muted); font-family:var(--mono); font-size:11.5px; cursor:pointer; padding:4px 6px; border-radius:3px; }
+.wmail__acc:hover{ color:var(--text); background:#26262f; }
+.wmail__note{ margin:0; font-size:12px; }
+.wmail__note.is-ok{ color:var(--green); }
+.wmail__note.is-err{ color:var(--danger); }
+.wmail__list{ display:flex; flex-direction:column; border:1px solid #2e2e3a; border-radius:4px; overflow:hidden; }
+.wmail__item{ display:grid; grid-template-columns:minmax(0,180px) minmax(0,1fr) auto; gap:10px; align-items:baseline; text-align:left; border:none; border-bottom:1px solid #2a2a34; background:transparent; color:var(--text-2); padding:8px 10px; font:inherit; font-size:12.5px; cursor:pointer; }
+.wmail__item:last-child{ border-bottom:none; }
+.wmail__item:hover{ background:#22222b; color:var(--text); }
+.wmail__item b{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; color:var(--text); }
+.wmail__item span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wmail__item small{ font-family:var(--mono); font-size:10.5px; color:var(--muted); }
+.wmail__read{ border:1px solid #2e2e3a; border-radius:4px; padding:12px 14px; display:flex; flex-direction:column; gap:10px; background:#191920; }
+.wmail__meta b{ display:block; font-size:14px; }
+.wmail__meta small{ font-size:11.5px; color:var(--muted); }
+.wmail__text{ white-space:pre-wrap; font-size:13px; line-height:1.6; color:var(--text); }
+.wdns__type{ flex:0 0 auto; width:auto; }

@@ -16,8 +16,8 @@
   // Приглушённые цвета: сеть различима, но не кричит
   const DOMAIN_COLORS = ['#5f9e8a', '#6f8fb8', '#b39a5a', '#a87878', '#8a80b0', '#7fa3a8', '#9c8a6c', '#8e7f9c', '#7f9c78'];
   // Четыре цвета на все пакеты: ARP (L2), ICMP, ошибка, прикладные службы
-  const KIND_COLOR = { arp: '#c9a640', req: '#61d1ad', rep: '#61d1ad', err: '#e06c6c', dhcp: '#8fa6c8', dns: '#8fa6c8', tcp: '#8fa6c8', http: '#8fa6c8' };
-  const KIND_TEXT = { arp: 'ARP', req: 'ICMP', rep: 'ICMP', err: 'ICMP', dhcp: 'DHCP', dns: 'DNS', tcp: 'TCP', http: 'HTTP' };
+  const KIND_COLOR = { arp: '#c9a640', req: '#61d1ad', rep: '#61d1ad', err: '#e06c6c', dhcp: '#8fa6c8', dns: '#8fa6c8', tcp: '#8fa6c8', http: '#8fa6c8', smtp: '#8fa6c8', pop3: '#8fa6c8' };
+  const KIND_TEXT = { arp: 'ARP', req: 'ICMP', rep: 'ICMP', err: 'ICMP', dhcp: 'DHCP', dns: 'DNS', tcp: 'TCP', http: 'HTTP', smtp: 'SMTP', pop3: 'POP3' };
   const VIEWS = {
     l1: { label: 'L1', title: 'Физический вид: кабели и порты' },
     l2: { label: 'L2', title: 'Канальный вид: широковещательные домены и VLAN' },
@@ -302,7 +302,7 @@
         bar.append(s('rect', { class: 'lab-seg' + (on ? ' is-in' : ''), 'data-l': n, x: 0, y: (7 - n) * 7, width: 5, height: 5, rx: 0.5, fill: on ? LC[n] : '#2c2c38' }));
       }
       g.append(bar);
-      const svc = d.services ? ['dns', 'dhcp', 'http'].filter((k) => d.services[k].on) : [];
+      const svc = d.services ? ['dns', 'dhcp', 'http', 'mail'].filter((k) => d.services[k] && d.services[k].on) : [];
       if (svc.length && S.view !== 'l1') g.append(s('text', { class: 'lab-node__svc', x: -34, y: -22 }, svc.map((k) => k.toUpperCase()).join(' ')));
       g.append(s('text', { class: 'lab-node__name', y: 38, 'text-anchor': 'middle' }, d.name));
       const sub = nodeSub(d);
@@ -819,6 +819,7 @@
     const op = p.try[2] || 'ping';
     if (op === 'dhcp') return 'Получить адрес на ' + p.try[0];
     if (op === 'http') return 'Открыть ' + p.try[1] + ' с ' + p.try[0];
+    if (op === 'mail') return 'Письмо с ' + p.try[0] + ' на ' + p.try[1];
     return (op === 'tracert' ? 'traceroute ' : 'ping ') + p.try[1] + ' с ' + p.try[0];
   }
 
@@ -903,7 +904,7 @@
   }
 
   /* ===== Запуск операций ===== */
-  // op: ping | tracert | dns | dhcp | http. Возвращает Promise с результатом после анимации
+  // op: ping | tracert | dns | dhcp | http | smtp (arg: письмо) | pop3. Возвращает Promise с результатом после анимации
   function runOp(op, srcId, arg) {
     stopAnim();
     const d = S.net.dev(srcId);
@@ -912,12 +913,15 @@
       : op === 'tracert' ? sim.tracert(srcId, arg)
         : op === 'dns' ? sim.dnsLookup(srcId, arg)
           : op === 'dhcp' ? sim.dhcp(srcId)
-            : sim.http(srcId, arg);
-    const title = { ping: 'ping ' + arg, tracert: 'tracert ' + arg, dns: 'nslookup ' + arg, dhcp: 'dhclient', http: 'GET ' + arg }[op];
+            : op === 'smtp' ? sim.mailSend(srcId, arg)
+              : op === 'pop3' ? sim.mailFetch(srcId)
+                : sim.http(srcId, arg);
+    const title = { ping: 'ping ' + arg, tracert: 'tracert ' + arg, dns: 'nslookup ' + arg, dhcp: 'dhclient', http: 'GET ' + arg,
+      smtp: 'письмо для ' + (arg && arg.to), pop3: 'получение почты' }[op];
     clearLog(true);
     E.log.append(h('div', { class: 'lab-log__row is-head' }, title + ' с ' + (d ? d.name : '?')));
-    // DHCP уже записал адрес в настройки узла: сохраняем сразу, а показываем после анимации
-    if (op === 'dhcp') save();
+    // DHCP и почта уже записали изменения (адрес, письма) в схему: сохраняем сразу, а показываем после анимации
+    if (op === 'dhcp' || op === 'smtp' || op === 'pop3') save();
     chip('run');
     return animate(r).then(() => {
       if (op === 'dhcp') renderGraph();
@@ -959,7 +963,15 @@
     else if (find('local-err')) text = 'Итог: ' + find('local-err').text;
     else if (op === 'dhcp') { const x = find('dhcp'); text = x ? 'Итог: получен адрес ' + x.ip + '/' + x.prefix : 'Итог: DHCP-сервер не ответил'; cls = x ? 'ok' : 'err'; }
     else if (op === 'dns') { const x = find('dns'); text = x ? 'Итог: ' + x.name + ' = ' + x.ip : 'Итог: DNS-сервер не ответил'; cls = x ? 'ok' : 'err'; }
-    else if (op === 'http') {
+    else if (op === 'smtp') {
+      const x = find('smtp'), relay = find('smtp-relay');
+      if (x && x.status === 250) { text = relay && !relay.ok ? 'Итог: сервер принял письмо, но не переслал: ' + relay.text : 'Итог: письмо ' + (relay ? 'переслано в ' + relay.domain : 'принято сервером'); cls = relay && !relay.ok ? 'err' : 'ok'; }
+      else text = x ? 'Итог: сервер отказал, ' + x.status + ' ' + x.text : find('mail-refused') ? 'Итог: почтовый сервер не запущен' : 'Итог: сервер не ответил';
+    } else if (op === 'pop3') {
+      const x = find('pop3');
+      if (x) { text = x.ok ? 'Итог: получено писем: ' + x.count : 'Итог: ' + x.text; cls = x.ok ? 'ok' : 'err'; }
+      else text = find('mail-refused') ? 'Итог: почтовый сервер не запущен' : 'Итог: сервер не ответил';
+    } else if (op === 'http') {
       const x = find('http');
       if (x) { text = 'Итог: HTTP ' + x.status + ', страница «' + x.title + '»'; cls = x.status === 200 ? 'ok' : 'err'; }
       else text = find('http-refused') ? 'Итог: соединение отклонено, веб-сервер не запущен' : 'Итог: сервер не ответил';
@@ -1029,9 +1041,19 @@
     }
     if (app.type === 'dns') {
       return box(7, app.op === 'query' ? 'DNS-запрос' : 'DNS-ответ', [
-        ['ID', String(app.id)], ['Имя', app.name], ['Тип', 'A (IPv4-адрес)'],
+        ['ID', String(app.id)], ['Имя', app.name], ['Тип', app.qtype === 'MX' ? 'MX (почтовый сервер домена)' : 'A (IPv4-адрес)'],
         app.op === 'response' ? ['Ответ', app.answer || 'NXDOMAIN, имени нет'] : null,
       ].filter(Boolean));
+    }
+    if (app.type === 'smtp') {
+      return app.op === 'send'
+        ? box(7, 'SMTP: письмо', [['MAIL FROM', app.msg.from], ['RCPT TO', app.msg.to], ['Subject', app.msg.subject || '(без темы)'], ['Текст', (app.msg.body || '').slice(0, 120)]], null, 'Письмо идёт открытым текстом: любой, кто видит этот кадр, может его прочитать.')
+        : box(7, 'SMTP: ответ сервера', [['Код', String(app.status) + (app.status === 250 ? ' OK' : ' ошибка')], ['Текст', app.text]]);
+    }
+    if (app.type === 'pop3') {
+      return app.op === 'retr'
+        ? box(7, 'POP3: вход и получение', [['USER', app.user], ['PASS', app.pass || '(пусто)']], null, 'Логин и пароль POP3 передаются открытым текстом. Поэтому в реальной жизни используют POP3S или IMAPS поверх TLS.')
+        : box(7, 'POP3: ответ', [['Статус', app.ok ? '+OK' : '-ERR ' + app.text], app.ok ? ['Писем', String(app.messages.length)] : null].filter(Boolean));
     }
     if (app.type === 'http') {
       return app.op === 'request'

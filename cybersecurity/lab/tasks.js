@@ -81,6 +81,31 @@
         const A = dev(a), B = dev(b);
         return c.links.some((l) => (l.a.dev === A.id && l.b.dev === B.id) || (l.a.dev === B.id && l.b.dev === A.id)) ? true : a + ' и ' + b + ' не соединены кабелем';
       },
+      // Почта: отправить письмо с узла его почтовым клиентом и проверить, что оно принято и переслано
+      mailSend(a, to, subject) {
+        const r = rec('письмо ' + a + ' -> ' + to, sim.mailSend(dev(a).id, { to, subject, body: 'Проверочное письмо.' }));
+        const x = r.results.find((y) => y.type === 'smtp');
+        const relay = r.results.find((y) => y.type === 'smtp-relay');
+        if (!x) {
+          const e = r.results.find((y) => y.type === 'local-err' || y.type === 'dns-fail' || y.type === 'mail-refused');
+          return a + ' не отправил письмо: ' + (!e ? 'сервер не ответил' : e.type === 'mail-refused' ? 'почтовый сервер не запущен' : e.text || 'DNS: ' + e.reason);
+        }
+        if (x.status !== 250) return 'сервер отказал: ' + x.status + ', ' + x.text;
+        if (relay && !relay.ok) return 'сервер принял письмо, но не переслал: ' + relay.text;
+        return true;
+      },
+      // Почта: забрать письма по POP3 и найти среди них письмо с этой темой
+      mailFetch(a, subject, from) {
+        const r = rec('POP3 ' + a + ': получить почту', sim.mailFetch(dev(a).id));
+        const x = r.results.find((y) => y.type === 'pop3');
+        if (!x) {
+          const e = r.results.find((y) => y.type === 'local-err' || y.type === 'dns-fail' || y.type === 'mail-refused');
+          return a + ' не забрал почту: ' + (!e ? 'сервер не ответил' : e.type === 'mail-refused' ? 'почтовый сервер не запущен' : e.text || 'DNS: ' + e.reason);
+        }
+        if (!x.ok) return a + ': сервер ответил «' + x.text + '»';
+        if (subject && !x.messages.some((m) => m.subject === subject && (!from || m.from === from))) return a + ' не нашёл письма «' + subject + '»' + (from ? ' от ' + from : '');
+        return true;
+      },
       noStorm(a, b) { return rec('ping ' + a + ' -> ' + b + ' (нет ли шторма)', sim.ping(dev(a).id, b)).storm ? 'в сети широковещательный шторм' : true; },
       lif(a, name) {
         const l = LAB.lifs(dev(a)).find((x) => x.name.toLowerCase() === name.toLowerCase());
@@ -429,6 +454,46 @@
         const f = LAB.httpFile(c.dev('INTRA').services.http, '/');
         return f && /<a\s[^>]*href=["']?\/?contacts\.html/i.test(f.content) ? true : 'в index.html нет ссылки <a href="contacts.html">';
       } },
+    ],
+  });
+
+  T({
+    id: 'mail', level: 4, title: 'Почта в офисе',
+    goal: 'На сервере MAIL (192.168.1.25) уже работает DNS с записью mail.office.lab. Запусти на нём почту для домена office.lab с ящиками ivan (пароль 1111) и olga (пароль 2222). Настрой почтовые клиенты на IVAN и OLGA так, чтобы Иван мог написать Ольге, а Ольга получить письмо.',
+    theory: 'mail',
+    hints: ['MAIL, «Службы», «Почта»: домен office.lab, ящики ivan и olga с паролями, включить службу.', 'IVAN, вкладка «Почта»: адрес ivan@office.lab, пароль 1111, серверы входящей и исходящей почты mail.office.lab. Так же на OLGA.'],
+    solution: 'MAIL: почта включена, домен office.lab, ящики ivan/1111 и olga/2222. IVAN: ivan@office.lab, 1111, mail.office.lab. OLGA: olga@office.lab, 2222, mail.office.lab.',
+    build(b) {
+      const sw = b.add('switch', 0, -40, { name: 'SW1' });
+      b.link(b.add('server', 0, -230, { name: 'MAIL', ip: '192.168.1.25/24', dns: '192.168.1.25',
+        services: { dns: { on: true, records: [{ name: 'mail.office.lab', ip: '192.168.1.25' }] } } }), sw);
+      b.link(b.add('pc', -240, 140, { name: 'IVAN', ip: '192.168.1.11/24', dns: '192.168.1.25' }), sw);
+      b.link(b.add('pc', 240, 140, { name: 'OLGA', ip: '192.168.1.12/24', dns: '192.168.1.25' }), sw);
+    },
+    checks: [
+      { text: 'Почта на MAIL включена, домен office.lab, ящики ivan и olga', test: (c) => {
+        const m = c.dev('MAIL').services.mail;
+        if (!m.on) return 'почтовая служба выключена';
+        if (m.domain !== 'office.lab') return 'домен ' + (m.domain || 'не задан') + ', а нужен office.lab';
+        const miss = ['ivan', 'olga'].filter((u) => !m.users.some((x) => x.user === u));
+        return miss.length ? 'нет ящиков: ' + miss.join(', ') : true;
+      } },
+      { text: 'IVAN отправляет письмо на olga@office.lab', test: (c) => c.dev('IVAN').mail.address === 'ivan@office.lab' ? c.mailSend('IVAN', 'olga@office.lab', 'Проверка почты') : 'адрес на IVAN должен быть ivan@office.lab' },
+      { text: 'OLGA забирает это письмо', test: (c) => { c.mailSend('IVAN', 'olga@office.lab', 'Проверка почты'); return c.mailFetch('OLGA', 'Проверка почты', 'ivan@office.lab'); } },
+    ],
+  });
+
+  T({
+    id: 'mail-mx', level: 4, title: 'Почта между компаниями',
+    goal: 'У компаний alpha.lab и beta.lab свои почтовые серверы, внутри каждой почта ходит. Но письма из одной компании в другую не доходят. Найди причину и исправь, чтобы IVAN (alpha.lab) и OLGA (beta.lab) могли переписываться. Ящики и клиенты не меняй.',
+    theory: 'mail',
+    hints: ['Отправь письмо с IVAN на olga@beta.lab и посмотри журнал: что спрашивает MAIL-ALPHA у DNS и что слышит в ответ?', 'На NS нужны MX-записи: alpha.lab -> mail.alpha.lab и beta.lab -> mail.beta.lab.'],
+    solution: 'NS: MX alpha.lab = mail.alpha.lab, MX beta.lab = mail.beta.lab.',
+    build(b) { LAB.mailNet(b, { mx: false }); },
+    checks: [
+      { text: 'IVAN отправляет письмо на olga@beta.lab, сервер его пересылает', test: (c) => c.mailSend('IVAN', 'olga@beta.lab', 'Из alpha в beta') },
+      { text: 'OLGA получает письмо от ivan@alpha.lab', test: (c) => { c.mailSend('IVAN', 'olga@beta.lab', 'Из alpha в beta'); return c.mailFetch('OLGA', 'Из alpha в beta', 'ivan@alpha.lab'); } },
+      { text: 'Ответ OLGA доходит до IVAN', test: (c) => { const r = c.mailSend('OLGA', 'ivan@alpha.lab', 'Ответ из beta'); return r !== true ? r : c.mailFetch('IVAN', 'Ответ из beta', 'olga@beta.lab'); } },
     ],
   });
 

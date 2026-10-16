@@ -13,6 +13,7 @@
     router: { label: 'Веб-интерфейс', sub: 'интерфейсы, маршруты', icon: '◫' },
     switch: { label: 'Веб-интерфейс', sub: 'порты и VLAN', icon: '◫' },
     diag: { label: 'Диагностика', sub: 'ping, traceroute', icon: '⌁' },
+    mail: { label: 'Почта', sub: 'почтовый клиент', icon: '✉' },
   };
 
   const wins = {};
@@ -135,6 +136,7 @@
     else if (w.tab === 'browser') title = dev.name + ': браузер';
     else if (w.tab === 'net') title = dev.name + ': параметры сети';
     else if (w.tab === 'services') title = dev.name + ': службы';
+    else if (w.tab === 'mail') title = dev.name + ': почта';
     else title = dev.name + ': веб-интерфейс';
     w.titleEl.textContent = title;
   }
@@ -158,6 +160,15 @@
       if (!w) return;
       w.browser.url = arg;
       w.browser.autogo = true;
+      render(w);
+      return;
+    }
+    if (op === 'mail') {
+      const w = open(devId, 'mail');
+      if (!w) return;
+      w.mailSetup = false;
+      w.mailOpen = null;
+      w.compose = { to: arg, subject: 'Привет', body: 'Это письмо прошло через два почтовых сервера.' };
       render(w);
       return;
     }
@@ -253,7 +264,7 @@
   function webApp(w, dev, root, brand, pages) {
     const mgmt = dev.ifaces.find((i) => i.ip && LAB.ifUp(i));
     const cur = w.nav[w.tab] && pages[w.nav[w.tab]] ? w.nav[w.tab] : Object.keys(pages)[0];
-    const content = h('div', { class: 'wa__page' });
+    const content = pageBox();
     root.append(
       h('div', { class: 'wurl' }, h('span', { class: 'wurl__lock' }, mgmt ? '⌂' : '⚠'), h('span', null, mgmt ? 'http://' + mgmt.ip + '/' + cur : 'нет IP: доступ только по консольному кабелю')),
       h('div', { class: 'wa' },
@@ -263,6 +274,14 @@
         content));
     content.append(h('h3', { class: 'wa__h' }, pages[cur].title));
     pages[cur].render(content);
+  }
+
+  // Контейнер страницы: append раскрывает массивы и пропускает null, как h()
+  function pageBox() {
+    const el = h('div', { class: 'wa__page' });
+    const native = el.append.bind(el);
+    el.append = (...kids) => native(...kids.flat(Infinity).filter((k) => k != null && k !== false));
+    return el;
   }
 
   // Поле имени устройства: применяется по Enter или при уходе фокуса
@@ -681,6 +700,7 @@
     ['http', 'HTTP', 'Веб-сервер', 'nginx, TCP-порт 80: отдаёт файлы сайта'],
     ['dhcp', 'DHCP', 'DHCP-сервер', 'isc-dhcp-server, UDP-порт 67: раздаёт адреса'],
     ['dns', 'DNS', 'DNS-сервер', 'named, UDP-порт 53: превращает имена в адреса'],
+    ['mail', 'Почта', 'Почтовый сервер', 'SMTP (TCP 25) принимает письма, POP3 (TCP 110) отдаёт их получателям'],
   ];
 
   function onOff(on, onChange) {
@@ -693,7 +713,7 @@
     const sv = dev.services;
     const cur = SERVICES.some(([id]) => id === w.svc) ? w.svc : 'http';
     const [, , title, sub] = SERVICES.find(([id]) => id === cur);
-    const content = h('div', { class: 'wa__page' });
+    const content = pageBox();
     root.append(h('div', { class: 'wa' },
       h('nav', { class: 'wa__nav' },
         h('div', { class: 'wa__brand' }, 'Службы', h('small', { class: 'wa__brand-sub' }, dev.name)),
@@ -804,19 +824,56 @@
   // DNS: записи зоны
   SVC_PAGES.dns = (w, dev, c) => {
     const sv = dev.services;
+    const type = h('select', { class: 'wf__in wdns__type', onChange: () => { dIp.placeholder = type.value === 'MX' ? 'mail.example.lab' : '10.0.0.20'; dName.placeholder = type.value === 'MX' ? 'example.lab' : 'site.lab'; } },
+      h('option', { value: 'A' }, 'A: имя -> адрес'), h('option', { value: 'MX' }, 'MX: домен -> почтовый сервер'));
     const dName = inp('', 'site.lab'), dIp = ipInp('', '10.0.0.20', dev, 'all'), dErr = errBox();
     c.append(
-      h('div', { class: 'wsub' }, 'Записи A: имя и адрес'),
-      table(['Имя', 'Адрес', ''], sv.dns.records.map((r, k) => h('tr', null, h('td', null, h('b', null, r.name)), h('td', null, r.ip),
+      h('div', { class: 'wsub' }, 'Записи зоны'),
+      table(['Тип', 'Имя', 'Значение', ''], sv.dns.records.map((r, k) => h('tr', null, h('td', null, h('span', { class: 'wcode wcode--' + (r.type === 'MX' ? 'O' : 'C') }, r.type || 'A')), h('td', null, h('b', null, r.name)), h('td', null, r.ip),
         h('td', null, h('button', { type: 'button', class: 'wx', onClick: () => { sv.dns.records.splice(k, 1); ui.changed(); } }, '×')))), 'Записей нет'),
-      h('div', { class: 'wrow' }, dName, dIp, btn('Добавить', () => {
+      h('div', { class: 'wrow' }, type, dName, dIp, btn('Добавить', () => {
+        const t = type.value;
         const n = dName.value.trim().toLowerCase();
+        const v = dIp.value.trim().toLowerCase();
         if (!/^[a-z0-9.-]+$/.test(n)) { dErr.textContent = 'Имя: латиница, цифры, точки'; return; }
-        if (!ip.valid(dIp.value)) { dErr.textContent = 'Неверный адрес'; return; }
-        sv.dns.records = sv.dns.records.filter((r) => r.name !== n).concat({ name: n, ip: ip.norm(dIp.value) });
+        if (t === 'A' && !ip.valid(v)) { dErr.textContent = 'Для записи A нужен IP-адрес'; return; }
+        if (t === 'MX' && !/^[a-z0-9.-]+$/.test(v)) { dErr.textContent = 'Для MX нужно имя почтового сервера, например mail.example.lab'; return; }
+        sv.dns.records = sv.dns.records.filter((r) => !(r.name === n && (r.type || 'A') === t)).concat({ type: t, name: n, ip: t === 'A' ? ip.norm(v) : v });
         ui.changed();
       }, true)), dErr,
-      h('p', { class: 'wnote' }, 'Запись с тем же именем заменяет старую. Клиенты узнают адрес этого сервера из поля DNS в своих настройках или из DHCP.'));
+      h('p', { class: 'wnote' }, 'A связывает имя с IP-адресом. MX говорит, какой сервер принимает почту домена: «почта для example.lab идёт на mail.example.lab», а адрес mail.example.lab берётся из его записи A. Запись того же типа с тем же именем заменяет старую.'));
+  };
+
+  // Почтовый сервер: домен, пользователи, письма в ожидании
+  SVC_PAGES.mail = (w, dev, c) => {
+    const m = dev.services.mail;
+    const domain = inp(m.domain, 'example.lab');
+    const dErr = errBox();
+    const uName = inp('', 'ivan'), uPass = inp('', 'пароль');
+    const uErr = errBox();
+    const count = (u) => m.box.filter((x) => LAB.splitAddr(x.to)[0] === u && LAB.splitAddr(x.to)[1] === m.domain).length;
+    c.append(
+      h('div', { class: 'wrow' }, field('Почтовый домен', domain, 'адреса будут вида имя@' + (m.domain || 'домен')), btn('Сохранить', () => {
+        const d = domain.value.trim().toLowerCase();
+        if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d)) { dErr.textContent = 'Домен вида example.lab'; return; }
+        m.domain = d;
+        ui.changed();
+        toast(w, 'Домен ' + d);
+      }, true)), dErr,
+      h('div', { class: 'wsub' }, 'Пользователи (почтовые ящики)'),
+      table(['Адрес', 'Пароль', 'Писем ждёт', ''], m.users.map((u, k) => h('tr', null,
+        h('td', null, h('b', null, u.user + '@' + (m.domain || '?'))), h('td', null, h('code', null, u.pass)), h('td', null, String(count(u.user))),
+        h('td', null, h('button', { type: 'button', class: 'wx', onClick: () => { m.users.splice(k, 1); ui.changed(); } }, '×')))), 'Ящиков нет'),
+      h('div', { class: 'wrow' }, uName, uPass, btn('Добавить ящик', () => {
+        const n = uName.value.trim().toLowerCase();
+        if (!/^[a-z0-9._-]{1,30}$/.test(n)) { uErr.textContent = 'Имя: латиница, цифры, точка, дефис'; return; }
+        if (!uPass.value) { uErr.textContent = 'Задай пароль: по нему пользователь заберёт почту'; return; }
+        m.users = m.users.filter((u) => u.user !== n).concat({ user: n, pass: uPass.value });
+        ui.changed();
+      })), uErr,
+      m.box.length ? h('div', { class: 'wsub' }, 'Письма на сервере (ещё не забраны по POP3)') : null,
+      m.box.length ? table(['Кому', 'От кого', 'Тема'], m.box.slice(-30).reverse().map((x) => h('tr', null, h('td', null, x.to), h('td', null, x.from), h('td', null, x.subject || '(без темы)')))) : null,
+      h('p', { class: 'wnote' }, 'Письмо своему домену сервер кладёт в ящик. Письмо в чужой домен он принимает только от своих пользователей и пересылает серверу из MX-записи домена получателя. Чтобы сервер мог это сделать, у него должен быть указан DNS-сервер.'));
   };
 
   // Безопасный показ HTML страницы в браузере: только разметка текста, без скриптов и стилей
@@ -847,6 +904,105 @@
     walk(doc.body, frag);
     return frag;
   }
+
+  /* --- Почтовый клиент --- */
+  const fmtTime = (t) => { if (!t) return ''; const d = new Date(t); const p = (n) => String(n).padStart(2, '0'); return p(d.getDate()) + '.' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); };
+  PAGES.mail = (w, dev, root) => {
+    const cfg = dev.mail;
+    const box = pageBox();
+    box.classList.add('wmail');
+    root.append(box);
+    const view = w.mailView || 'inbox';
+    const busy = !!w.mailBusy;
+    const run = (op, arg, okText) => {
+      w.mailBusy = true;
+      render(w);
+      ui.runOp(op, dev.id, arg).then((r) => {
+        w.mailBusy = false;
+        const x = r.results.find((y) => y.type === (op === 'smtp' ? 'smtp' : 'pop3'));
+        const relay = r.results.find((y) => y.type === 'smtp-relay');
+        const refused = r.results.find((y) => y.type === 'mail-refused');
+        const local = r.results.find((y) => y.type === 'local-err' || y.type === 'dns-fail');
+        w.mailNote = x ? (op === 'smtp'
+          ? (x.status === 250 ? (relay && !relay.ok ? 'Сервер принял письмо, но не смог переслать его: ' + relay.text : okText) : 'Сервер отказал: ' + x.status + ', ' + x.text)
+          : (x.ok ? 'Новых писем: ' + x.count : 'Сервер отказал: ' + x.text))
+          : refused ? 'Почтовый сервер ' + refused.server + ' не отвечает на порту ' + refused.port + ': служба не запущена'
+            : local ? (local.text || 'DNS: ' + local.reason) : 'Сервер не ответил: посмотри в журнале, где потерялся пакет';
+        w.mailNoteOk = !!x && (op === 'smtp' ? x.status === 250 && !(relay && !relay.ok) : x.ok);
+        if (op === 'smtp' && w.mailNoteOk) w.compose = null;
+        if (op === 'pop3' && w.mailNoteOk) w.mailView = 'inbox';
+        if (wins[w.devId] === w && w.tab === 'mail') render(w);
+      });
+    };
+    // Учётная запись
+    const configured = cfg.address && cfg.smtp && cfg.pop;
+    if (!configured || w.mailSetup) {
+      const addr = inp(cfg.address, 'ivan@example.lab'), pass = h('input', { class: 'wf__in', type: 'password', value: cfg.pass, autocomplete: 'off' });
+      const smtp = ipInp(cfg.smtp, 'mail.example.lab', dev, 'all'), pop = ipInp(cfg.pop, 'mail.example.lab', dev, 'all');
+      const err = errBox();
+      box.append(h('div', { class: 'wcard' },
+        h('div', { class: 'wcard__head' }, h('b', null, 'Учётная запись')),
+        h('div', { class: 'wgrid' }, field('Адрес', addr), field('Пароль', pass), field('Исходящая почта (SMTP)', smtp, 'имя или IP сервера'), field('Входящая почта (POP3)', pop, 'обычно тот же сервер')),
+        h('div', { class: 'wrow wrow--end' }, err,
+          configured ? btn('Отмена', () => { w.mailSetup = false; render(w); }) : null,
+          btn('Сохранить', () => {
+            const a = addr.value.trim().toLowerCase();
+            if (!LAB.splitAddr(a)[0]) { err.textContent = 'Адрес вида имя@домен'; return; }
+            if (!smtp.value.trim() || !pop.value.trim()) { err.textContent = 'Укажи серверы входящей и исходящей почты'; return; }
+            Object.assign(cfg, { address: a, pass: pass.value, smtp: smtp.value.trim().toLowerCase(), pop: pop.value.trim().toLowerCase() });
+            w.mailSetup = false;
+            ui.changed();
+            toast(w, 'Учётная запись сохранена');
+          }, true))));
+      if (!configured) {
+        box.append(h('p', { class: 'wnote' }, 'Адрес и пароль выдаёт администратор почтового сервера. Сервер указывают по имени (нужен DNS) или по IP.'));
+        return;
+      }
+    }
+    box.append(h('div', { class: 'wmail__bar' },
+      h('div', { class: 'wseg' },
+        h('button', { type: 'button', class: view === 'inbox' ? 'active' : '', onClick: () => { w.mailView = 'inbox'; w.mailOpen = null; render(w); } }, 'Входящие (' + cfg.inbox.length + ')'),
+        h('button', { type: 'button', class: view === 'sent' ? 'active' : '', onClick: () => { w.mailView = 'sent'; w.mailOpen = null; render(w); } }, 'Отправленные (' + cfg.sent.length + ')')),
+      btn(busy ? 'Связь с сервером…' : 'Получить почту', () => { if (!busy) run('pop3', null); }, true),
+      btn('Написать', () => { w.compose = w.compose || { to: '', subject: '', body: '' }; render(w); }),
+      h('button', { type: 'button', class: 'wmail__acc', title: 'Настройки учётной записи', onClick: () => { w.mailSetup = true; render(w); } }, cfg.address)));
+    if (w.mailNote) box.append(h('p', { class: 'wmail__note' + (w.mailNoteOk ? ' is-ok' : ' is-err') }, w.mailNote));
+
+    if (w.compose) {
+      const cp = w.compose;
+      const to = h('input', { class: 'wf__in', value: cp.to, placeholder: 'olga@example.lab', spellcheck: 'false', onInput: (e) => { cp.to = e.target.value; } });
+      const subj = h('input', { class: 'wf__in', value: cp.subject, placeholder: 'Тема', onInput: (e) => { cp.subject = e.target.value; } });
+      const body = h('textarea', { class: 'wf__in wf__area', rows: 5, onInput: (e) => { cp.body = e.target.value; } });
+      body.value = cp.body;
+      const err = errBox();
+      box.append(h('div', { class: 'wcard is-edit' },
+        h('div', { class: 'wcard__head' }, h('b', null, 'Новое письмо'), h('span', { class: 'wcard__sub' }, 'от ' + cfg.address)),
+        field('Кому', to), field('Тема', subj), field('Текст', body),
+        h('div', { class: 'wrow wrow--end' }, err,
+          btn('Отмена', () => { w.compose = null; render(w); }),
+          btn(busy ? 'Отправка…' : 'Отправить', () => {
+            if (busy) return;
+            if (!LAB.splitAddr(cp.to)[0]) { err.textContent = 'Адрес получателя вида имя@домен'; return; }
+            run('smtp', { to: cp.to, subject: cp.subject, body: cp.body }, 'Письмо для ' + cp.to.trim().toLowerCase() + ' отправлено');
+          }, true))));
+    }
+
+    const list = view === 'sent' ? cfg.sent : cfg.inbox;
+    const open = w.mailOpen != null ? list[w.mailOpen] : null;
+    if (open) {
+      box.append(h('div', { class: 'wmail__read' },
+        h('div', { class: 'wmail__meta' }, h('b', null, open.subject || '(без темы)'), h('small', null, (view === 'sent' ? 'кому ' + open.to : 'от ' + open.from) + ', ' + fmtTime(open.time))),
+        h('div', { class: 'wmail__text' }, open.body || '(пустое письмо)'),
+        h('div', { class: 'wrow' },
+          view === 'inbox' ? btn('Ответить', () => { w.compose = { to: open.from, subject: 'Re: ' + (open.subject || ''), body: '' }; w.mailOpen = null; render(w); }) : null,
+          btn('Удалить', () => { list.splice(w.mailOpen, 1); w.mailOpen = null; ui.refreshed(); }),
+          btn('К списку', () => { w.mailOpen = null; render(w); }))));
+      return;
+    }
+    box.append(list.length ? h('div', { class: 'wmail__list' }, list.map((x, k) => ({ x, k })).reverse().map(({ x, k }) => h('button', { type: 'button', class: 'wmail__item', onClick: () => { w.mailOpen = k; render(w); } },
+      h('b', null, view === 'sent' ? x.to : x.from), h('span', null, x.subject || '(без темы)'), h('small', null, fmtTime(x.time)))))
+      : h('p', { class: 'wempty' }, view === 'sent' ? 'Отправленных писем нет.' : 'Писем нет. Нажми «Получить почту»: клиент зайдёт на сервер по POP3 и заберёт новые письма.'));
+  };
 
   /* --- Браузер --- */
   PAGES.browser = (w, dev, root) => {

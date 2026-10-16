@@ -174,12 +174,34 @@
     return (http.files || []).find((f) => f.name.toLowerCase() === name.toLowerCase()) || null;
   };
 
+  // Почта: адрес «user@domain» на две части
+  const splitAddr = (a) => { const m = String(a || '').trim().toLowerCase().match(/^([^@\s]+)@([^@\s]+)$/); return m ? [m[1], m[2]] : ['', '']; };
+  LAB.splitAddr = splitAddr;
+  const normLetter = (x) => ({ from: String(x.from || ''), to: String(x.to || ''), subject: String(x.subject || ''), body: String(x.body || ''), time: Number(x.time) || 0 });
+  // Почтовый сервер: домен, пользователи с паролями, письма, ждущие получателя
+  LAB.normMail = (js) => ({
+    on: !!(js && js.on),
+    domain: String((js && js.domain) || '').toLowerCase(),
+    users: ((js && js.users) || []).map((u) => ({ user: String(u.user || '').toLowerCase(), pass: String(u.pass || '') })),
+    box: ((js && js.box) || []).map(normLetter),
+  });
+  // Почтовый клиент узла: учётная запись, входящие и отправленные
+  LAB.normMailClient = (js) => ({
+    address: String((js && js.address) || '').toLowerCase(),
+    pass: String((js && js.pass) || ''),
+    smtp: String((js && js.smtp) || ''),
+    pop: String((js && js.pop) || ''),
+    inbox: ((js && js.inbox) || []).map(normLetter),
+    sent: ((js && js.sent) || []).map(normLetter),
+  });
+
   function defaultPool() { return { start: '', end: '', prefix: 24, gateway: '', dns: '' }; }
   function defaultServices() {
     return {
       dns: { on: false, records: [] },
       dhcp: { on: false, pools: [defaultPool()], reservations: [] },
       http: LAB.normHttp({}),
+      mail: LAB.normMail({}),
     };
   }
   LAB.defaultServices = defaultServices;
@@ -188,7 +210,8 @@
   function normServices(js) {
     const sv = defaultServices();
     js = js || {};
-    if (js.dns) sv.dns = { on: !!js.dns.on, records: (js.dns.records || []).map((r) => ({ name: String(r.name), ip: String(r.ip) })) };
+    if (js.dns) sv.dns = { on: !!js.dns.on, records: (js.dns.records || []).map((r) => ({ type: r.type === 'MX' ? 'MX' : 'A', name: String(r.name), ip: String(r.ip) })) };
+    if (js.mail) sv.mail = LAB.normMail(js.mail);
     if (js.dhcp) {
       // Раньше пул был один (pool), теперь их список (pools): для каждой сети свой
       const pools = Array.isArray(js.dhcp.pools) ? js.dhcp.pools : js.dhcp.pool ? [js.dhcp.pool] : [];
@@ -240,6 +263,7 @@
       services: normServices(d.services),
       ifaces: (d.ifaces || []).map((i) => normIface(i, t.kind)),
     };
+    if (t.kind === 'host') dev.mail = LAB.normMailClient(d.mail);
     if (t.kind === 'switch') dev.stp = { on: d.stp ? d.stp.on !== false : true, priority: d.stp && d.stp.priority != null ? Number(d.stp.priority) : 32768 };
     if (t.kind === 'router') {
       dev.ospfDef = !!d.ospfDef;
@@ -599,9 +623,18 @@
     let d;
     if (app && app.type === 'dhcp') d = { kind: 'dhcp', label: 'DHCP ' + DHCP_OP[app.op] + (app.yiaddr ? ': ' + app.yiaddr : '') };
     else if (app && app.type === 'dns') {
+      const mx = app.qtype === 'MX' ? ' MX' : '';
       d = app.op === 'query'
-        ? { kind: 'dns', label: 'DNS-запрос: ' + app.name + '?' }
-        : { kind: 'dns', label: 'DNS-ответ: ' + app.name + ' = ' + (app.answer || 'не найдено') };
+        ? { kind: 'dns', label: 'DNS-запрос' + mx + ': ' + app.name + '?' }
+        : { kind: 'dns', label: 'DNS-ответ' + mx + ': ' + app.name + ' = ' + (app.answer || 'не найдено') };
+    } else if (app && app.type === 'smtp') {
+      d = app.op === 'send'
+        ? { kind: 'smtp', label: 'SMTP: письмо ' + app.msg.from + ' -> ' + app.msg.to }
+        : { kind: 'smtp', label: 'SMTP ' + app.status + ': ' + app.text };
+    } else if (app && app.type === 'pop3') {
+      d = app.op === 'retr'
+        ? { kind: 'pop3', label: 'POP3: вход ' + app.user + ', забрать почту' }
+        : { kind: 'pop3', label: 'POP3 ' + (app.ok ? '+OK, писем: ' + app.messages.length : '-ERR ' + app.text) };
     } else if (app && app.type === 'http') {
       d = app.op === 'request'
         ? { kind: 'http', label: 'HTTP GET ' + app.path }
@@ -1088,10 +1121,11 @@
             return;
           }
           const name = String(app.name).toLowerCase().replace(/\.$/, '');
-          const rec = sv.dns.records.find((r) => r.name.toLowerCase().replace(/\.$/, '') === name);
-          this.log(tick, dev, 7, 'DNS: ' + app.name + (rec ? ' = ' + rec.ip : ' нет в зоне (NXDOMAIN)'), rec ? 'ok' : 'err', frame);
+          const qtype = app.qtype || 'A';
+          const rec = sv.dns.records.find((r) => (r.type || 'A') === qtype && r.name.toLowerCase().replace(/\.$/, '') === name);
+          this.log(tick, dev, 7, 'DNS ' + qtype + ': ' + app.name + (rec ? ' = ' + rec.ip : ' нет в зоне (NXDOMAIN)'), rec ? 'ok' : 'err', frame);
           this.ipSend(tick, dev, { src: p.dst, dst: p.src, ttl: this.net.type(dev).ttl, proto: 'udp', udp: { sport: 53, dport: p.udp.sport },
-            app: { type: 'dns', op: 'response', id: app.id, name: app.name, answer: rec ? rec.ip : null } });
+            app: { type: 'dns', op: 'response', id: app.id, name: app.name, qtype, answer: rec ? rec.ip : null } });
           return;
         }
         const flow = this.flows['dns:' + app.id];
@@ -1159,42 +1193,44 @@
       return null;
     }
 
-    /* --- L4/L7: TCP и HTTP --- */
+    /* --- L4/L7: TCP и службы на нём: HTTP (80), SMTP (25), POP3 (110) --- */
+    // Кто слушает TCP-порт на этом устройстве
+    tcpService(dev, port) {
+      const sv = dev.services || {};
+      if (port === 80) return { name: 'HTTP', on: !!(sv.http && sv.http.on), handle: (t, p, f) => this.httpServer(t, dev, p, f) };
+      if (port === 25) return { name: 'SMTP', on: !!(sv.mail && sv.mail.on), handle: (t, p, f) => this.smtpServer(t, dev, p, f) };
+      if (port === 110) return { name: 'POP3', on: !!(sv.mail && sv.mail.on), handle: (t, p, f) => this.pop3Server(t, dev, p, f) };
+      return null;
+    }
+
     tcpLocal(tick, dev, p, frame) {
       const t = p.tcp;
+      // Ответ на соединение, которое открыл сам этот узел
+      const flow = this.flows['tcp:' + dev.id + ':' + t.dport];
+      if (flow && flow.port === t.sport) { flow(tick, p); return; }
+
       const key = p.src + ':' + t.sport;
       const tb = this.tables(dev);
       const ttl = this.net.type(dev).ttl;
       const answer = (flags, extra) => this.ipSend(tick, dev, Object.assign({ src: p.dst, dst: p.src, ttl, proto: 'tcp',
         tcp: { sport: t.dport, dport: t.sport, flags, seq: t.ack || 0, ack: (t.seq || 0) + 1 } }, extra));
-
-      // Ответ клиенту: ищем открытый клиентом поток
-      const flow = this.flows['tcp:' + dev.id + ':' + t.dport];
-      if (flow && t.sport === 80) { flow(tick, p); return; }
-
-      if (t.dport !== 80) {
-        this.log(tick, dev, 4, 'TCP на порт ' + t.dport + ': порт закрыт', 'dim', frame);
-        return;
-      }
-      const http = dev.services && dev.services.http;
-      if (!(http && http.on)) {
+      const svc = this.tcpService(dev, t.dport);
+      if (!svc || !svc.on) {
         if (t.flags === 'SYN') {
-          this.log(tick, dev, 4, 'TCP SYN на порт 80, но веб-сервер не запущен: отвечаю RST', 'err', frame);
+          this.log(tick, dev, 4, 'TCP SYN на порт ' + t.dport + ': ' + (svc ? svc.name + '-сервер не запущен' : 'порт закрыт') + ', отвечаю RST', 'err', frame);
           answer('RST, ACK');
         }
         return;
       }
       if (t.flags === 'SYN') {
         tb.conns[key] = 'syn';
-        this.log(tick, dev, 4, 'TCP SYN на порт 80: соглашаюсь, отвечаю SYN, ACK (шаг 2 из 3)', 'info', frame);
+        this.log(tick, dev, 4, 'TCP SYN на порт ' + t.dport + ' (' + svc.name + '): соглашаюсь, отвечаю SYN, ACK (шаг 2 из 3)', 'info', frame);
         answer('SYN, ACK');
         return;
       }
-      if (p.app && p.app.type === 'http') {
-        const f = LAB.httpFile(http, p.app.path);
-        this.log(tick, dev, 7, 'HTTP GET ' + p.app.path + ': ' + (f ? 'отдаю файл ' + f.name + ', 200 OK' : 'файла нет, 404 Not Found'), f ? 'ok' : 'err', frame);
-        answer('PSH, ACK', { app: { type: 'http', op: 'response', status: f ? 200 : 404, title: f ? LAB.pageTitle(f.content, f.name) : 'Not Found',
-          body: f ? f.content : '<h1>404 Not Found</h1>\n<p>На сервере нет файла ' + escHtml(p.app.path) + '</p>' } });
+      if (p.app) {
+        const resp = svc.handle(tick, p, frame);
+        if (resp) answer('PSH, ACK', { app: resp });
         return;
       }
       if (t.flags === 'FIN, ACK') {
@@ -1209,25 +1245,138 @@
       }
     }
 
+    httpServer(tick, dev, p, frame) {
+      const f = LAB.httpFile(dev.services.http, p.app.path);
+      this.log(tick, dev, 7, 'HTTP GET ' + p.app.path + ': ' + (f ? 'отдаю файл ' + f.name + ', 200 OK' : 'файла нет, 404 Not Found'), f ? 'ok' : 'err', frame);
+      return { type: 'http', op: 'response', status: f ? 200 : 404, title: f ? LAB.pageTitle(f.content, f.name) : 'Not Found',
+        body: f ? f.content : '<h1>404 Not Found</h1>\n<p>На сервере нет файла ' + escHtml(p.app.path) + '</p>' };
+    }
+
+    // SMTP: письмо для своего домена кладём в ящик, для чужого пересылаем его почтовому серверу (по MX).
+    // Пересылаем только письма своих пользователей: иначе сервер стал бы открытым relay для спама
+    smtpServer(tick, dev, p, frame) {
+      const m = dev.services.mail;
+      const msg = p.app.msg;
+      const [tu, td] = splitAddr(msg.to);
+      const [fu, fd] = splitAddr(msg.from);
+      const reply = (status, text) => ({ type: 'smtp', op: 'reply', status, text });
+      if (td === m.domain) {
+        if (!m.users.some((u) => u.user === tu)) {
+          this.log(tick, dev, 7, 'SMTP: ящика ' + msg.to + ' нет, письмо отклонено (550)', 'err', frame);
+          return reply(550, 'ящика ' + msg.to + ' нет');
+        }
+        m.box.push({ from: msg.from, to: msg.to, subject: msg.subject, body: msg.body, time: msg.time });
+        if (m.box.length > 300) m.box.splice(0, m.box.length - 300);
+        this.log(tick, dev, 7, 'SMTP: письмо от ' + msg.from + ' положено в ящик ' + tu + ' (250 OK)', 'ok', frame);
+        return reply(250, 'доставлено в ящик ' + msg.to);
+      }
+      if (!(fd === m.domain && m.users.some((u) => u.user === fu))) {
+        this.log(tick, dev, 7, 'SMTP: письмо из ' + (fd || '?') + ' в ' + (td || '?') + ', оба домена чужие: пересылать отказываюсь (554, не открытый relay)', 'err', frame);
+        return reply(554, 'relay запрещён: домен ' + td + ' не мой, отправитель не мой');
+      }
+      this.log(tick, dev, 7, 'SMTP: письмо для домена ' + td + ' принято (250), ищу его почтовый сервер (MX) и пересылаю', 'info', frame);
+      this.later(tick, (t2) => this.mailRelay(t2, dev, msg, td));
+      return reply(250, 'принято, пересылаю в ' + td);
+    }
+
+    mailRelay(tick, dev, msg, domain) {
+      const fail = (t, why) => {
+        this.log(t, dev, 7, 'не удалось переслать письмо в ' + domain + ': ' + why, 'err');
+        this.results.push({ type: 'smtp-relay', ok: false, domain, text: why });
+      };
+      this.resolve(tick, dev, domain, (t, host) => {
+        this.resolve(t, dev, host, (t2, addr) => this.tcpSession(t2, dev, addr, 25, { app: { type: 'smtp', op: 'send', msg }, label: 'пересылаю письмо серверу ' + host + ' (SMTP)' }, {
+          reply: (t3, a) => {
+            this.log(t3, dev, 7, 'сервер домена ' + domain + ' ответил ' + a.status + ': ' + a.text, a.status === 250 ? 'ok' : 'err');
+            this.results.push({ type: 'smtp-relay', ok: a.status === 250, domain, status: a.status, text: a.text });
+          },
+          refused: (t3) => fail(t3, 'на ' + host + ' не запущен почтовый сервер'),
+        }), { quiet: true, onFail: (t2, why) => fail(t2, 'адрес ' + host + ': ' + why) });
+      }, { qtype: 'MX', quiet: true, onFail: (t, why) => fail(t, 'MX-запись домена: ' + why) });
+    }
+
+    // POP3: проверить логин и пароль, отдать письма пользователя и удалить их с сервера
+    pop3Server(tick, dev, p, frame) {
+      const m = dev.services.mail;
+      const a = p.app;
+      const u = m.users.find((x) => x.user === a.user);
+      if (!u || u.pass !== a.pass) {
+        this.log(tick, dev, 7, 'POP3: неверный логин или пароль для «' + a.user + '» (-ERR)', 'err', frame);
+        return { type: 'pop3', op: 'reply', ok: false, text: 'неверный логин или пароль', messages: [] };
+      }
+      const mine = m.box.filter((x) => { const [xu, xd] = splitAddr(x.to); return xu === a.user && xd === m.domain; });
+      m.box = m.box.filter((x) => !mine.includes(x));
+      this.log(tick, dev, 7, 'POP3: ' + a.user + ' вошёл, отдаю писем: ' + mine.length + ' (+OK)', 'ok', frame);
+      return { type: 'pop3', op: 'reply', ok: true, messages: mine };
+    }
+
+    // Клиентская TCP-сессия: рукопожатие, один запрос, ответ, закрытие.
+    // request: { app, label }, cb: { reply(tick, app), refused(tick) }
+    tcpSession(tick, dev, addr, dport, request, cb) {
+      const sport = 49152 + (++this.pid % 16000);
+      let seq = 1000;
+      const ttl = this.net.type(dev).ttl;
+      const key = 'tcp:' + dev.id + ':' + sport;
+      const send = (t, flags, extra) => this.ipSend(t, dev, Object.assign({ src: null, dst: addr, ttl, proto: 'tcp',
+        tcp: { sport, dport, flags, seq: seq++, ack: 0 }, origin: dev.id }, extra));
+      const flow = (t, p) => {
+        const f = p.tcp.flags;
+        if (f.startsWith('RST')) {
+          this.log(t, dev, 4, addr + ':' + dport + ' отклонил соединение (RST): служба не запущена', 'err', null);
+          delete this.flows[key];
+          if (cb.refused) cb.refused(t);
+          return;
+        }
+        if (f === 'SYN, ACK') {
+          this.log(t, dev, 4, 'сервер согласен: отвечаю ACK, соединение установлено', 'ok', null);
+          send(t, 'ACK');
+          this.later(t, (t2) => { this.log(t2, dev, 7, request.label, 'info'); send(t2, 'PSH, ACK', { app: request.app }); });
+          return;
+        }
+        if (p.app) {
+          cb.reply(t, p.app);
+          this.later(t, (t2) => { this.log(t2, dev, 4, 'ответ получен, закрываю соединение (FIN)', 'dim'); send(t2, 'FIN, ACK'); });
+          return;
+        }
+        if (f === 'FIN, ACK') {
+          this.log(t, dev, 4, 'сервер тоже закрыл соединение: последний ACK', 'dim', null);
+          send(t, 'ACK');
+          delete this.flows[key];
+        }
+      };
+      flow.port = dport;
+      this.flows[key] = flow;
+      this.log(tick, dev, 4, 'открываю TCP-соединение с ' + addr + ':' + dport + ', шаг 1 из 3: SYN', 'info');
+      send(tick, 'SYN');
+    }
+
     /* --- Клиентские операции --- */
-    // DNS: найти имя и вызвать done(ip | null)
-    resolve(tick, dev, name, done) {
-      if (ip.valid(name)) { done(tick, ip.norm(name)); return; }
+    // DNS: узнать адрес (A) или почтовый сервер домена (MX) и вызвать done(tick, ответ).
+    // opts: { qtype: 'MX', quiet: не писать dns-fail в результаты, onFail(tick, причина) }
+    resolve(tick, dev, name, done, opts) {
+      opts = opts || {};
+      const qtype = opts.qtype || 'A';
+      const fail = (t, reason) => {
+        if (!opts.quiet) this.results.push({ type: 'dns-fail', name, reason });
+        if (opts.onFail) opts.onFail(t, reason);
+      };
+      if (qtype === 'A' && ip.valid(name)) { done(tick, ip.norm(name)); return; }
       if (!dev.dns) {
-        this.log(tick, dev, 7, 'не задан DNS-сервер: не у кого спросить адрес ' + name, 'err');
-        this.results.push({ type: 'dns-fail', name, reason: 'DNS-сервер не задан' });
+        this.log(tick, dev, 7, 'не задан DNS-сервер: не у кого спросить ' + (qtype === 'MX' ? 'почтовый сервер домена ' : 'адрес ') + name, 'err');
+        fail(tick, 'DNS-сервер не задан');
         return;
       }
       const id = ++this.pid;
       this.flows['dns:' + id] = (t, p) => {
         delete this.flows['dns:' + id];
-        this.log(t, dev, 7, p.app.answer ? name + ' = ' + p.app.answer : 'DNS: имя ' + name + ' не найдено', p.app.answer ? 'ok' : 'err');
-        if (!p.app.answer) { this.results.push({ type: 'dns-fail', name, reason: 'имя не найдено (NXDOMAIN)' }); return; }
-        done(t, p.app.answer);
+        const ans = p.app.answer;
+        this.log(t, dev, 7, ans ? (qtype === 'MX' ? 'почта домена ' + name + ' принимается на ' + ans : name + ' = ' + ans) : 'DNS: ' + (qtype === 'MX' ? 'MX-записи для ' : 'имя ') + name + ' не найдено', ans ? 'ok' : 'err');
+        if (!ans) { fail(t, (qtype === 'MX' ? 'нет MX-записи' : 'имя не найдено') + ' (NXDOMAIN)'); return; }
+        done(t, ans);
       };
-      this.log(tick, dev, 7, 'спрашиваю DNS-сервер ' + dev.dns + ': какой адрес у ' + name + '?', 'info');
+      this.log(tick, dev, 7, 'спрашиваю DNS-сервер ' + dev.dns + ': ' + (qtype === 'MX' ? 'какой почтовый сервер у домена ' + name + ' (MX)?' : 'какой адрес у ' + name + '?'), 'info');
       this.ipSend(tick, dev, { src: null, dst: dev.dns, ttl: this.net.type(dev).ttl, proto: 'udp', udp: { sport: 50000 + (id % 10000), dport: 53 },
-        app: { type: 'dns', op: 'query', id, name }, origin: dev.id });
+        app: { type: 'dns', op: 'query', id, name, qtype }, origin: dev.id });
     }
 
     ping(srcId, dst, ttl) {
@@ -1337,42 +1486,59 @@
       if (!m) { this.results.push({ type: 'local-err', text: 'неверный адрес ' + url }); return this.finish(); }
       const host = m[1];
       const path = m[2] || '/';
-      this.resolve(0, dev, host, (tick, addr) => {
-        const sport = 49152 + (++this.pid % 16000);
-        let seq = 1000;
-        const send = (t, flags, extra) => this.ipSend(t, dev, Object.assign({ src: null, dst: addr, ttl: this.net.type(dev).ttl, proto: 'tcp',
-          tcp: { sport, dport: 80, flags, seq: seq++, ack: 0 }, origin: dev.id }, extra));
-        this.flows['tcp:' + dev.id + ':' + sport] = (t, p) => {
-          const f = p.tcp.flags;
-          if (f.startsWith('RST')) {
-            this.log(t, dev, 4, addr + ':80 отклонил соединение (RST): веб-сервер не запущен', 'err', null);
-            this.results.push({ type: 'http-refused', host, ip: addr });
-            return;
-          }
-          if (f === 'SYN, ACK') {
-            this.log(t, dev, 4, 'сервер согласен: отвечаю ACK, соединение установлено', 'ok', null);
-            send(t, 'ACK');
-            this.later(t, (t2) => {
-              this.log(t2, dev, 7, 'отправляю HTTP GET ' + path, 'info');
-              send(t2, 'PSH, ACK', { app: { type: 'http', op: 'request', path, host } });
-            });
-            return;
-          }
-          if (p.app && p.app.type === 'http') {
-            this.log(t, dev, 7, 'получил ответ HTTP ' + p.app.status + ': «' + p.app.title + '»', p.app.status === 200 ? 'ok' : 'err', null);
-            this.results.push({ type: 'http', host, ip: addr, path, status: p.app.status, title: p.app.title, body: p.app.body });
-            this.later(t, (t2) => { this.log(t2, dev, 4, 'страница получена, закрываю соединение (FIN)', 'dim'); send(t2, 'FIN, ACK'); });
-            return;
-          }
-          if (f === 'FIN, ACK') {
-            this.log(t, dev, 4, 'сервер тоже закрыл соединение: последний ACK', 'dim', null);
-            send(t, 'ACK');
-            delete this.flows['tcp:' + dev.id + ':' + sport];
-          }
-        };
-        this.log(tick, dev, 4, 'открываю TCP-соединение с ' + addr + ':80, шаг 1 из 3: SYN', 'info');
-        send(tick, 'SYN');
-      });
+      this.resolve(0, dev, host, (tick, addr) => this.tcpSession(tick, dev, addr, 80, { app: { type: 'http', op: 'request', path, host }, label: 'отправляю HTTP GET ' + path }, {
+        reply: (t, a) => {
+          this.log(t, dev, 7, 'получил ответ HTTP ' + a.status + ': «' + a.title + '»', a.status === 200 ? 'ok' : 'err', null);
+          this.results.push({ type: 'http', host, ip: addr, path, status: a.status, title: a.title, body: a.body });
+        },
+        refused: () => this.results.push({ type: 'http-refused', host, ip: addr }),
+      }));
+      this.drain();
+      return this.finish();
+    }
+
+    // Почтовый клиент: отправить письмо через сервер исходящей почты (SMTP, порт 25)
+    mailSend(srcId, msg) {
+      this.begin(srcId);
+      const dev = this.net.dev(srcId);
+      if (!dev) return this.finish();
+      const cfg = dev.mail;
+      if (!cfg || !cfg.address || !cfg.smtp) {
+        this.results.push({ type: 'local-err', text: 'почта не настроена: нужны адрес и сервер исходящей почты' });
+        return this.finish();
+      }
+      const letter = { from: cfg.address, to: String(msg.to || '').trim().toLowerCase(), subject: String(msg.subject || ''), body: String(msg.body || ''), time: Date.now() };
+      this.resolve(0, dev, cfg.smtp, (tick, addr) => this.tcpSession(tick, dev, addr, 25, { app: { type: 'smtp', op: 'send', msg: letter }, label: 'отправляю письмо для ' + letter.to + ' (SMTP)' }, {
+        reply: (t, a) => {
+          this.log(t, dev, 7, 'сервер ответил ' + a.status + ': ' + a.text, a.status === 250 ? 'ok' : 'err', null);
+          this.results.push({ type: 'smtp', status: a.status, text: a.text });
+          if (a.status === 250) { cfg.sent.push(letter); if (cfg.sent.length > 100) cfg.sent.shift(); }
+        },
+        refused: () => this.results.push({ type: 'mail-refused', server: cfg.smtp, port: 25 }),
+      }));
+      this.drain();
+      return this.finish();
+    }
+
+    // Почтовый клиент: забрать письма с сервера входящей почты (POP3, порт 110)
+    mailFetch(srcId) {
+      this.begin(srcId);
+      const dev = this.net.dev(srcId);
+      if (!dev) return this.finish();
+      const cfg = dev.mail;
+      if (!cfg || !cfg.address || !cfg.pop) {
+        this.results.push({ type: 'local-err', text: 'почта не настроена: нужны адрес и сервер входящей почты' });
+        return this.finish();
+      }
+      const user = splitAddr(cfg.address)[0];
+      this.resolve(0, dev, cfg.pop, (tick, addr) => this.tcpSession(tick, dev, addr, 110, { app: { type: 'pop3', op: 'retr', user, pass: cfg.pass }, label: 'вхожу как ' + user + ' и забираю почту (POP3)' }, {
+        reply: (t, a) => {
+          this.log(t, dev, 7, a.ok ? 'получено писем: ' + a.messages.length : 'сервер отказал: ' + a.text, a.ok ? 'ok' : 'err', null);
+          if (a.ok) { cfg.inbox.push(...a.messages); if (cfg.inbox.length > 200) cfg.inbox.splice(0, cfg.inbox.length - 200); }
+          this.results.push({ type: 'pop3', ok: a.ok, count: a.ok ? a.messages.length : 0, text: a.text, messages: a.messages });
+        },
+        refused: () => this.results.push({ type: 'mail-refused', server: cfg.pop, port: 110 }),
+      }));
       this.drain();
       return this.finish();
     }
