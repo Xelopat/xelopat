@@ -108,8 +108,6 @@ function load_cards_collection(array $config, string $primary, string $fallback)
 
 $hero_tag = (string)cfg($config, 'hero.tag', '// личный сайт');
 $hero_name = (string)cfg($config, 'hero.name', 'Xelopat');
-$hero_offer = (string)cfg($config, 'hero.offer', 'Делаю сайты под ключ и слежу, чтобы их не взломали.');
-$hero_telegram = (string)cfg($config, 'hero.telegram', 'xelopat');
 
 require_once __DIR__ . '/includes/collection_lib.php';
 
@@ -197,41 +195,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     line-height:1.1;
     margin:0 0 12px;
   }
-  .hero-offer{
-    margin:18px 0 10px;
-    font-size:28px;
-    font-weight:700;
-    line-height:1.25;
-    max-width:560px;
-  }
-  .hero-actions{
-    display:flex;
-    flex-wrap:wrap;
-    gap:10px;
-    margin-top:26px;
-  }
-  .hero-btn{
-    display:inline-flex;
-    align-items:center;
-    min-height:46px;
-    padding:0 20px;
-    border:1px solid var(--line);
-    border-radius:var(--radius);
-    background:var(--panel);
-    color:var(--text);
-    font-size:15px;
-    font-weight:600;
-    text-decoration:none;
-    transition:border-color .18s ease, background .18s ease, transform .18s ease;
-  }
-  .hero-btn:hover{ border-color:#555566; transform:translateY(-1px); }
-  .hero-btn--primary{
-    background:var(--accent);
-    border-color:var(--accent);
-    color:#151518;
-  }
-  .hero-btn--primary:hover{ background:#ffd65c; border-color:#ffd65c; }
-  .hero-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:3px; }
 
   .hero-net{
     position:absolute;
@@ -244,8 +207,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     mask-image:linear-gradient(to bottom, #000 55%, transparent);
   }
 
-  /* Пока скрипт расшифровывает имя, ширина заголовка не прыгает: символы моноширинные */
-  .hero-name .scramble{ color:var(--accent); }
   .hero-meta-block--hidden{
     display:none;
   }
@@ -490,7 +451,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
       width:100%;
     }
     .terminal{ display:none; }
-    .hero-offer{ font-size:24px; }
     .section{
       padding:0 0 28px;
     }
@@ -532,8 +492,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     .hero-name{
       font-size:clamp(32px, 12vw, 40px);
     }
-    .hero-offer{ font-size:21px; }
-    .hero-btn{ flex:1 1 auto; justify-content:center; }
     .sec-label{
       font-size:11px;
     }
@@ -553,14 +511,9 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     <section class="hero">
       <div class="hero-main">
         <div class="hero-tag"><?= e($hero_tag) ?></div>
-        <h1 class="hero-name" id="heroName" data-type="off"><?= e($hero_name) ?></h1>
+        <h1 class="hero-name" id="heroName"><?= e($hero_name) ?></h1>
         <div class="hero-meta-block" id="heroMetaBlock">
           <div class="hero-divider"></div>
-        </div>
-        <p class="hero-offer"><?= e($hero_offer) ?></p>
-        <div class="hero-actions">
-          <a class="hero-btn hero-btn--primary" href="https://t.me/<?= e($hero_telegram) ?>" target="_blank" rel="noopener">Написать в Telegram</a>
-          <a class="hero-btn" href="/projects">Мои работы</a>
         </div>
       </div>
 
@@ -673,44 +626,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   </div>
 </div>
 <script>
-// Имя «расшифровывается»: случайные символы по очереди встают на место слева направо
-(function () {
-  const h1 = document.getElementById('heroName');
-  if (!h1) return;
-  const text = h1.textContent.trim();
-  const glyphs = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&@<>/';
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let timer = null;
-  h1.setAttribute('aria-label', text);
-
-  window.heroDecrypt = function () {
-    if (timer) clearInterval(timer);
-    if (reduce) { h1.textContent = text; return; }
-    const start = performance.now();
-    const out = document.createElement('span');
-    out.setAttribute('aria-hidden', 'true');
-    h1.replaceChildren(out);
-    timer = setInterval(function () {
-      const t = performance.now() - start;
-      out.replaceChildren();
-      let done = true;
-      for (let i = 0; i < text.length; i += 1) {
-        if (t >= 250 + i * 90) {
-          out.append(text[i]);
-        } else {
-          done = false;
-          const s = document.createElement('span');
-          s.className = 'scramble';
-          s.textContent = text[i] === ' ' ? ' ' : glyphs[Math.floor(Math.random() * glyphs.length)];
-          out.append(s);
-        }
-      }
-      if (done) { clearInterval(timer); timer = null; h1.textContent = text; }
-    }, 45);
-  };
-  window.heroDecrypt();
-})();
-
 // Фон первого экрана: узлы сети медленно дрейфуют, по связям бегут пакеты, курсор подключается к ближайшим узлам
 (function () {
   const cv = document.getElementById('heroNet');
@@ -1004,7 +919,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   }
 
   function typeHeroName() {
-    if (window.heroDecrypt) window.heroDecrypt();
+    if (window.siteTypeTitle) window.siteTypeTitle(document.getElementById('heroName'));
   }
 
   function getNode(pathParts) {
