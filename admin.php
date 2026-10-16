@@ -293,7 +293,7 @@ include __DIR__ . '/header.php';
   .cp-table td, .cp-table th{ vertical-align:middle; }
   .cp-pill{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid var(--line); color:var(--muted); }
   .cp-pill.admin{ color:var(--accent); border-color:rgba(249,201,64,.4); }
-  .cp-pill.me{ color:var(--green); border-color:rgba(97,209,173,.4); }
+  .cp-pill.me{ color:var(--accent); border-color:rgba(249,201,64,.4); }
   .cp-inline{ display:inline; margin:0; }
   .cp-small{ padding:6px 10px; font-size:13px; }
   .cp-danger:hover{ border-color:var(--danger); color:var(--danger); }

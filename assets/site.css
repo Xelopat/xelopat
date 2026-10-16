@@ -8,9 +8,9 @@
   --panel:#1e1e25;
   --panel-2:#191920;
   --panel-hover:#252532;
-  --radius-sm:6px;
-  --radius:10px;
-  --radius-lg:14px;
+  --radius-sm:4px;
+  --radius:6px;
+  --radius-lg:8px;
   --text:#efeff1;
   --muted:#9496a8;
   --line:#333340;
@@ -272,7 +272,7 @@ body.nav-open{
 .dd-group-title{
   display:block;
   margin:0 0 4px;
-  color:var(--green);
+  color:var(--accent);
   font-size:11px;
   font-family:var(--mono);
   text-transform:uppercase;
@@ -442,7 +442,6 @@ a.dd-group-title:hover{ color:var(--accent); }
 
 .page{
   min-height:calc(100vh - var(--header-h));
-  background:var(--bg);
   color:var(--text);
   padding:28px 0 40px;
 }
@@ -455,7 +454,7 @@ a.dd-group-title:hover{ color:var(--accent); }
 .page-label{
   font-family:var(--mono);
   font-size:11px;
-  color:var(--green);
+  color:var(--accent);
   margin-bottom:6px;
 }
 .page-title{
@@ -503,7 +502,7 @@ a.dd-group-title:hover{ color:var(--accent); }
 .field select:focus,
 .field textarea:focus{
   border-color:var(--accent);
-  box-shadow:0 0 0 3px rgba(97,209,173,.15);
+  box-shadow:0 0 0 3px rgba(249,201,64,.15);
 }
 
 .btn{
@@ -536,7 +535,7 @@ a.dd-group-title:hover{ color:var(--accent); }
   vertical-align:top;
 }
 .data-table th{
-  color:var(--green);
+  color:var(--muted);
   font-family:var(--mono);
   font-size:11px;
   text-transform:uppercase;
@@ -570,3 +569,13 @@ a.dd-group-title:hover{ color:var(--accent); }
 .type-caret.blink{ animation:type-caret-blink .9s step-end 3 forwards; }
 /* В конце каждого цикла курсор погашен, поэтому после третьего мигания он не вспыхивает снова */
 @keyframes type-caret-blink{ 0%{ opacity:1; } 50%, 100%{ opacity:0; } }
+
+/* Фоновая сеть из site.js: под всем контентом, не ловит клики */
+.site-net{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  z-index:-1;
+  pointer-events:none;
+}

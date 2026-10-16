@@ -51,3 +51,112 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
 })();
+
+// Фон всех страниц: еле заметная сеть, узлы медленно дрейфуют, по связям изредка пробегает пакет.
+// Холст фиксирован под контентом; в фоновой вкладке анимация стоит, при «уменьшить движение» кадр статичный.
+(function () {
+  if (window.__siteNet) return;
+  window.__siteNet = true;
+  const cv = document.createElement('canvas');
+  if (!cv.getContext) return;
+  cv.className = 'site-net';
+  cv.setAttribute('aria-hidden', 'true');
+  document.body.prepend(cv);
+  const ctx = cv.getContext('2d');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let w = 0, h = 0, link = 150, nodes = [], packets = [], mouse = null, raf = 0, lastSpawn = 0;
+
+  function fit() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const nw = window.innerWidth, nh = window.innerHeight;
+    const reseed = nw !== w || !nodes.length;
+    w = nw; h = nh;
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    link = w < 640 ? 110 : 150;
+    // Высота на телефоне меняется при прокрутке (панель адреса), узлы при этом не пересоздаём
+    if (reseed) {
+      const count = Math.max(18, Math.min(70, Math.round(w * h / 18000)));
+      nodes = Array.from({ length: count }, function () {
+        return { x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - .5) * .25, vy: (Math.random() - .5) * .25 };
+      });
+      packets = [];
+    }
+    if (reduce) draw(0);
+  }
+
+  function spawn() {
+    const a = nodes[Math.floor(Math.random() * nodes.length)];
+    const near = nodes.filter(function (b) { return b !== a && Math.hypot(a.x - b.x, a.y - b.y) < link; });
+    if (!near.length) return;
+    packets.push({ a: a, b: near[Math.floor(Math.random() * near.length)], t: 0, v: .006 + Math.random() * .008 });
+  }
+
+  function draw(now) {
+    ctx.clearRect(0, 0, w, h);
+    if (!reduce) {
+      for (const n of nodes) {
+        n.x += n.vx; n.y += n.vy;
+        if (n.x < 0 || n.x > w) n.vx *= -1;
+        if (n.y < 0 || n.y > h) n.vy *= -1;
+      }
+    }
+    ctx.lineWidth = 1;
+    for (let i = 0; i < nodes.length; i += 1) {
+      const a = nodes[i];
+      for (let j = i + 1; j < nodes.length; j += 1) {
+        const b = nodes[j];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (d < link) {
+          ctx.strokeStyle = 'rgba(148,150,168,' + ((1 - d / link) * .06).toFixed(3) + ')';
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+      }
+      if (mouse) {
+        const d = Math.hypot(a.x - mouse.x, a.y - mouse.y);
+        if (d < link * 1.3) {
+          ctx.strokeStyle = 'rgba(249,201,64,' + ((1 - d / (link * 1.3)) * .1).toFixed(3) + ')';
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(mouse.x, mouse.y); ctx.stroke();
+        }
+      }
+    }
+    ctx.fillStyle = 'rgba(148,150,168,.15)';
+    for (const n of nodes) { ctx.beginPath(); ctx.arc(n.x, n.y, 1.5, 0, Math.PI * 2); ctx.fill(); }
+    if (reduce) return;
+
+    if (now - lastSpawn > 1200 && packets.length < 4) { spawn(); lastSpawn = now; }
+    packets = packets.filter(function (p) {
+      p.t += p.v;
+      if (p.t >= 1 || Math.hypot(p.a.x - p.b.x, p.a.y - p.b.y) > link) return false;
+      const x = p.a.x + (p.b.x - p.a.x) * p.t, y = p.a.y + (p.b.y - p.a.y) * p.t;
+      ctx.shadowColor = 'rgba(249,201,64,.25)';
+      ctx.shadowBlur = 5;
+      ctx.fillStyle = 'rgba(249,201,64,.3)';
+      ctx.beginPath(); ctx.arc(x, y, 1.6, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      return true;
+    });
+  }
+
+  function loop(now) {
+    raf = 0;
+    if (document.hidden) return;
+    draw(now);
+    raf = requestAnimationFrame(loop);
+  }
+  function play() { if (!reduce && !raf) raf = requestAnimationFrame(loop); }
+
+  window.addEventListener('pointermove', function (e) {
+    mouse = e.pointerType === 'mouse' ? { x: e.clientX, y: e.clientY } : null;
+  }, { passive: true });
+  document.documentElement.addEventListener('pointerleave', function () { mouse = null; });
+  document.addEventListener('visibilitychange', play);
+  let resizeTimer = 0;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(fit, 120);
+  });
+  fit();
+  play();
+})();

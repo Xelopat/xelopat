@@ -39,7 +39,7 @@
 .osi-card__title{
   font-family:var(--mono);
   font-size:11px;
-  color:var(--green);
+  color:var(--accent);
   text-transform:uppercase;
   letter-spacing:.04em;
   margin-bottom:10px;
@@ -351,7 +351,7 @@
   grid-template-rows:auto repeat(7, minmax(46px, auto));
   gap:6px 12px;
 }
-.tcp-head{ font-family:var(--mono); font-size:11px; color:var(--green); text-transform:uppercase; letter-spacing:.04em; padding-bottom:4px; grid-row:1; }
+.tcp-head{ font-family:var(--mono); font-size:11px; color:var(--accent); text-transform:uppercase; letter-spacing:.04em; padding-bottom:4px; grid-row:1; }
 .tcp-osi{
   grid-column:1;
   display:grid;
@@ -447,7 +447,7 @@
   background:var(--panel-2);
   margin-bottom:14px;
 }
-.quiz-kind{ font-family:var(--mono); font-size:11px; color:var(--green); text-transform:uppercase; letter-spacing:.04em; }
+.quiz-kind{ font-family:var(--mono); font-size:11px; color:var(--accent); text-transform:uppercase; letter-spacing:.04em; }
 .quiz-q{ color:var(--muted); font-size:14px; margin:8px 0 6px; }
 .quiz-name{ font-family:var(--mono); font-size:clamp(22px, 4vw, 32px); font-weight:700; line-height:1.25; }
 .quiz-empty{ color:var(--muted); font-size:14px; }

@@ -735,7 +735,7 @@ $has_any_filters =
       width:100%;margin-top:6px;border:1px solid var(--line);border-radius:var(--radius-lg);padding:9px;font:inherit;outline:none;background:var(--panel-2);color:var(--text)
     }
     input[type="text"]::placeholder, input[type="number"]::placeholder, textarea::placeholder{color:var(--muted)}
-    input[type="text"]:focus, input[type="number"]:focus, textarea:focus{border-color:rgba(97,209,173,0.65);box-shadow:0 0 0 3px rgba(97,209,173,0.14)}
+    input[type="text"]:focus, input[type="number"]:focus, textarea:focus{border-color:rgba(249,201,64,0.65);box-shadow:0 0 0 3px rgba(249,201,64,0.14)}
     textarea{min-height:110px;resize:vertical}
     input[type="file"]{margin-top:8px}
 
@@ -783,7 +783,7 @@ $has_any_filters =
     }
     .range-fill{
       position:absolute;top:50%;transform:translateY(-50%);
-      height:6px;border-radius:999px;background:rgba(97,209,173,0.45);
+      height:6px;border-radius:999px;background:rgba(249,201,64,0.45);
       left:var(--a, 0%);right:calc(100% - var(--b, 100%));
     }
     .range-track input[type="range"]{
@@ -864,7 +864,7 @@ $has_any_filters =
       outline:none;
       cursor:pointer;
     }
-    .pastebox:focus{border-color:rgba(97,209,173,0.7); box-shadow:0 0 0 3px rgba(97,209,173,0.16);}
+    .pastebox:focus{border-color:rgba(249,201,64,0.7); box-shadow:0 0 0 3px rgba(249,201,64,0.16);}
     .pastebox__img{
       margin-top:10px;
       width:100%;

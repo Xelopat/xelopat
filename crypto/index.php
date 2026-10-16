@@ -29,7 +29,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     margin:0 0 10px;
     font-family:var(--mono);
     font-size:12px;
-    color:var(--green);
+    color:var(--accent);
     text-transform:uppercase;
     letter-spacing:.04em;
   }

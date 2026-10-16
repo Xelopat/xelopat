@@ -164,7 +164,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     min-height:calc(100vh - 60px);
     background:
       radial-gradient(900px 380px at 85% -60px, rgba(255,138,61,.13), transparent 70%),
-      radial-gradient(700px 300px at 0% 0%, rgba(97,209,173,.06), transparent 70%),
+      radial-gradient(700px 300px at 0% 0%, rgba(249,201,64,.06), transparent 70%),
       var(--bg);
     color:var(--text);
     padding:28px 0 48px;

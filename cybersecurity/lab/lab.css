@@ -98,7 +98,7 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 .lab-node__halo{ fill:transparent; stroke:transparent; stroke-width:1.5; transition:fill .16s ease, stroke .16s ease; }
 .lab-node:hover .lab-node__halo{ fill:rgba(255,255,255,.03); stroke:#3a3a48; }
 .lab-node.is-sel .lab-node__halo{ fill:rgba(255,255,255,.03); stroke:#8a8ca0; }
-.lab-node.is-from .lab-node__halo{ fill:rgba(97,209,173,.08); stroke:var(--green); stroke-dasharray:5 4; }
+.lab-node.is-from .lab-node__halo{ fill:rgba(249,201,64,.08); stroke:var(--accent); stroke-dasharray:5 4; }
 .lab-stage[data-tool="delete"] .lab-node:hover .lab-node__halo{ stroke:var(--danger); fill:rgba(255,143,143,.06); }
 .lab-node.is-ok .lab-node__halo{ stroke:var(--green); }
 .lab-node.is-err .lab-node__halo{ stroke:var(--danger); }
@@ -113,12 +113,12 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 .lab-link-del:hover path{ stroke:#fff; }
 .lab-node__plug{ opacity:0; transition:opacity .12s ease; cursor:crosshair; }
 .lab-node:hover .lab-node__plug, .lab-node.is-sel .lab-node__plug{ opacity:1; }
-.lab-node__plug-plus{ stroke:var(--green); stroke-width:1.6; stroke-linecap:round; pointer-events:none; }
+.lab-node__plug-plus{ stroke:var(--accent); stroke-width:1.6; stroke-linecap:round; pointer-events:none; }
 .lab-node__plug:hover .lab-node__plug-plus{ stroke:#121216; }
 .lab-stage.is-wiring .lab-node__plug{ opacity:0; }
 .lab-node__plug-hit{ fill:transparent; }
-.lab-node__plug-dot{ fill:#1e1e25; stroke:var(--green); stroke-width:1.6; }
-.lab-node__plug:hover .lab-node__plug-dot{ fill:var(--green); }
+.lab-node__plug-dot{ fill:#1e1e25; stroke:var(--accent); stroke-width:1.6; }
+.lab-node__plug:hover .lab-node__plug-dot{ fill:var(--accent); }
 @media (hover: none){ .lab-node.is-sel .lab-node__plug{ opacity:1; } }
 .lab-seg{ opacity:.18; transition:opacity .25s ease; }
 .lab-seg.is-in{ opacity:.45; }
@@ -414,7 +414,7 @@ html.lab-noscroll, html.lab-noscroll body{ overflow:hidden; }
 .wtoggle__track span{ position:absolute; left:2px; top:2px; width:14px; height:14px; border-radius:var(--radius-sm); background:#d6d9e0; transition:transform .16s ease; }
 .wtoggle input:checked + .wtoggle__track{ background:#4f9c84; }
 .wtoggle input:checked + .wtoggle__track span{ transform:translateX(14px); background:#fff; }
-.wtoggle input:focus-visible + .wtoggle__track{ box-shadow:0 0 0 3px rgba(97,209,173,.3); }
+.wtoggle input:focus-visible + .wtoggle__track{ box-shadow:0 0 0 3px rgba(249,201,64,.3); }
 
 /* Лицевая панель коммутатора */
 .wface-wrap{ background:var(--bg); border:1px solid #2e2e3a; border-radius:var(--radius-sm); padding:10px 12px; display:flex; align-items:center; gap:14px; overflow-x:auto; }

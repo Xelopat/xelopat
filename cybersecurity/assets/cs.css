@@ -9,9 +9,9 @@
   --panel:#1e1e25;
   --panel-2:#191920;
   --panel-hover:#252532;
-  --radius-sm:6px;
-  --radius:10px;
-  --radius-lg:14px;
+  --radius-sm:4px;
+  --radius:6px;
+  --radius-lg:8px;
   --text:#efeff1;
   --muted:#9496a8;
   --line:#333340;
@@ -74,7 +74,7 @@ a{ color:var(--accent); }
   flex:0 0 auto;
 }
 .brand-mark img{ width:100%; height:100%; object-fit:cover; display:block; }
-.brand-sub{ color:var(--green); }
+.brand-sub{ color:var(--accent); }
 
 .nav{ display:flex; align-items:center; gap:18px; }
 .nav-link{
@@ -167,7 +167,7 @@ body.nav-open{ overflow:hidden; }
 .page-label{
   font-family:var(--mono);
   font-size:11px;
-  color:var(--green);
+  color:var(--accent);
   margin-bottom:6px;
 }
 .page-title{ margin:0 0 10px; font-size:30px; line-height:1.2; }
@@ -180,12 +180,12 @@ body.nav-open{ overflow:hidden; }
 }
 .hero-tag{
   display:inline-flex;
-  background:#0f3328;
+  background:rgba(249,201,64,.1);
   border-radius:var(--radius-sm);
   padding:3px 10px;
   font-family:var(--mono);
   font-size:11px;
-  color:var(--green);
+  color:var(--accent);
   margin-bottom:16px;
 }
 
@@ -247,7 +247,7 @@ body.nav-open{ overflow:hidden; }
   transition:border-color .18s ease, transform .18s ease;
 }
 .tool-card:hover{ border-color:#555566; transform:translateY(-2px); }
-.tool-card__tag{ font-family:var(--mono); font-size:11px; color:var(--green); }
+.tool-card__tag{ font-family:var(--mono); font-size:11px; color:var(--accent); }
 .tool-card__title{ font-size:17px; font-weight:700; }
 .tool-card__desc{ font-size:13px; color:var(--muted); line-height:1.55; margin:0; }
 .tool-card__go{ margin-top:auto; font-size:12px; color:var(--accent); font-family:var(--mono); }
@@ -309,4 +309,14 @@ body.nav-open{ overflow:hidden; }
   .auth-action{ padding:6px 9px; font-size:12px; }
   .nav{ left:8px; right:8px; }
   .page::before{ background-size:58px 58px; opacity:.55; }
+}
+
+/* Фоновая сеть из site.js: под всем контентом, не ловит клики */
+.site-net{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  z-index:-1;
+  pointer-events:none;
 }

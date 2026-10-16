@@ -6,7 +6,6 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 <style>
   .cw-page{
     min-height:calc(100vh - 60px);
-    background:var(--bg);
     color:var(--text);
     padding:28px 0 40px;
   }
@@ -23,7 +22,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .cw-label{
     font-family:var(--mono);
     font-size:11px;
-    color:var(--green);
+    color:var(--accent);
     margin-bottom:6px;
   }
 

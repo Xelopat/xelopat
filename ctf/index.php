@@ -266,7 +266,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 <link rel="stylesheet" href="/assets/bases.css">
 <style>
   [hidden]{ display:none !important; }
-  .ctf-h2{ margin:26px 0 12px; font:700 15px var(--mono); color:var(--green); }
+  .ctf-h2{ margin:26px 0 12px; font:700 15px var(--mono); color:var(--accent); }
   .ctf-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(330px, 1fr)); gap:12px; }
   .ctf-card{ border:1px solid var(--line); background:var(--panel); border-radius:var(--radius-lg); padding:15px 16px; display:flex; flex-direction:column; gap:9px; min-width:0; }
   .ctf-card.past{ opacity:.72; }
@@ -279,19 +279,19 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .ctf-hide:hover{ border-color:var(--line); color:var(--text); }
   .ctf-badges{ display:flex; flex-wrap:wrap; gap:5px; }
   .ctf-badge{ font:11px var(--mono); padding:3px 8px; border-radius:var(--radius-sm); background:var(--panel-2); border:1px solid var(--line); color:var(--muted); }
-  .ctf-badge.pick{ background:rgba(97,209,173,.12); border-color:rgba(97,209,173,.4); color:var(--green); }
+  .ctf-badge.pick{ background:rgba(249,201,64,.12); border-color:rgba(249,201,64,.4); color:var(--accent); }
   .ctf-badge.lvl-beginner{ color:var(--green); }
   .ctf-badge.lvl-medium{ color:var(--accent); }
   .ctf-badge.lvl-hard{ color:var(--danger); }
   .ctf-when{ font:12px var(--mono); color:var(--accent); }
   .ctf-dim{ color:var(--muted); }
-  .ctf-why{ margin:0; font-size:13px; line-height:1.45; color:var(--green); }
+  .ctf-why{ margin:0; font-size:13px; line-height:1.45; color:var(--muted); }
   .ctf-foot{ margin-top:auto; display:flex; flex-direction:column; gap:8px; padding-top:2px; }
   .ctf-tags{ display:flex; flex-wrap:wrap; gap:5px; }
   .ctf-tag{ font:11px var(--mono); padding:2px 8px; border-radius:999px; background:var(--panel-2); border:1px solid var(--line); color:var(--muted); }
   .ctf-meta{ display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12px; color:var(--muted); }
   .ctf-meta a{ color:var(--accent); }
-  .ctf-digest{ border:1px solid var(--line); border-left:3px solid var(--green); background:var(--panel); border-radius:var(--radius); padding:14px 16px; font-size:14px; line-height:1.55; color:var(--muted); margin-bottom:16px; }
+  .ctf-digest{ border:1px solid var(--line); border-left:3px solid var(--accent); background:var(--panel); border-radius:var(--radius); padding:14px 16px; font-size:14px; line-height:1.55; color:var(--muted); margin-bottom:16px; }
 
   /* фильтры */
   .ctf-filters{ border:1px solid var(--line); background:var(--panel); border-radius:var(--radius-lg); padding:14px 16px; display:grid; gap:11px; }
