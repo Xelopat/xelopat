@@ -825,14 +825,20 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
 
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const first = !W;
+    const first = !W, prevH = H;
     W = cv.clientWidth; H = cv.clientHeight;
     if (!W || !H) return;
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     if (first) place();
-    dice.forEach((d) => { d.x = Math.min(Math.max(d.x, d.R), W - d.R); d.y = Math.min(d.y, floorY(d)); });
+    // Терминал свернули или развернули: колонка поменяла высоту, а пол привязан к её низу.
+    // Сдвигаем кубики вместе с полом, иначе они повиснут над терминалом, где их не схватить
+    else if (prevH && H !== prevH) dice.forEach((d) => { d.y += H - prevH; });
+    dice.forEach((d) => { d.x = Math.min(Math.max(d.x, d.R), W - d.R); d.y = Math.min(Math.max(d.y, d.R), floorY(d)); });
     draw();
   }
+
+  // Размер холста мог поменяться без события (анимация сворачивания терминала): сверяемся перед действием
+  function syncSize() { if (cv.clientWidth !== W || cv.clientHeight !== H) resize(); }
 
   function drawDie(d) {
     const g = d.g, R = d.R;
@@ -1046,6 +1052,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   }
 
   function roll() {
+    syncSize();
     dice.forEach((d) => {
       d.vx = (Math.random() - 0.5) * 1.0;
       d.vy = -(1.2 + Math.random() * 0.35);
@@ -1067,6 +1074,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     return null;
   }
   zone.addEventListener('pointerdown', (e) => {
+    syncSize();
     const [px, py] = local(e);
     const d = hitDie(px, py);
     zone.setPointerCapture(e.pointerId);
@@ -1075,6 +1083,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   });
   zone.addEventListener('pointermove', (e) => {
     const [px, py] = local(e);
+    if (!grab) syncSize();
     if (!grab || !grab.d) { zone.style.cursor = hitDie(px, py) ? '' : 'pointer'; if (grab) grab.trail.push([px, py, e.timeStamp]); return; }
     const d = grab.d;
     const nx = Math.min(Math.max(px - grab.dx, d.R), W - d.R), ny = Math.min(Math.max(py - grab.dy, d.R), floorY(d));
