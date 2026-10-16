@@ -734,7 +734,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
       if (opp) { opp.num = hi; hi -= 1; }
     });
     // У треугольных граней меньше места под число, чем у квадратов и пятиугольников той же площади
-    const font = n === 2 ? 0.3 : Math.min(numbered[0].v.length === 3 ? 0.46 : 0.5, Math.max(0.22, 0.55 * Math.sqrt(numbered[0].area)));
+    const font = n === 2 ? 0.8 : Math.min(numbered[0].v.length === 3 ? 0.46 : 0.5, Math.max(0.22, 0.55 * Math.sqrt(numbered[0].area)));
     const edges = [];
     faces.forEach((f, fi) => f.v.forEach((a, q) => {
       const b = f.v[(q + 1) % f.v.length];
@@ -748,8 +748,9 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     return geoCache[n];
   }
 
+  // Монетка: орёл помечен X, решка единицей, оба знака рисуются только контуром
   function label(n, num) {
-    if (n === 2) return num === 1 ? 'орёл' : 'решка';
+    if (n === 2) return num === 1 ? 'X' : '1';
     return n >= 6 && (num === 6 || num === 9) ? num + '.' : String(num);
   }
   function word(n, num) { return n === 2 ? (num === 1 ? 'орёл' : 'решка') : String(num); }
@@ -792,6 +793,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   let dice = [];
   let W = 0, H = 0, dpr = 1;
   let raf = 0, last = 0, grab = null, waiters = [], deadline = 0, snapping = false, rollId = 0;
+  let sum = null, sumAlpha = 0, fullRoll = false;
   const radius = () => [0, 44, 40, 36, 32, 30, 28][settings.count];
   const floorY = (d) => H - d.R - 4;
 
@@ -868,8 +870,16 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
       const [px, py, k] = project(q.c);
       const s = R * g.font / 22 * k;
       ctx.setTransform(t2[0] * s * dpr, t2[1] * s * dpr, -t1[0] * s * dpr, -t1[1] * s * dpr, px * dpr, py * dpr);
-      ctx.fillStyle = hit ? 'rgba(249,201,64,1)' : 'rgba(239,239,241,' + (0.2 + 0.7 * q.n[2]).toFixed(3) + ')';
-      ctx.fillText(label(g.n, q.f.num), 0, 2);
+      const color = hit ? 'rgba(249,201,64,1)' : 'rgba(239,239,241,' + (0.2 + 0.7 * q.n[2]).toFixed(3) + ')';
+      if (g.n === 2) {
+        ctx.font = '900 22px Inter, system-ui, sans-serif';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.6 / s;
+        ctx.strokeText(label(g.n, q.f.num), 0, 1);
+      } else {
+        ctx.fillStyle = color;
+        ctx.fillText(label(g.n, q.f.num), 0, 2);
+      }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     });
   }
@@ -878,7 +888,28 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     if (!W) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
+    // Сумма общего броска крупно и бледно на фоне, за кубиками
+    if (sum !== null) {
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '700 ' + Math.round(Math.min(H * 0.7, 140)) + 'px "Space Mono", ui-monospace, monospace';
+      ctx.fillStyle = 'rgba(249,201,64,' + (0.12 * sumAlpha).toFixed(3) + ')';
+      ctx.fillText(String(sum), W / 2, H * 0.42);
+    }
     dice.forEach(drawDie);
+  }
+  function showSum(value) {
+    sum = value;
+    sumAlpha = document.hidden ? 1 : 0;
+    const t0 = performance.now();
+    const tick = (now) => {
+      if (sum === null) return;
+      sumAlpha = Math.min(1, (now - t0) / 350);
+      draw();
+      if (sumAlpha < 1) requestAnimationFrame(tick);
+    };
+    draw();
+    requestAnimationFrame(tick);
   }
 
   function face(d) {
@@ -920,7 +951,9 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     snapping = false;
     const res = dice.map((d) => d.result);
     if (live) live.textContent = 'Выпало: ' + res.map((r) => word(settings.type, r)).join(', ');
-    draw();
+    // Сумма имеет смысл, когда кубиков несколько и бросали все сразу; у монеток её нет
+    if (fullRoll && settings.type !== 2 && res.length > 1) showSum(res.reduce((a, b) => a + b, 0));
+    else draw();
     const list = waiters; waiters = [];
     list.forEach((fn) => fn(res));
   }
@@ -992,12 +1025,14 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   }
   function play() {
     snapping = false;
+    sum = null;
     dice.forEach((d) => { d.result = 0; });
     if (live) live.textContent = '';
     if (!raf) { last = 0; raf = requestAnimationFrame(step); }
   }
 
   function roll() {
+    fullRoll = true;
     dice.forEach((d) => {
       d.vx = (Math.random() - 0.5) * 0.8;
       d.vy = -(0.75 + Math.random() * 0.25);
@@ -1023,7 +1058,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     const d = hitDie(px, py);
     cv.setPointerCapture(e.pointerId);
     grab = { d: d, dx: d ? px - d.x : 0, dy: d ? py - d.y : 0, sx: px, sy: py, t0: e.timeStamp, trail: [[px, py, e.timeStamp]] };
-    if (d) { cv.classList.add('is-grabbing'); d.vx = d.vy = 0; play(); }
+    if (d) { cv.classList.add('is-grabbing'); d.vx = d.vy = 0; fullRoll = false; play(); }
   });
   cv.addEventListener('pointermove', (e) => {
     const [px, py] = local(e);
