@@ -120,8 +120,13 @@
     }, t.label)));
     renderTitle(w, dev);
     w.body.replaceChildren();
+    // Списки подсказок адресов этого окна: пересоздаются при каждой отрисовке
+    if (!w.dl) { w.dl = h('div', { hidden: true }); w.el.append(w.dl); }
+    w.dl.replaceChildren();
+    dlBox = w.dl;
     const fn = PAGES[w.tab];
     if (fn) fn(w, dev, w.body);
+    dlBox = null;
   }
 
   function renderTitle(w, dev) {
@@ -141,7 +146,7 @@
       if (!dev) { close(w.devId); return; }
       renderTitle(w, dev);
       const a = document.activeElement;
-      if (a && w.el.contains(a) && a.matches('input, textarea, select')) return;
+      if (a && w.el.contains(a) && a.matches('textarea, input:not([type=checkbox]):not([type=radio])')) return;
       render(w);
     });
   }
@@ -180,6 +185,41 @@
     return sel;
   }
   function inp(value, ph, cls) { return h('input', { class: 'wf__in' + (cls ? ' ' + cls : ''), value: value || '', placeholder: ph || '', spellcheck: 'false' }); }
+
+  // Поле адреса с подсказками из схемы. kind: hop (соседние маршрутизаторы), gw (маршрутизаторы),
+  // net (сети), cidr (сети, адреса /32 и any), dhcp и dns (серверы с этой службой), all (все адреса)
+  let dlSeq = 0, dlBox = null;
+  function ipSuggest(dev, kind) {
+    const out = [], seen = new Set();
+    const add = (v, label) => { if (v && !seen.has(v)) { seen.add(v); out.push([v, label]); } };
+    const all = [];
+    ui.S.net.devices.forEach((d) => LAB.lifs(d).forEach((l) => { if (l.cfg.ip) all.push({ d, l, kind: LAB.types[d.type].kind }); }));
+    const mine = dev ? LAB.lifs(dev).filter((l) => l.cfg.ip) : [];
+    const near = (a) => mine.some((l) => ip.same(a, l.cfg.ip, l.cfg.prefix));
+    const name = (x) => x.d.name + ' ' + x.l.name;
+    if (kind === 'hop' || kind === 'gw') {
+      // Сначала те, кто в одной сети с этим устройством: только они годятся как следующий хоп или шлюз
+      all.filter((x) => x.d !== dev && x.kind === 'router' && near(x.l.cfg.ip)).forEach((x) => add(x.l.cfg.ip, name(x) + ', в моей сети'));
+      if (kind === 'hop') all.filter((x) => x.d !== dev && near(x.l.cfg.ip)).forEach((x) => add(x.l.cfg.ip, name(x)));
+      all.filter((x) => x.d !== dev && x.kind === 'router').forEach((x) => add(x.l.cfg.ip, name(x)));
+    } else if (kind === 'net' || kind === 'cidr') {
+      if (kind === 'cidr') add('any', 'любой адрес');
+      all.forEach((x) => { const n = ip.netStr(x.l.cfg.ip, x.l.cfg.prefix); add(kind === 'net' ? n.split('/')[0] : n, 'сеть ' + n + ' (' + x.d.name + ')'); });
+      if (kind === 'net') add('0.0.0.0', 'маршрут по умолчанию (маска /0)');
+      if (kind === 'cidr') all.forEach((x) => add(x.l.cfg.ip + '/32', 'только ' + name(x)));
+    } else if (kind === 'dhcp' || kind === 'dns') {
+      all.filter((x) => x.d.services && x.d.services[kind] && x.d.services[kind].on).forEach((x) => add(x.l.cfg.ip, x.d.name + ', ' + kind.toUpperCase() + '-сервер'));
+      all.filter((x) => x.kind === 'host' && x.d.type === 'server').forEach((x) => add(x.l.cfg.ip, x.d.name));
+    } else {
+      all.filter((x) => x.d !== dev).forEach((x) => add(x.l.cfg.ip, name(x)));
+    }
+    return out.slice(0, 300);
+  }
+  function ipInp(value, ph, dev, kind) {
+    const id = 'labIp' + (++dlSeq);
+    if (dlBox) dlBox.append(h('datalist', { id }, ipSuggest(dev, kind).map(([v, l]) => h('option', { value: v }, l))));
+    return h('input', { class: 'wf__in', value: value || '', placeholder: ph || '', spellcheck: 'false', autocomplete: 'off', list: id });
+  }
   function field(label, control, help) {
     return h('label', { class: 'wf' }, h('span', { class: 'wf__label' }, label), control, help ? h('small', { class: 'wf__help' }, help) : null);
   }
@@ -275,7 +315,7 @@
         dev.ifaces.forEach((itf, k) => {
           const ipIn = inp(itf.ip, '192.168.1.1');
           const mask = maskSelect(itf.prefix);
-          const helper = inp(itf.helper, 'IP DHCP-сервера');
+          const helper = ipInp(itf.helper, 'IP DHCP-сервера', dev, 'dhcp');
           const err = errBox();
           const save = () => {
             err.textContent = '';
@@ -291,7 +331,7 @@
           };
           // Подынтерфейсы этого порта
           const subs = itf.subs.map((sb, j) => {
-            const sIp = inp(sb.ip, '192.168.10.1'), sMask = maskSelect(sb.prefix), sHelp = inp(sb.helper, 'IP DHCP-сервера'), sErr = errBox();
+            const sIp = inp(sb.ip, '192.168.10.1'), sMask = maskSelect(sb.prefix), sHelp = ipInp(sb.helper, 'IP DHCP-сервера', dev, 'dhcp'), sErr = errBox();
             return h('div', { class: 'wsub-if' },
               h('div', { class: 'wsub-if__head' }, h('b', null, itf.name + '.' + sb.vlan), h('span', { class: 'wcard__sub' }, 'тег VLAN ' + sb.vlan),
                 h('button', { type: 'button', class: 'wx', title: 'Удалить подынтерфейс', onClick: () => { itf.subs.splice(j, 1); ui.changed(); } }, '×')),
@@ -341,9 +381,17 @@
           ] : null))),
         'Пусто: задай адреса интерфейсам и подключи кабели.'));
         const cur = edit != null ? dev.routes[edit] : null;
-        const net = inp(cur ? cur.net : '', '10.3.0.0');
+        const net = ipInp(cur ? cur.net : '', '10.3.0.0', dev, 'net');
         const mask = maskSelect(cur ? cur.prefix : 24, true);
-        const via = inp(cur ? cur.via : '', '10.0.12.2');
+        const via = ipInp(cur ? cur.via : '', '10.0.12.2', dev, 'hop');
+        // Выбрали известную сеть из подсказок: подставить её маску
+        net.addEventListener('change', () => {
+          const v = net.value.trim();
+          if (v === '0.0.0.0') { mask.value = 0; return; }
+          for (const d of ui.S.net.devices) for (const l of LAB.lifs(d)) {
+            if (l.cfg.ip && ip.str(ip.net(ip.parse(l.cfg.ip), l.cfg.prefix)) === v) { mask.value = l.cfg.prefix; return; }
+          }
+        });
         const err = errBox();
         const apply = () => {
           if (!ip.valid(net.value)) { err.textContent = 'Неверная сеть'; return; }
@@ -389,7 +437,7 @@
         // Проброс портов
         const proto = h('select', { class: 'wf__in' }, ['tcp', 'udp'].map((p) => h('option', { value: p }, p.toUpperCase())));
         const port = h('input', { class: 'wf__in', type: 'number', min: 1, max: 65535, value: 80 });
-        const addr = inp('', '192.168.1.80');
+        const addr = ipInp('', '192.168.1.80', dev, 'all');
         const lport = h('input', { class: 'wf__in', type: 'number', min: 1, max: 65535, value: 80 });
         const err = errBox();
         c.append(h('div', { class: 'wsub' }, 'Проброс портов (статический NAT)'),
@@ -435,8 +483,8 @@
             : h('p', { class: 'wempty' }, 'Списка нет: на ' + cur.name + ' ' + (w.acl.dir === 'in' ? 'на входе' : 'на выходе') + ' пропускается всё.'));
         const act = h('select', { class: 'wf__in' }, h('option', { value: 'deny' }, 'deny (запретить)'), h('option', { value: 'permit' }, 'permit (разрешить)'));
         const proto = h('select', { class: 'wf__in' }, LAB.ACL_PROTOS.map((p) => h('option', { value: p }, p === 'ip' ? 'ip (всё)' : p)));
-        const src = inp('any', 'any или 192.168.50.0/24');
-        const dst = inp('any', 'any или 10.0.0.10/32');
+        const src = ipInp('any', 'any или 192.168.50.0/24', dev, 'cidr');
+        const dst = ipInp('any', 'any или 10.0.0.10/32', dev, 'cidr');
         const port = h('input', { class: 'wf__in', type: 'number', min: 0, max: 65535, placeholder: 'любой' });
         const err = errBox();
         const okCidr = (v) => v === 'any' || !!ip.parseCidr(v) || ip.valid(v);
@@ -599,8 +647,8 @@
     } else {
       const ipIn = inp(itf.ip, '192.168.1.10');
       const mask = maskSelect(itf.prefix);
-      const gw = inp(dev.gateway, '192.168.1.1');
-      const dns = inp(dev.dns, '10.0.0.10');
+      const gw = ipInp(dev.gateway, '192.168.1.1', dev, 'gw');
+      const dns = ipInp(dev.dns, '10.0.0.10', dev, 'dns');
       box.append(h('div', { class: 'wgrid wgrid--2' }, field('IP-адрес', ipIn), field('Маска подсети', mask),
         field('Основной шлюз', gw, 'маршрутизатор в этой же сети'), field('DNS-сервер', dns, 'кто превращает имена в адреса')),
       h('div', { class: 'wrow wrow--end' }, err, btn('Применить', () => {
@@ -639,7 +687,7 @@
       body);
 
     // DNS
-    const dName = inp('', 'site.lab'), dIp = inp('', '10.0.0.20'), dErr = errBox();
+    const dName = inp('', 'site.lab'), dIp = ipInp('', '10.0.0.20', dev, 'all'), dErr = errBox();
     wrap.append(card('dns', 'DNS-сервер', 'named, udp/53: имена в адреса', h('div', null,
       table(['Имя', 'Адрес', ''], sv.dns.records.map((r, k) => h('tr', null, h('td', null, h('b', null, r.name)), h('td', null, r.ip),
         h('td', null, h('button', { type: 'button', class: 'wx', onClick: () => { sv.dns.records.splice(k, 1); ui.changed(); } }, '×')))), 'Записей нет'),
@@ -661,7 +709,7 @@
     const nameByMac = (m) => { const d = ui.S.net.devices.find((x) => x.ifaces.some((i) => i.mac === m)); return d ? d.name : ''; };
     const poolCard = (pool, k) => {
       const pStart = inp(pool.start, '192.168.10.100'), pEnd = inp(pool.end, '192.168.10.150'), pMask = maskSelect(pool.prefix);
-      const pGw = inp(pool.gateway, '192.168.10.1'), pDns = inp(pool.dns, '10.0.0.10'), err = errBox();
+      const pGw = ipInp(pool.gateway, '192.168.10.1', null, 'gw'), pDns = ipInp(pool.dns, '10.0.0.10', null, 'dns'), err = errBox();
       return h('div', { class: 'wsub-if' },
         h('div', { class: 'wsub-if__head' }, h('b', null, 'Пул ' + (k + 1)), h('span', { class: 'wcard__sub' }, pool.start ? ip.netStr(pool.start, pool.prefix) : 'не настроен'),
           sv.dhcp.pools.length > 1 ? h('button', { type: 'button', class: 'wx', title: 'Удалить пул', onClick: () => { sv.dhcp.pools.splice(k, 1); ui.changed(); } }, '×') : null),
