@@ -411,10 +411,10 @@
 
   T({
     id: 'web', level: 4, title: 'Свой сайт',
-    goal: 'Подними внутренний сайт отдела на сервере INTRA (192.168.10.80): страница с заголовком «Отдел продаж», открывается по имени http://intra.lab с PC1.',
+    goal: 'Подними внутренний сайт отдела на сервере INTRA (192.168.10.80). Главная страница с заголовком «Отдел продаж» открывается с PC1 по адресу http://intra.lab. На ней ссылка на страницу contacts.html с заголовком «Контакты».',
     theory: 'http',
-    hints: ['INTRA, «Службы», веб-сервер: заголовок «Отдел продаж», включить.', 'NS1: запись intra.lab = 192.168.10.80.'],
-    solution: 'INTRA: веб-сервер с заголовком «Отдел продаж». NS1: intra.lab = 192.168.10.80.',
+    hints: ['INTRA, «Службы», HTTP: включи службу. В index.html поставь <h1>Отдел продаж</h1>.', 'Новый файл contacts.html с <h1>Контакты</h1>, а в index.html ссылка <a href="contacts.html">Контакты</a>.', 'NS1, «Службы», DNS: запись intra.lab = 192.168.10.80.'],
+    solution: 'INTRA: HTTP включён, index.html с заголовком «Отдел продаж» и ссылкой на contacts.html, contacts.html с заголовком «Контакты». NS1: intra.lab = 192.168.10.80.',
     build(b) {
       LAB.servicesNet(b);
       const sw = b.net.devices.find((d) => d.type === 'switch');
@@ -424,6 +424,11 @@
       { text: 'Веб-сервер на INTRA запущен', test: (c) => c.dev('INTRA').services.http.on ? true : 'служба выключена' },
       { text: 'intra.lab = 192.168.10.80', test: (c) => { c.prep('PC1'); return c.dns('PC1', 'intra.lab', '192.168.10.80'); } },
       { text: 'С PC1 открывается «Отдел продаж»', test: (c) => { c.prep('PC1'); return c.http('PC1', 'http://intra.lab', 'Отдел продаж'); } },
+      { text: 'http://intra.lab/contacts.html открывает «Контакты»', test: (c) => { c.prep('PC1'); return c.http('PC1', 'http://intra.lab/contacts.html', 'Контакты'); } },
+      { text: 'На главной есть ссылка на contacts.html', test: (c) => {
+        const f = LAB.httpFile(c.dev('INTRA').services.http, '/');
+        return f && /<a\s[^>]*href=["']?\/?contacts\.html/i.test(f.content) ? true : 'в index.html нет ссылки <a href="contacts.html">';
+      } },
     ],
   });
 

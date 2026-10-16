@@ -152,12 +152,34 @@
   LAB.normRule = normRule;
 
   /* ===== Службы сервера ===== */
+  /* --- Веб-сервер: набор файлов, как в /var/www/html --- */
+  const escHtml = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Простая страница из заголовка и текста (так раньше хранился сайт: title и body)
+  LAB.httpPage = (title, body) => '<h1>' + escHtml(title || 'Без названия') + '</h1>\n' +
+    String(body || '').split('\n').filter((x) => x.trim()).map((x) => '<p>' + escHtml(x) + '</p>').join('\n');
+  // Заголовок страницы: <title>, иначе первый <h1>, иначе имя файла
+  LAB.pageTitle = (content, name) => {
+    const m = String(content).match(/<title[^>]*>([\s\S]*?)<\/title>/i) || String(content).match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    return m ? m[1].replace(/<[^>]+>/g, '').trim() || name : name;
+  };
+  LAB.normHttp = (js) => {
+    js = js || {};
+    let files = Array.isArray(js.files) ? js.files.map((f) => ({ name: String(f.name || 'index.html'), content: String(f.content || '') })) : null;
+    if (!files || (!files.length && (js.title || js.body))) files = [{ name: 'index.html', content: LAB.httpPage(js.title || 'Добро пожаловать', js.body || 'Эту страницу отдал учебный веб-сервер.') }];
+    return { on: !!js.on, files };
+  };
+  // Файл по пути запроса: «/» это index.html
+  LAB.httpFile = (http, path) => {
+    const name = decodeURIComponent(String(path || '/').split('?')[0].replace(/^\/+/, '')) || 'index.html';
+    return (http.files || []).find((f) => f.name.toLowerCase() === name.toLowerCase()) || null;
+  };
+
   function defaultPool() { return { start: '', end: '', prefix: 24, gateway: '', dns: '' }; }
   function defaultServices() {
     return {
       dns: { on: false, records: [] },
       dhcp: { on: false, pools: [defaultPool()], reservations: [] },
-      http: { on: false, title: 'Добро пожаловать', body: 'Эту страницу отдал учебный веб-сервер.' },
+      http: LAB.normHttp({}),
     };
   }
   LAB.defaultServices = defaultServices;
@@ -176,7 +198,7 @@
         reservations: (js.dhcp.reservations || []).map((r) => ({ mac: String(r.mac), ip: String(r.ip) })),
       };
     }
-    if (js.http) Object.assign(sv.http, js.http, { on: !!js.http.on });
+    if (js.http) sv.http = LAB.normHttp(js.http);
     return sv;
   }
 
@@ -1169,9 +1191,10 @@
         return;
       }
       if (p.app && p.app.type === 'http') {
-        const ok = p.app.path === '/' || p.app.path === '/index.html';
-        this.log(tick, dev, 7, 'HTTP GET ' + p.app.path + ': отдаю ' + (ok ? '200 OK' : '404 Not Found'), ok ? 'ok' : 'err', frame);
-        answer('PSH, ACK', { app: { type: 'http', op: 'response', status: ok ? 200 : 404, title: ok ? http.title : 'Not Found', body: ok ? http.body : 'Страница ' + p.app.path + ' не найдена' } });
+        const f = LAB.httpFile(http, p.app.path);
+        this.log(tick, dev, 7, 'HTTP GET ' + p.app.path + ': ' + (f ? 'отдаю файл ' + f.name + ', 200 OK' : 'файла нет, 404 Not Found'), f ? 'ok' : 'err', frame);
+        answer('PSH, ACK', { app: { type: 'http', op: 'response', status: f ? 200 : 404, title: f ? LAB.pageTitle(f.content, f.name) : 'Not Found',
+          body: f ? f.content : '<h1>404 Not Found</h1>\n<p>На сервере нет файла ' + escHtml(p.app.path) + '</p>' } });
         return;
       }
       if (t.flags === 'FIN, ACK') {

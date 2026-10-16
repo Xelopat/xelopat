@@ -344,7 +344,8 @@
             delete d.services.dhcp.pool;
             if (pools) d.services.dhcp.pools = pools.map((p) => Object.assign(LAB.defaultPool(), p));
             if (!d.services.dhcp.reservations) d.services.dhcp.reservations = [];
-          } else Object.assign(d.services[k], v);
+          } else if (k === 'http') d.services.http = LAB.normHttp(v);
+          else Object.assign(d.services[k], v);
         });
         return d;
       },

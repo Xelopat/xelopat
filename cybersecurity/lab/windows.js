@@ -675,32 +675,86 @@
       table(['IP-адрес', 'MAC-адрес'], arp.map(([a, m]) => h('tr', null, h('td', null, a), h('td', null, h('code', null, m)))), 'Пусто')));
   };
 
-  /* --- Сервер: службы --- */
+  /* --- Сервер: службы ---
+     Слева список служб с индикатором «работает», справа выбранная служба: переключатель и её настройки. */
+  const SERVICES = [
+    ['http', 'HTTP', 'Веб-сервер', 'nginx, TCP-порт 80: отдаёт файлы сайта'],
+    ['dhcp', 'DHCP', 'DHCP-сервер', 'isc-dhcp-server, UDP-порт 67: раздаёт адреса'],
+    ['dns', 'DNS', 'DNS-сервер', 'named, UDP-порт 53: превращает имена в адреса'],
+  ];
+
+  function onOff(on, onChange) {
+    return h('div', { class: 'wseg' },
+      h('button', { type: 'button', class: on ? 'active' : '', onClick: () => { if (!on) onChange(true); } }, 'Вкл'),
+      h('button', { type: 'button', class: on ? '' : 'active', onClick: () => { if (on) onChange(false); } }, 'Выкл'));
+  }
+
   PAGES.services = (w, dev, root) => {
     const sv = dev.services;
-    const wrap = h('div', { class: 'wsvc-list' });
-    root.append(wrap);
-    const card = (key, title, sub, body) => h('section', { class: 'wsvc' + (sv[key].on ? ' is-on' : '') },
-      h('div', { class: 'wsvc__head' },
-        h('div', null, h('b', null, title), h('small', null, sub)),
-        toggle(sv[key].on, (on) => { sv[key].on = on; ui.changed(); toast(w, title + (on ? ' запущен' : ' остановлен')); }, sv[key].on ? 'работает' : 'выключен')),
-      body);
+    const cur = SERVICES.some(([id]) => id === w.svc) ? w.svc : 'http';
+    const [, , title, sub] = SERVICES.find(([id]) => id === cur);
+    const content = h('div', { class: 'wa__page' });
+    root.append(h('div', { class: 'wa' },
+      h('nav', { class: 'wa__nav' },
+        h('div', { class: 'wa__brand' }, 'Службы', h('small', { class: 'wa__brand-sub' }, dev.name)),
+        SERVICES.map(([id, label]) => h('button', { type: 'button', class: 'wa__link wsvc-link' + (id === cur ? ' active' : ''), onClick: () => { w.svc = id; w.fileEdit = null; render(w); } },
+          h('span', { class: 'wsvc-dot' + (sv[id].on ? ' is-on' : ''), title: sv[id].on ? 'работает' : 'выключена' }), label))),
+      content));
+    content.append(h('div', { class: 'wsvc-top' },
+      h('div', null, h('h3', { class: 'wa__h' }, title), h('small', { class: 'wsvc-top__sub' }, sub)),
+      onOff(sv[cur].on, (on) => { sv[cur].on = on; ui.changed(); toast(w, title + (on ? ' запущен' : ' остановлен')); })));
+    if (!sv[cur].on) content.append(h('p', { class: 'wnote wsvc-off' }, 'Служба выключена: настройки сохраняются, но клиентам она не отвечает.'));
+    SVC_PAGES[cur](w, dev, content);
+  };
 
-    // DNS
-    const dName = inp('', 'site.lab'), dIp = ipInp('', '10.0.0.20', dev, 'all'), dErr = errBox();
-    wrap.append(card('dns', 'DNS-сервер', 'named, udp/53: имена в адреса', h('div', null,
-      table(['Имя', 'Адрес', ''], sv.dns.records.map((r, k) => h('tr', null, h('td', null, h('b', null, r.name)), h('td', null, r.ip),
-        h('td', null, h('button', { type: 'button', class: 'wx', onClick: () => { sv.dns.records.splice(k, 1); ui.changed(); } }, '×')))), 'Записей нет'),
-      h('div', { class: 'wrow' }, dName, dIp, btn('Добавить', () => {
-        const n = dName.value.trim().toLowerCase();
-        if (!/^[a-z0-9.-]+$/.test(n)) { dErr.textContent = 'Имя: латиница, цифры, точки'; return; }
-        if (!ip.valid(dIp.value)) { dErr.textContent = 'Неверный адрес'; return; }
-        sv.dns.records = sv.dns.records.filter((r) => r.name !== n).concat({ name: n, ip: ip.norm(dIp.value) });
-        ui.changed();
-      })), dErr,
-      h('p', { class: 'wnote' }, 'Клиенты узнают адрес этого сервера из поля DNS в своих настройках или из DHCP.'))));
+  const SVC_PAGES = {};
 
-    // DHCP: пулы (по одному на каждую сеть клиентов), резервирования, аренды
+  // HTTP: файловый менеджер сайта
+  SVC_PAGES.http = (w, dev, c) => {
+    const http = dev.services.http;
+    const mgmt = LAB.lifs(dev).find((l) => l.cfg.ip);
+    const base = 'http://' + (mgmt ? mgmt.cfg.ip : 'адрес-сервера') + '/';
+    const edit = w.fileEdit;
+    c.append(h('div', { class: 'wsub' }, 'Файлы сайта'),
+      table(['Имя файла', 'Заголовок', ''], http.files.map((f, k) => h('tr', { class: edit === k ? 'is-edit' : '' },
+        h('td', null, h('code', null, f.name), f.name.toLowerCase() === 'index.html' ? h('small', { class: 'wfile__main' }, ' главная') : null),
+        h('td', null, LAB.pageTitle(f.content, '—')),
+        h('td', { class: 'wacl__ops' },
+          h('button', { type: 'button', class: 'wx wx--edit', title: 'Редактировать', onClick: () => { w.fileEdit = k; render(w); } }, '✎'),
+          h('button', { type: 'button', class: 'wx', title: 'Удалить', onClick: () => { if (confirm('Удалить ' + f.name + '?')) { http.files.splice(k, 1); w.fileEdit = null; ui.changed(); } } }, '×')))),
+      'Файлов нет: сервер на любой запрос ответит 404.'),
+      edit == null ? h('div', { class: 'wrow' }, btn('+ Новый файл', () => { w.fileEdit = 'new'; render(w); })) : null);
+
+    if (edit != null) {
+      const f = edit === 'new' ? { name: http.files.some((x) => x.name === 'index.html') ? 'page.html' : 'index.html', content: LAB.httpPage('Новая страница', 'Текст страницы.') } : http.files[edit];
+      if (!f) { w.fileEdit = null; return; }
+      const name = inp(f.name, 'about.html');
+      const area = h('textarea', { class: 'wf__in wf__area wfile__area', rows: 10, spellcheck: 'false' });
+      area.value = f.content;
+      const err = errBox();
+      c.append(h('div', { class: 'wcard is-edit' },
+        h('div', { class: 'wcard__head' }, h('b', null, edit === 'new' ? 'Новый файл' : 'Редактирование ' + f.name)),
+        field('Имя файла', name, 'откроется по адресу ' + base + 'имя'),
+        field('Содержимое (HTML)', area, 'заголовок берётся из <title> или первого <h1>; ссылки <a href="about.html"> работают в браузере'),
+        h('div', { class: 'wrow wrow--end' }, err,
+          btn('Отмена', () => { w.fileEdit = null; render(w); }),
+          btn('Сохранить', () => {
+            const n = name.value.trim();
+            if (!/^[\w.-]{1,60}$/.test(n)) { err.textContent = 'Имя: латиница, цифры, точка, дефис'; return; }
+            if (http.files.some((x, k) => k !== edit && x.name.toLowerCase() === n.toLowerCase())) { err.textContent = 'Файл с таким именем уже есть'; return; }
+            const file = { name: n, content: area.value.slice(0, 20000) };
+            if (edit === 'new') http.files.push(file); else http.files[edit] = file;
+            w.fileEdit = null;
+            ui.changed();
+            toast(w, 'Файл ' + n + ' сохранён');
+          }, true))));
+    }
+    c.append(h('p', { class: 'wnote' }, 'Запрос ' + base + ' отдаёт index.html, ' + base + 'имя.html отдаёт этот файл, а если файла нет, сервер отвечает 404. Открой сайт с любого ПК во вкладке «Браузер»: по IP или по имени, если добавить запись в DNS.'));
+  };
+
+  // DHCP: пулы (по одному на каждую сеть клиентов), резервирования, аренды
+  SVC_PAGES.dhcp = (w, dev, c) => {
+    const sv = dev.services;
     const pErr = errBox();
     const rMac = h('input', { class: 'wf__in', placeholder: 'MAC клиента', list: 'labMacs-' + dev.id, spellcheck: 'false' });
     const rIp = inp('', 'адрес для него');
@@ -728,7 +782,8 @@
           toast(w, 'Пул сохранён');
         }, true)));
     };
-    wrap.append(card('dhcp', 'DHCP-сервер', 'isc-dhcp-server, udp/67: раздаёт адреса', h('div', null,
+    c.append(
+      h('div', { class: 'wsub' }, 'Пулы адресов'),
       sv.dhcp.pools.map(poolCard),
       h('div', { class: 'wrow' }, btn('+ пул для другой сети', () => { sv.dhcp.pools.push(LAB.defaultPool()); ui.changed(); })),
       h('p', { class: 'wnote' }, 'Сервер выбирает пул по сети клиента: в своей сети по своему адресу, из чужих сетей по адресу relay (giaddr) на маршрутизаторе.'),
@@ -743,17 +798,55 @@
         ui.changed();
       })), pErr,
       h('div', { class: 'wsub' }, 'Выданные адреса (аренды)'),
-      table(['Клиент', 'Адрес'], leases.map(([m, a]) => h('tr', null, h('td', null, nameByMac(m) || h('code', null, m)), h('td', null, a))), 'Пока никому ничего не выдано'))));
-
-    // HTTP
-    const tIn = inp(sv.http.title, 'Заголовок страницы');
-    const bIn = h('textarea', { class: 'wf__in wf__area', rows: 4, spellcheck: 'false' });
-    bIn.value = sv.http.body;
-    wrap.append(card('http', 'Веб-сервер', 'nginx, tcp/80: отдаёт статическую страницу /var/www/html/index.html', h('div', null,
-      field('Заголовок', tIn), field('Текст страницы', bIn),
-      h('div', { class: 'wrow wrow--end' }, btn('Сохранить страницу', () => { sv.http.title = tIn.value.trim() || 'Без названия'; sv.http.body = bIn.value; ui.changed(); toast(w, 'Страница сохранена'); }, true)),
-      h('p', { class: 'wnote' }, 'Открой сайт с любого ПК во вкладке «Браузер»: по IP этого сервера или по имени, если добавить его в DNS.'))));
+      table(['Клиент', 'Адрес'], leases.map(([m, a]) => h('tr', null, h('td', null, nameByMac(m) || h('code', null, m)), h('td', null, a))), 'Пока никому ничего не выдано'));
   };
+
+  // DNS: записи зоны
+  SVC_PAGES.dns = (w, dev, c) => {
+    const sv = dev.services;
+    const dName = inp('', 'site.lab'), dIp = ipInp('', '10.0.0.20', dev, 'all'), dErr = errBox();
+    c.append(
+      h('div', { class: 'wsub' }, 'Записи A: имя и адрес'),
+      table(['Имя', 'Адрес', ''], sv.dns.records.map((r, k) => h('tr', null, h('td', null, h('b', null, r.name)), h('td', null, r.ip),
+        h('td', null, h('button', { type: 'button', class: 'wx', onClick: () => { sv.dns.records.splice(k, 1); ui.changed(); } }, '×')))), 'Записей нет'),
+      h('div', { class: 'wrow' }, dName, dIp, btn('Добавить', () => {
+        const n = dName.value.trim().toLowerCase();
+        if (!/^[a-z0-9.-]+$/.test(n)) { dErr.textContent = 'Имя: латиница, цифры, точки'; return; }
+        if (!ip.valid(dIp.value)) { dErr.textContent = 'Неверный адрес'; return; }
+        sv.dns.records = sv.dns.records.filter((r) => r.name !== n).concat({ name: n, ip: ip.norm(dIp.value) });
+        ui.changed();
+      }, true)), dErr,
+      h('p', { class: 'wnote' }, 'Запись с тем же именем заменяет старую. Клиенты узнают адрес этого сервера из поля DNS в своих настройках или из DHCP.'));
+  };
+
+  // Безопасный показ HTML страницы в браузере: только разметка текста, без скриптов и стилей
+  const SAFE_TAGS = new Set(['h1', 'h2', 'h3', 'h4', 'p', 'ul', 'ol', 'li', 'b', 'strong', 'i', 'em', 'br', 'hr', 'a', 'code', 'pre', 'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'small']);
+  function renderHtml(content, onLink) {
+    const frag = document.createDocumentFragment();
+    if (!/<[a-z!/]/i.test(content)) {
+      String(content).split('\n').filter((x) => x.trim()).forEach((x) => frag.append(h('p', null, x)));
+      return frag;
+    }
+    const doc = new DOMParser().parseFromString(String(content), 'text/html');
+    const walk = (node, out) => node.childNodes.forEach((n) => {
+      if (n.nodeType === 3) { out.append(n.textContent); return; }
+      if (n.nodeType !== 1) return;
+      const tag = n.tagName.toLowerCase();
+      if (['script', 'style', 'title', 'head', 'iframe', 'object', 'template'].includes(tag)) return;
+      if (!SAFE_TAGS.has(tag)) { walk(n, out); return; }
+      const el = document.createElement(tag);
+      if (tag === 'a') {
+        const href = n.getAttribute('href') || '';
+        el.href = '#';
+        el.title = href;
+        el.addEventListener('click', (e) => { e.preventDefault(); onLink(href); });
+      }
+      walk(n, el);
+      out.append(el);
+    });
+    walk(doc.body, frag);
+    return frag;
+  }
 
   /* --- Браузер --- */
   PAGES.browser = (w, dev, root) => {
@@ -781,9 +874,14 @@
       const res = st.r.results;
       const ok = res.find((x) => x.type === 'http');
       if (ok) {
-        view.append(h('article', { class: 'wbr__page' },
-          h('h1', null, ok.title),
-          String(ok.body).split('\n').map((p) => h('p', null, p)),
+        // Ссылка на странице: относительный путь открываем на том же сайте
+        const follow = (href) => {
+          const host = b.url.replace(/^(https?:\/\/)?([^/]+).*$/i, '$2');
+          url.value = /^https?:\/\//i.test(href) ? href : 'http://' + host + '/' + href.replace(/^\/+/, '');
+          go();
+        };
+        view.append(h('article', { class: 'wbr__page' + (ok.status !== 200 ? ' is-404' : '') },
+          renderHtml(ok.body, follow),
           h('footer', null, 'HTTP ' + ok.status + ' от ' + ok.ip + ', nginx')));
         return;
       }

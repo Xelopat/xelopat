@@ -708,3 +708,18 @@ details[open] > summary .lab-ico--fold{ transform:none; }
 .lab-modal__body h4{ margin:16px 0 6px; font-size:13px; color:var(--text); }
 .lab-modal__body ul{ margin:0 0 10px; padding-left:20px; }
 .lab-modal__body li + li{ margin-top:4px; }
+
+/* ===== Службы сервера ===== */
+.wsvc-link{ display:flex; align-items:center; gap:8px; }
+.wsvc-dot{ width:7px; height:7px; border-radius:50%; background:#4a4a5a; flex:0 0 auto; }
+.wsvc-dot.is-on{ background:var(--green); }
+.wa__brand-sub{ display:block; font-weight:400; color:var(--muted); font-size:10.5px; margin-top:2px; }
+.wsvc-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.wsvc-top .wa__h{ margin:0; }
+.wsvc-top__sub{ display:block; font-size:11.5px; color:var(--muted); margin-top:2px; }
+.wsvc-off{ color:#d9a55a; }
+.wfile__main{ color:var(--muted); font-size:10.5px; }
+.wfile__area{ font-family:var(--mono); font-size:12px; line-height:1.5; min-height:160px; }
+.wbr__page a{ color:#1a5fb4; text-decoration:underline; cursor:pointer; }
+.wbr__page ul, .wbr__page ol{ padding-left:22px; }
+.wbr__page.is-404 h1{ color:#b33; }
