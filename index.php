@@ -108,7 +108,9 @@ function load_cards_collection(array $config, string $primary, string $fallback)
 
 $hero_tag = (string)cfg($config, 'hero.tag', '// личный сайт');
 $hero_name = (string)cfg($config, 'hero.name', 'Xelopat');
-$hero_subtitle = (string)cfg($config, 'hero.subtitle', '');
+$hero_offer = (string)cfg($config, 'hero.offer', 'Делаю сайты под ключ и слежу, чтобы их не взломали.');
+$hero_note = (string)cfg($config, 'hero.note', 'Разработка от идеи до запуска, а в кибербезопасности я тоже разбираюсь: проверю сайт на уязвимости.');
+$hero_telegram = (string)cfg($config, 'hero.telegram', 'xelopat');
 
 require_once __DIR__ . '/includes/collection_lib.php';
 
@@ -170,11 +172,11 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   }
 
   .hero{
-    padding:52px 0 40px;
+    padding:72px 0 64px;
     display:grid;
     grid-template-columns:minmax(0, 1fr) 420px;
     gap:32px;
-    align-items:start;
+    align-items:center;
   }
 
   .hero-tag{
@@ -196,13 +198,62 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     line-height:1.1;
     margin:0 0 12px;
   }
+  .hero-offer{
+    margin:18px 0 10px;
+    font-size:28px;
+    font-weight:700;
+    line-height:1.25;
+    max-width:560px;
+  }
   .hero-subtitle{
     margin:0;
     color:var(--muted);
-    font-size:14px;
-    line-height:1.55;
-    max-width:540px;
+    font-size:15px;
+    line-height:1.6;
+    max-width:520px;
   }
+  .hero-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:26px;
+  }
+  .hero-btn{
+    display:inline-flex;
+    align-items:center;
+    min-height:46px;
+    padding:0 20px;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    background:var(--panel);
+    color:var(--text);
+    font-size:15px;
+    font-weight:600;
+    text-decoration:none;
+    transition:border-color .18s ease, background .18s ease, transform .18s ease;
+  }
+  .hero-btn:hover{ border-color:#555566; transform:translateY(-1px); }
+  .hero-btn--primary{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#151518;
+  }
+  .hero-btn--primary:hover{ background:#ffd65c; border-color:#ffd65c; }
+  .hero-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:3px; }
+
+  .hero-net{
+    position:absolute;
+    left:0;
+    top:0;
+    width:100%;
+    height:0;
+    pointer-events:none;
+    -webkit-mask-image:linear-gradient(to bottom, #000 55%, transparent);
+    mask-image:linear-gradient(to bottom, #000 55%, transparent);
+  }
+
+  /* Пока скрипт расшифровывает имя, ширина заголовка не прыгает: символы моноширинные */
+  .hero-name .scramble{ color:var(--accent); }
   .hero-meta-block--hidden{
     display:none;
   }
@@ -450,6 +501,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
       width:100%;
     }
     .terminal{ display:none; }
+    .hero-offer{ font-size:24px; }
     .section{
       padding:0 0 28px;
     }
@@ -492,8 +544,10 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
       font-size:clamp(32px, 12vw, 40px);
     }
     .hero-subtitle{
-      font-size:13px;
+      font-size:14px;
     }
+    .hero-offer{ font-size:21px; }
+    .hero-btn{ flex:1 1 auto; justify-content:center; }
     .sec-label{
       font-size:11px;
     }
@@ -508,16 +562,22 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
 </style>
 
 <div class="site-shell">
+  <canvas class="hero-net" id="heroNet" aria-hidden="true"></canvas>
   <div class="site-container">
     <section class="hero">
-      <div>
+      <div class="hero-main">
         <div class="hero-tag"><?= e($hero_tag) ?></div>
-        <h1 class="hero-name" id="heroName"><?= e($hero_name) ?></h1>
+        <h1 class="hero-name" id="heroName" data-type="off"><?= e($hero_name) ?></h1>
         <div class="hero-meta-block" id="heroMetaBlock">
           <div class="hero-divider"></div>
-          <?php if ($hero_subtitle !== ''): ?>
-            <p class="hero-subtitle"><?= e($hero_subtitle) ?></p>
-          <?php endif; ?>
+        </div>
+        <p class="hero-offer"><?= e($hero_offer) ?></p>
+        <?php if ($hero_note !== ''): ?>
+          <p class="hero-subtitle"><?= e($hero_note) ?></p>
+        <?php endif; ?>
+        <div class="hero-actions">
+          <a class="hero-btn hero-btn--primary" href="https://t.me/<?= e($hero_telegram) ?>" target="_blank" rel="noopener">Написать в Telegram</a>
+          <a class="hero-btn" href="/projects">Мои работы</a>
         </div>
       </div>
 
@@ -629,6 +689,153 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     </footer>
   </div>
 </div>
+<script>
+// Имя «расшифровывается»: случайные символы по очереди встают на место слева направо
+(function () {
+  const h1 = document.getElementById('heroName');
+  if (!h1) return;
+  const text = h1.textContent.trim();
+  const glyphs = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&@<>/';
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let timer = null;
+  h1.setAttribute('aria-label', text);
+
+  window.heroDecrypt = function () {
+    if (timer) clearInterval(timer);
+    if (reduce) { h1.textContent = text; return; }
+    const start = performance.now();
+    const out = document.createElement('span');
+    out.setAttribute('aria-hidden', 'true');
+    h1.replaceChildren(out);
+    timer = setInterval(function () {
+      const t = performance.now() - start;
+      out.replaceChildren();
+      let done = true;
+      for (let i = 0; i < text.length; i += 1) {
+        if (t >= 250 + i * 90) {
+          out.append(text[i]);
+        } else {
+          done = false;
+          const s = document.createElement('span');
+          s.className = 'scramble';
+          s.textContent = text[i] === ' ' ? ' ' : glyphs[Math.floor(Math.random() * glyphs.length)];
+          out.append(s);
+        }
+      }
+      if (done) { clearInterval(timer); timer = null; h1.textContent = text; }
+    }, 45);
+  };
+  window.heroDecrypt();
+})();
+
+// Фон первого экрана: узлы сети медленно дрейфуют, по связям бегут пакеты, курсор подключается к ближайшим узлам
+(function () {
+  const cv = document.getElementById('heroNet');
+  const hero = document.querySelector('.hero');
+  if (!cv || !hero || !cv.getContext) return;
+  const shell = cv.parentElement;
+  const ctx = cv.getContext('2d');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let w = 0, h = 0, dpr = 1, link = 150, nodes = [], packets = [];
+  let mouse = null, raf = 0, visible = true, lastSpawn = 0;
+
+  function resize() {
+    const sr = shell.getBoundingClientRect();
+    const hr = hero.getBoundingClientRect();
+    w = shell.clientWidth;
+    h = Math.round(hr.bottom - sr.top + 40);
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.style.height = h + 'px';
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    link = w < 640 ? 110 : 150;
+    const count = Math.max(22, Math.min(80, Math.round(w * h / 15000)));
+    nodes = Array.from({ length: count }, function () {
+      return { x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3 };
+    });
+    packets = [];
+    if (reduce) draw(0);
+  }
+
+  function spawn() {
+    const a = nodes[Math.floor(Math.random() * nodes.length)];
+    const near = nodes.filter(function (b) { return b !== a && Math.hypot(a.x - b.x, a.y - b.y) < link; });
+    if (!near.length) return;
+    const b = near[Math.floor(Math.random() * near.length)];
+    packets.push({ a: a, b: b, t: 0, v: .008 + Math.random() * .01, c: Math.random() < .8 ? '249,201,64' : '97,209,173' });
+  }
+
+  function draw(now) {
+    ctx.clearRect(0, 0, w, h);
+    for (const n of nodes) {
+      if (!reduce) {
+        n.x += n.vx; n.y += n.vy;
+        if (n.x < 0 || n.x > w) n.vx *= -1;
+        if (n.y < 0 || n.y > h) n.vy *= -1;
+      }
+    }
+    ctx.lineWidth = 1;
+    for (let i = 0; i < nodes.length; i += 1) {
+      const a = nodes[i];
+      for (let j = i + 1; j < nodes.length; j += 1) {
+        const b = nodes[j];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (d < link) {
+          ctx.strokeStyle = 'rgba(148,150,168,' + ((1 - d / link) * .28).toFixed(3) + ')';
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+      }
+      if (mouse) {
+        const d = Math.hypot(a.x - mouse.x, a.y - mouse.y);
+        if (d < link * 1.3) {
+          ctx.strokeStyle = 'rgba(249,201,64,' + ((1 - d / (link * 1.3)) * .45).toFixed(3) + ')';
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(mouse.x, mouse.y); ctx.stroke();
+        }
+      }
+    }
+    ctx.fillStyle = 'rgba(148,150,168,.7)';
+    for (const n of nodes) { ctx.beginPath(); ctx.arc(n.x, n.y, 1.6, 0, Math.PI * 2); ctx.fill(); }
+    if (reduce) return;
+
+    if (now - lastSpawn > 450 && packets.length < 14) { spawn(); lastSpawn = now; }
+    packets = packets.filter(function (p) {
+      p.t += p.v;
+      if (p.t >= 1 || Math.hypot(p.a.x - p.b.x, p.a.y - p.b.y) > link) return false;
+      const x = p.a.x + (p.b.x - p.a.x) * p.t, y = p.a.y + (p.b.y - p.a.y) * p.t;
+      ctx.shadowColor = 'rgba(' + p.c + ',.9)';
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = 'rgba(' + p.c + ',1)';
+      ctx.beginPath(); ctx.arc(x, y, 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      return true;
+    });
+  }
+
+  function loop(now) {
+    raf = 0;
+    if (!visible || document.hidden) return;
+    draw(now);
+    raf = requestAnimationFrame(loop);
+  }
+  function play() { if (!reduce && !raf) raf = requestAnimationFrame(loop); }
+
+  shell.addEventListener('pointermove', function (e) {
+    if (e.pointerType !== 'mouse') return;
+    const r = cv.getBoundingClientRect();
+    mouse = { x: e.clientX - r.left, y: e.clientY - r.top };
+  });
+  shell.addEventListener('pointerleave', function () { mouse = null; });
+  document.addEventListener('visibilitychange', play);
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (entries) { visible = entries[0].isIntersecting; play(); }).observe(cv);
+  }
+  if ('ResizeObserver' in window) new ResizeObserver(resize).observe(hero);
+  else window.addEventListener('resize', resize);
+  resize();
+  play();
+})();
+</script>
 <script>
 (function () {
   const terminal = document.getElementById('fakeTerminal');
@@ -814,7 +1021,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   }
 
   function typeHeroName() {
-    if (window.siteTypeTitle) window.siteTypeTitle(document.getElementById('heroName'));
+    if (window.heroDecrypt) window.heroDecrypt();
   }
 
   function getNode(pathParts) {
