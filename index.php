@@ -130,69 +130,6 @@ function home_collection(string $key): array {
 $travels = home_collection('travel');
 $photos = home_collection('photo');
 
-require_once __DIR__ . '/crypto/theme.php';
-
-function ru_plural(int $n, string $one, string $few, string $many): string {
-    $mod10 = $n % 10;
-    $mod100 = $n % 100;
-    if ($mod10 === 1 && $mod100 !== 11) return $one;
-    if ($mod10 >= 2 && $mod10 <= 4 && ($mod100 < 12 || $mod100 > 14)) return $few;
-    return $many;
-}
-
-// Плитки разделов в первом экране. Счётчики берутся из тех же списков, что и меню и страницы разделов.
-$crypto_count = count(crypto_tools());
-$bases_count = count($base_items);
-$projects = coll_sorted(coll_load('projects'));
-$projects_count = count($projects);
-
-$home_tiles = [
-    [
-        'label' => '// мэи',
-        'meta' => $crypto_count . ' ' . ru_plural($crypto_count, 'калькулятор', 'калькулятора', 'калькуляторов'),
-        'title' => 'Криптография',
-        'desc' => 'Жегалкин, Берлекэмп — Мэсси, подписи Эль-Гамаля, ECDSA и ГОСТ с решением по шагам.',
-        'href' => '/crypto',
-    ],
-    [
-        'label' => '// базы',
-        'meta' => $bases_count . ' ' . ru_plural($bases_count, 'база', 'базы', 'баз'),
-        'title' => 'Базы',
-        'desc' => 'Коды домофонов, пароли по умолчанию и производитель устройства по MAC-адресу.',
-        'href' => '/bases/domophones',
-    ],
-    [
-        'label' => '// cybersecurity',
-        'meta' => '',
-        'title' => 'Кибербезопасность',
-        'desc' => 'Сетевая лаборатория на холсте и модель OSI с тренажёром.',
-        'href' => 'https://cybersecurity.xelopat.ru',
-    ],
-    [
-        'label' => '// мэи',
-        'meta' => '',
-        'title' => 'Подсети VLSM',
-        'desc' => 'Разбиение сети по числу ПК: маски, диапазоны адресов и широковещательные адреса.',
-        'href' => '/adminis/ip',
-    ],
-    [
-        'label' => '// курсовая',
-        'meta' => '',
-        'title' => 'SQL-инъекции, XSS и LFI',
-        'desc' => 'Уязвимый и защищённый код рядом, на живых примерах.',
-        'href' => '/coursework/injection',
-    ],
-];
-if ($projects_count > 0) {
-    $home_tiles[] = [
-        'label' => '// projects',
-        'meta' => $projects_count . ' ' . ru_plural($projects_count, 'проект', 'проекта', 'проектов'),
-        'title' => 'Проекты',
-        'desc' => $projects[0]['title'] !== '' ? 'Последний: ' . $projects[0]['title'] . '.' : 'Боты и другие свои проекты.',
-        'href' => '/projects',
-    ];
-}
-
 $terminal_config = cfg($config, 'terminal', []);
 if (!is_array($terminal_config)) {
     $terminal_config = [];
@@ -275,54 +212,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     height:1px;
     background:var(--line);
     margin-bottom:10px;
-  }
-
-  .tiles{
-    display:grid;
-    grid-template-columns:repeat(3, minmax(0, 1fr));
-    gap:12px;
-    margin-top:28px;
-  }
-  .tile{
-    display:flex;
-    flex-direction:column;
-    gap:6px;
-    padding:14px 16px 16px;
-    background:var(--panel);
-    border:1px solid var(--line);
-    border-radius:12px;
-    color:var(--text);
-    text-decoration:none;
-    transition:border-color .18s ease, transform .18s ease;
-  }
-  .tile:hover{
-    border-color:#555566;
-    transform:translateY(-1px);
-  }
-  .tile:focus-visible{
-    outline:2px solid var(--accent);
-    outline-offset:2px;
-  }
-  .tile-top{
-    display:flex;
-    justify-content:space-between;
-    align-items:baseline;
-    gap:10px;
-    font-family:var(--mono);
-    font-size:11px;
-  }
-  .tile-label{ color:var(--green); white-space:nowrap; }
-  .tile-meta{ color:var(--accent); white-space:nowrap; }
-  .tile-title{
-    font-size:16px;
-    font-weight:700;
-    line-height:1.3;
-  }
-  .tile:hover .tile-title{ color:var(--accent); }
-  .tile-desc{
-    font-size:13px;
-    line-height:1.5;
-    color:var(--muted);
   }
 
   .terminal{
@@ -534,10 +423,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     text-decoration:none;
   }
 
-  @media (max-width: 1240px){
-    .tiles{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
-  }
-
   @media (max-width: 980px){
     .site-shell{
       min-height:auto;
@@ -565,10 +450,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
       width:100%;
     }
     .terminal{ display:none; }
-    .tiles{
-      grid-template-columns:repeat(2, minmax(0, 1fr));
-      margin-top:22px;
-    }
     .section{
       padding:0 0 28px;
     }
@@ -613,13 +494,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     .hero-subtitle{
       font-size:13px;
     }
-    .tiles{
-      grid-template-columns:1fr;
-      gap:10px;
-    }
-    .tile-desc{
-      font-size:14px;
-    }
     .sec-label{
       font-size:11px;
     }
@@ -645,21 +519,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
             <p class="hero-subtitle"><?= e($hero_subtitle) ?></p>
           <?php endif; ?>
         </div>
-
-        <nav class="tiles" aria-label="Разделы сайта">
-          <?php foreach ($home_tiles as $tile): ?>
-            <a class="tile" href="<?= e($tile['href']) ?>">
-              <span class="tile-top">
-                <span class="tile-label"><?= e($tile['label']) ?></span>
-                <?php if ($tile['meta'] !== ''): ?>
-                  <span class="tile-meta"><?= e($tile['meta']) ?></span>
-                <?php endif; ?>
-              </span>
-              <span class="tile-title"><?= e($tile['title']) ?></span>
-              <span class="tile-desc"><?= e($tile['desc']) ?></span>
-            </a>
-          <?php endforeach; ?>
-        </nav>
       </div>
 
       <div class="terminal" id="fakeTerminal" data-terminal='<?= e($terminal_json) ?>'>
