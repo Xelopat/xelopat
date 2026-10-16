@@ -35,7 +35,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
   .cw-sub{
     margin:0;
-    color:var(--text-2);
+    color:var(--muted);
     font-size:14px;
     line-height:1.6;
     max-width:820px;
@@ -45,7 +45,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     margin-top:18px;
     background:var(--panel);
     border:1px solid var(--line);
-    border-radius:12px;
+    border-radius:var(--radius-lg);
     padding:14px;
   }
 
@@ -70,7 +70,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     display:block;
     background:var(--bg);
     border:1px solid var(--line);
-    border-radius:10px;
+    border-radius:var(--radius);
     padding:12px;
     text-decoration:none;
     color:var(--text);
@@ -91,7 +91,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .cw-item-desc{
     margin:0;
     font-size:12px;
-    color:var(--text-2);
+    color:var(--muted);
     line-height:1.5;
   }
 

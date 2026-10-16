@@ -268,17 +268,17 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   [hidden]{ display:none !important; }
   .ctf-h2{ margin:26px 0 12px; font:700 15px var(--mono); color:var(--green); }
   .ctf-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(330px, 1fr)); gap:12px; }
-  .ctf-card{ border:1px solid var(--line); background:var(--panel); border-radius:12px; padding:15px 16px; display:flex; flex-direction:column; gap:9px; min-width:0; }
+  .ctf-card{ border:1px solid var(--line); background:var(--panel); border-radius:var(--radius-lg); padding:15px 16px; display:flex; flex-direction:column; gap:9px; min-width:0; }
   .ctf-card.past{ opacity:.72; }
   .ctf-card.is-hidden{ border-style:dashed; opacity:.6; }
   .ctf-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
   .ctf-name{ margin:0; font:700 16px/1.3 var(--mono); word-break:break-word; }
   .ctf-name a{ color:var(--text); text-decoration:none; }
   .ctf-name a:hover{ color:var(--accent); }
-  .ctf-hide{ flex:none; border:1px solid transparent; background:transparent; color:var(--muted); font:11px var(--mono); padding:3px 7px; border-radius:6px; cursor:pointer; }
+  .ctf-hide{ flex:none; border:1px solid transparent; background:transparent; color:var(--muted); font:11px var(--mono); padding:3px 7px; border-radius:var(--radius-sm); cursor:pointer; }
   .ctf-hide:hover{ border-color:var(--line); color:var(--text); }
   .ctf-badges{ display:flex; flex-wrap:wrap; gap:5px; }
-  .ctf-badge{ font:11px var(--mono); padding:3px 8px; border-radius:5px; background:var(--panel-2); border:1px solid var(--line); color:var(--text-2, #c4c6d2); }
+  .ctf-badge{ font:11px var(--mono); padding:3px 8px; border-radius:var(--radius-sm); background:var(--panel-2); border:1px solid var(--line); color:var(--muted); }
   .ctf-badge.pick{ background:rgba(97,209,173,.12); border-color:rgba(97,209,173,.4); color:var(--green); }
   .ctf-badge.lvl-beginner{ color:var(--green); }
   .ctf-badge.lvl-medium{ color:var(--accent); }
@@ -288,21 +288,21 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .ctf-why{ margin:0; font-size:13px; line-height:1.45; color:var(--green); }
   .ctf-foot{ margin-top:auto; display:flex; flex-direction:column; gap:8px; padding-top:2px; }
   .ctf-tags{ display:flex; flex-wrap:wrap; gap:5px; }
-  .ctf-tag{ font:11px var(--mono); padding:2px 8px; border-radius:999px; background:var(--panel-2); border:1px solid var(--line); color:var(--text-2, #c4c6d2); }
+  .ctf-tag{ font:11px var(--mono); padding:2px 8px; border-radius:999px; background:var(--panel-2); border:1px solid var(--line); color:var(--muted); }
   .ctf-meta{ display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12px; color:var(--muted); }
-  .ctf-meta a{ color:var(--green); }
-  .ctf-digest{ border:1px solid var(--line); border-left:3px solid var(--green); background:var(--panel); border-radius:10px; padding:14px 16px; font-size:14px; line-height:1.55; color:var(--text-2, #c4c6d2); margin-bottom:16px; }
+  .ctf-meta a{ color:var(--accent); }
+  .ctf-digest{ border:1px solid var(--line); border-left:3px solid var(--green); background:var(--panel); border-radius:var(--radius); padding:14px 16px; font-size:14px; line-height:1.55; color:var(--muted); margin-bottom:16px; }
 
   /* фильтры */
-  .ctf-filters{ border:1px solid var(--line); background:var(--panel); border-radius:12px; padding:14px 16px; display:grid; gap:11px; }
+  .ctf-filters{ border:1px solid var(--line); background:var(--panel); border-radius:var(--radius-lg); padding:14px 16px; display:grid; gap:11px; }
   .ctf-f-top{ display:flex; gap:10px; align-items:center; }
   .ctf-f-top .b-input{ flex:1; min-width:0; }
-  .ctf-reset{ border:1px solid var(--line); background:transparent; color:var(--muted); border-radius:8px; padding:8px 12px; font:12px var(--mono); cursor:pointer; white-space:nowrap; }
+  .ctf-reset{ border:1px solid var(--line); background:transparent; color:var(--muted); border-radius:var(--radius); padding:8px 12px; font:12px var(--mono); cursor:pointer; white-space:nowrap; }
   .ctf-reset:hover{ color:var(--text); border-color:var(--accent); }
   .ctf-f-row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .ctf-f-label{ flex:0 0 64px; font:11px var(--mono); color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
-  .ctf-seg{ display:inline-flex; flex-wrap:wrap; border:1px solid var(--line); border-radius:9px; overflow:hidden; }
-  .ctf-seg button, .ctf-chip{ border:0; background:transparent; color:var(--text-2, #c4c6d2); font:12px var(--mono); padding:6px 11px; cursor:pointer; }
+  .ctf-seg{ display:inline-flex; flex-wrap:wrap; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+  .ctf-seg button, .ctf-chip{ border:0; background:transparent; color:var(--muted); font:12px var(--mono); padding:6px 11px; cursor:pointer; }
   .ctf-seg button + button{ border-left:1px solid var(--line); }
   .ctf-seg button:hover, .ctf-chip:hover{ color:var(--text); background:rgba(255,255,255,.04); }
   .ctf-seg button.on{ background:rgba(249,201,64,.14); color:var(--accent); }
@@ -312,11 +312,11 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .ctf-chip{ border:1px solid var(--line); border-radius:999px; padding:4px 10px; }
   .ctf-chip.on{ border-color:var(--accent); color:var(--accent); background:rgba(249,201,64,.1); }
   .ctf-toggles{ display:flex; flex-wrap:wrap; gap:6px 18px; }
-  .ctf-toggles label{ display:inline-flex; gap:7px; align-items:center; font:12px var(--mono); color:var(--text-2, #c4c6d2); cursor:pointer; }
+  .ctf-toggles label{ display:inline-flex; gap:7px; align-items:center; font:12px var(--mono); color:var(--muted); cursor:pointer; }
   .ctf-toggles .n{ color:var(--muted); }
 
   /* админ-панель внизу */
-  .ctf-admin{ border:1px dashed var(--line); border-radius:12px; padding:14px 16px; margin-top:34px; background:var(--panel-2); }
+  .ctf-admin{ border:1px dashed var(--line); border-radius:var(--radius-lg); padding:14px 16px; margin-top:34px; background:var(--panel-2); }
   .ctf-admin-row{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
   .ctf-status{ font:12px var(--mono); color:var(--muted); }
   .ctf-status.err{ color:var(--danger); }

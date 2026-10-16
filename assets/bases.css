@@ -33,7 +33,7 @@
 .b-kicker{
   display:inline-flex;
   align-items:center;
-  border-radius:5px;
+  border-radius:var(--radius-sm);
   background:rgba(97,209,173,.1);
   color:var(--green);
   font:11px/1.3 var(--mono);
@@ -48,7 +48,7 @@
 }
 .b-sub{
   margin:12px 0 0;
-  color:var(--text-2);
+  color:var(--muted);
   font-size:14px;
   line-height:1.55;
   max-width:640px;
@@ -64,7 +64,7 @@
 .b-stat{
   border:1px solid var(--line);
   background:var(--panel);
-  border-radius:10px;
+  border-radius:var(--radius);
   padding:11px 13px;
   min-width:0;
 }
@@ -85,7 +85,7 @@
 .b-panel{
   border:1px solid var(--line);
   background:var(--panel);
-  border-radius:14px;
+  border-radius:var(--radius-lg);
   padding:16px;
   box-shadow:0 18px 40px rgba(0,0,0,.18);
 }
@@ -100,7 +100,7 @@
   border:1px solid var(--line);
   background:var(--bg);
   color:var(--text);
-  border-radius:9px;
+  border-radius:var(--radius);
   min-height:48px;
   padding:0 15px;
   font:500 15px/1.3 var(--sans);
@@ -113,7 +113,7 @@
   border:1px solid var(--line);
   background:var(--bg);
   color:var(--text);
-  border-radius:9px;
+  border-radius:var(--radius);
   min-height:48px;
   padding:0 38px 0 15px;
   font:500 14px/1.3 var(--sans);
@@ -131,7 +131,7 @@
 }
 .b-btn{
   border:none;
-  border-radius:9px;
+  border-radius:var(--radius);
   background:var(--accent);
   color:#1b1606;
   min-height:48px;
@@ -151,9 +151,9 @@
   font-family:var(--mono);
   background:var(--panel-2);
   border:1px solid var(--line);
-  border-radius:4px;
+  border-radius:var(--radius-sm);
   padding:1px 5px;
-  color:var(--text-2);
+  color:var(--muted);
 }
 
 /* информ-плашка (предупреждение на странице паролей) */
@@ -163,12 +163,12 @@
   align-items:flex-start;
   background:rgba(249,201,64,.07);
   border:1px solid rgba(249,201,64,.28);
-  border-radius:12px;
+  border-radius:var(--radius-lg);
   padding:13px 15px;
   margin:18px 0 0;
   font-size:13px;
   line-height:1.55;
-  color:var(--text-2);
+  color:var(--muted);
 }
 .b-callout b{ color:var(--accent); }
 .b-callout .ico{ font-size:16px; line-height:1.2; flex:none; }
@@ -185,7 +185,7 @@
   border-radius:999px;
   border:1px solid var(--line);
   background:var(--panel);
-  color:var(--text-2);
+  color:var(--muted);
   font-size:13px;
   text-decoration:none;
   transition:color .12s, border-color .12s;
@@ -203,7 +203,7 @@
 /* таблица результатов */
 .b-tablewrap{
   border:1px solid var(--line);
-  border-radius:12px;
+  border-radius:var(--radius-lg);
   overflow:hidden;
   background:var(--panel);
 }
@@ -239,7 +239,7 @@
   border:1px solid rgba(249,201,64,.28);
   background:rgba(249,201,64,.08);
   color:var(--accent);
-  border-radius:6px;
+  border-radius:var(--radius-sm);
   padding:3px 8px;
   font:700 13px/1.3 var(--mono);
   white-space:nowrap;
@@ -249,7 +249,7 @@
   display:inline-block;
   font:10px/1.3 var(--mono);
   padding:2px 7px;
-  border-radius:5px;
+  border-radius:var(--radius-sm);
   background:var(--panel-2);
   border:1px solid var(--line);
   color:var(--muted);
@@ -271,7 +271,7 @@
   text-decoration:none;
   border:1px solid var(--line);
   background:var(--panel);
-  border-radius:9px;
+  border-radius:var(--radius);
   padding:9px 14px;
   font-size:13px;
 }
@@ -281,7 +281,7 @@
 .b-empty{
   border:1px solid var(--line);
   background:var(--panel);
-  border-radius:12px;
+  border-radius:var(--radius-lg);
   padding:26px 20px;
   margin-top:18px;
   text-align:center;
@@ -292,7 +292,7 @@
   border:1px solid rgba(255,143,143,.36);
   background:rgba(255,143,143,.08);
   color:#ffb7b7;
-  border-radius:10px;
+  border-radius:var(--radius);
   padding:13px 15px;
   font-size:13px;
 }
@@ -301,7 +301,7 @@
 .b-result{
   border:1px solid var(--line);
   background:var(--panel);
-  border-radius:16px;
+  border-radius:var(--radius-lg);
   padding:22px;
   margin-top:18px;
 }
@@ -309,7 +309,7 @@
 .b-result .mac{ font:22px/1.3 var(--mono); color:var(--muted); letter-spacing:.02em; }
 .b-result .mac b{ color:var(--accent); }
 .b-result .who{ font-size:26px; font-weight:800; margin:12px 0 5px; line-height:1.2; }
-.b-result .addr{ color:var(--text-2); font-size:14px; line-height:1.5; }
+.b-result .addr{ color:var(--muted); font-size:14px; line-height:1.5; }
 .b-result .meta{ font:11px/1.4 var(--mono); color:var(--muted); margin-top:12px; }
 .b-result .miss{ color:var(--muted); }
 

@@ -149,14 +149,14 @@ if ($cfg_json === false) $cfg_json = "{}";
     h1{margin:14px 0 0 0;font-size:22px}
     .muted{color:#64748b;font-size:13px;line-height:1.4}
     .card{
-      background:#fff;border:1px solid #e2e8f0;border-radius:14px;
+      background:#fff;border:1px solid #e2e8f0;border-radius:var(--radius-lg);
       box-shadow:0 14px 40px rgba(2,6,23,0.08);padding:14px;margin-top:12px
     }
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     @media (max-width: 820px){ .grid{grid-template-columns:1fr} }
     label{display:block;font-size:12px;color:#334155;margin-top:10px}
     select, input[type="number"]{
-      width:100%;margin-top:6px;border:1px solid #e2e8f0;border-radius:12px;padding:10px;font:inherit;outline:none;background:#fff
+      width:100%;margin-top:6px;border:1px solid #e2e8f0;border-radius:var(--radius-lg);padding:10px;font:inherit;outline:none;background:#fff
     }
     .hr{height:1px;background:#e2e8f0;margin:12px 0}
     .kpi{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
@@ -165,7 +165,7 @@ if ($cfg_json === false) $cfg_json = "{}";
       margin:10px 0 0 0;
       padding:12px;
       border:1px solid #e2e8f0;
-      border-radius:12px;
+      border-radius:var(--radius-lg);
       background:#fbfcff;
       overflow:auto;
       font-size:13px;

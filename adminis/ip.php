@@ -25,7 +25,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     margin-top:14px;
     background:var(--bg);
     border:1px solid var(--line);
-    border-radius:10px;
+    border-radius:var(--radius);
     padding:14px;
     overflow:auto;
   }

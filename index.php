@@ -181,7 +181,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     display:inline-flex;
     align-items:center;
     background:#0f3328;
-    border-radius:4px;
+    border-radius:var(--radius-sm);
     padding:3px 10px;
     font-family:var(--mono);
     font-size:11px;
@@ -198,7 +198,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   }
   .hero-subtitle{
     margin:0;
-    color:var(--text-2);
+    color:var(--muted);
     font-size:14px;
     line-height:1.55;
     max-width:540px;
@@ -217,7 +217,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   .terminal{
     background:var(--panel);
     border:1px solid var(--line);
-    border-radius:12px;
+    border-radius:var(--radius-lg);
     overflow:hidden;
     box-shadow:0 18px 40px rgba(0,0,0,.18);
     transition:border-color .18s ease, box-shadow .18s ease;
@@ -355,7 +355,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   .card{
     background:var(--panel);
     border:1px solid var(--line);
-    border-radius:12px;
+    border-radius:var(--radius-lg);
     overflow:hidden;
     transition:border-color .18s ease;
   }
@@ -385,7 +385,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     max-height:560px;
     object-fit:contain;
     display:block;
-    background:#0f1118;
+    background:var(--bg);
   }
   .card-inner{ padding:14px 16px; }
   .card-title{ font-size:15px; font-weight:700; margin-bottom:6px; line-height:1.4; }
@@ -396,8 +396,8 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     justify-content:center;
     width:max-content;
     border:1px solid #3a3f51;
-    border-radius:8px;
-    background:#191d29;
+    border-radius:var(--radius);
+    background:var(--panel);
     color:var(--text);
     text-decoration:none;
     font-size:12px;

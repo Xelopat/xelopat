@@ -153,7 +153,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     --line:#333340;
     --line-soft:#2b2b36;
     --text:#efeff1;
-    --muted:#a4a8bb;
+    --muted:#9496a8;
     --fox:#ff8a3d;
     --fox-2:#ffb26b;
     --fox-soft:rgba(255,138,61,.14);
@@ -176,7 +176,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .la-head{ display:flex; align-items:center; gap:16px; margin-bottom:22px; }
   .la-logo{
     width:56px; height:56px; flex:none;
-    border-radius:16px;
+    border-radius:var(--radius-lg);
     object-fit:cover;
     box-shadow:0 10px 30px rgba(255,110,40,.25);
   }
@@ -186,7 +186,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .la-card{
     background:var(--card);
     border:1px solid var(--line);
-    border-radius:16px;
+    border-radius:var(--radius-lg);
     padding:18px;
   }
   .la-card h2{
@@ -207,7 +207,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     width:100%;
     background:var(--bg);
     border:1px solid var(--line);
-    border-radius:10px;
+    border-radius:var(--radius);
     padding:10px 12px;
     color:var(--text);
     font:inherit; font-size:15px;
@@ -221,7 +221,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .la-date-row .la-input{ flex:1; min-width:0; }
   .la-chip{
     border:1px solid var(--line); background:var(--bg); color:var(--muted);
-    border-radius:10px; padding:0 12px; font:inherit; font-size:13px; cursor:pointer; white-space:nowrap;
+    border-radius:var(--radius); padding:0 12px; font:inherit; font-size:13px; cursor:pointer; white-space:nowrap;
   }
   .la-chip:hover{ color:var(--text); border-color:var(--fox); }
 
@@ -244,7 +244,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .la-log-what .del{ color:var(--bad); }
   .la-undo{
     border:1px solid var(--line); background:var(--bg); color:var(--muted);
-    border-radius:8px; padding:6px 10px; font:inherit; font-size:12px; cursor:pointer; white-space:nowrap;
+    border-radius:var(--radius); padding:6px 10px; font:inherit; font-size:12px; cursor:pointer; white-space:nowrap;
   }
   .la-undo:hover{ color:var(--text); border-color:var(--fox); }
   .la-undo:disabled{ opacity:.5; cursor:default; }
@@ -256,7 +256,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .la-btns{ display:flex; gap:8px; }
   .la-btn{
     flex:1;
-    border:none; border-radius:10px;
+    border:none; border-radius:var(--radius);
     padding:12px 14px;
     font:inherit; font-size:15px; font-weight:700;
     cursor:pointer;
@@ -279,7 +279,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .la-tile{
     background:var(--card-2);
     border:1px solid var(--line-soft);
-    border-radius:14px;
+    border-radius:var(--radius-lg);
     padding:14px;
     display:flex; flex-direction:column; gap:4px;
     min-width:0;
@@ -295,12 +295,12 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .la-period{ margin-bottom:14px; }
   .la-seg{
     display:inline-grid; grid-template-columns:repeat(3, auto); gap:3px;
-    background:var(--bg); border:1px solid var(--line); border-radius:11px; padding:3px;
+    background:var(--bg); border:1px solid var(--line); border-radius:var(--radius); padding:3px;
     margin-bottom:12px;
   }
   .la-seg button{
     border:none; background:transparent; color:var(--muted);
-    border-radius:8px; padding:8px 14px; font:inherit; font-size:13px; font-weight:600; cursor:pointer;
+    border-radius:var(--radius); padding:8px 14px; font:inherit; font-size:13px; font-weight:600; cursor:pointer;
   }
   .la-seg button:hover{ color:var(--text); }
   .la-seg button.on{ color:#1a0f08; background:linear-gradient(140deg, var(--fox), #e8601f); }
@@ -310,7 +310,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .la-range-dash{ color:var(--muted); padding-bottom:11px; }
 
   .la-period-main{
-    border-radius:14px; padding:16px;
+    border-radius:var(--radius-lg); padding:16px;
     background:linear-gradient(140deg, rgba(255,138,61,.16), rgba(255,138,61,.04));
     border:1px solid rgba(255,138,61,.35);
     display:flex; flex-direction:column; gap:4px; min-width:0;
@@ -326,7 +326,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   /* ---- месяц ---- */
   .la-month-nav{ display:flex; align-items:center; gap:6px; }
   .la-nav-btn{
-    width:32px; height:32px; border-radius:9px;
+    width:32px; height:32px; border-radius:var(--radius);
     border:1px solid var(--line); background:var(--bg); color:var(--text);
     cursor:pointer; font-size:16px; line-height:1;
   }
@@ -354,13 +354,13 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     height:100%;
     display:flex; align-items:flex-end;
     cursor:pointer;
-    border-radius:4px;
+    border-radius:var(--radius-sm);
   }
   .la-bar:hover{ background:rgba(255,255,255,.04); }
   .la-bar i{
     display:block; width:100%;
     min-height:2px;
-    border-radius:4px 4px 1px 1px;
+    border-radius:var(--radius-sm) var(--radius-sm) var(--radius-sm) var(--radius-sm);
     background:linear-gradient(180deg, var(--fox-2), var(--fox));
   }
   .la-bar.empty i{ background:var(--line); }
@@ -393,14 +393,14 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   .la-months{ display:grid; gap:10px; }
   .la-mrow{
     display:grid; grid-template-columns:110px minmax(0,1fr); gap:10px; align-items:center;
-    cursor:pointer; padding:6px; margin:-6px; border-radius:10px;
+    cursor:pointer; padding:6px; margin:-6px; border-radius:var(--radius);
   }
   .la-mrow:hover{ background:rgba(255,255,255,.03); }
   .la-mrow.sel{ background:var(--fox-soft); }
   .la-mrow-name{ font-size:13px; font-weight:600; text-transform:capitalize; }
   .la-mrow-name small{ display:block; color:var(--muted); font-weight:400; font-size:11px; }
-  .la-mrow-bar{ position:relative; height:28px; background:var(--bg); border-radius:8px; overflow:hidden; }
-  .la-mrow-bar i{ position:absolute; inset:0 auto 0 0; background:linear-gradient(90deg, rgba(255,138,61,.55), var(--fox)); border-radius:8px; }
+  .la-mrow-bar{ position:relative; height:28px; background:var(--bg); border-radius:var(--radius); overflow:hidden; }
+  .la-mrow-bar i{ position:absolute; inset:0 auto 0 0; background:linear-gradient(90deg, rgba(255,138,61,.55), var(--fox)); border-radius:var(--radius); }
   .la-mrow-bar span{ position:relative; display:flex; height:100%; align-items:center; justify-content:space-between; padding:0 10px; font-size:12px; font-weight:600; gap:8px; }
   .la-mrow-bar span em{ font-style:normal; color:#fff3e6; }
 
@@ -414,7 +414,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     .la{ padding-top:18px; }
     .la-wrap{ width:calc(100vw - 32px); }
     .la-title{ font-size:24px; }
-    .la-logo{ width:46px; height:46px; border-radius:13px; }
+    .la-logo{ width:46px; height:46px; border-radius:var(--radius-lg); }
     .la-card{ padding:14px; }
     .la-tiles{ grid-template-columns:1fr 1fr; }
     .la-tile.main .la-tile-v{ font-size:30px; }

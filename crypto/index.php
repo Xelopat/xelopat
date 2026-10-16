@@ -51,7 +51,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   }
   .cr-item:hover{ border-color:var(--accent); }
   .cr-item h3{ margin:0 0 6px; font-size:15px; line-height:1.35; }
-  .cr-item p{ margin:0; color:var(--text-2); font-size:13px; line-height:1.55; }
+  .cr-item p{ margin:0; color:var(--muted); font-size:13px; line-height:1.55; }
 </style>
 
 <main class="page">
