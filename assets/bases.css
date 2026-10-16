@@ -132,14 +132,14 @@
   border:none;
   border-radius:var(--radius);
   background:var(--accent);
-  color:#1b1606;
+  color:#151518;
   min-height:48px;
   padding:0 22px;
   font:700 14px/1 var(--sans);
   cursor:pointer;
-  transition:filter .14s ease;
+  transition:background .14s ease;
 }
-.b-btn:hover{ filter:brightness(1.07); }
+.b-btn:hover{ background:#ffd65c; }
 .b-hint{
   margin:12px 2px 0;
   color:var(--muted);

@@ -75,7 +75,7 @@
 }
 
 .crypto-card button:hover {
-  opacity: .9;
+  background: #ffd65c;
 }
 
 .crypto-card #error {

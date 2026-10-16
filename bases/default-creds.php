@@ -94,7 +94,7 @@ $dc_pages = max(1, (int)ceil($dc_total / DC_PER_PAGE));
     <?php else: ?>
       <section class="b-panel">
         <form class="b-form b-form-3" method="get">
-          <input class="b-input" type="search" name="q" value="<?= dc_h($dc_query) ?>" placeholder="Hikvision, TP-Link, admin, камера" autofocus>
+          <input class="b-input" type="search" name="q" value="<?= dc_h($dc_query) ?>" placeholder="Hikvision, TP-Link, admin, камера" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus>
           <select class="b-select" name="type" onchange="this.form.submit()">
             <option value=""<?= $dc_type === '' ? ' selected' : '' ?>>Все типы (<?= $dc_all ?>)</option>
             <?php foreach ($dc_types as $t => $c): ?>
@@ -103,7 +103,6 @@ $dc_pages = max(1, (int)ceil($dc_total / DC_PER_PAGE));
           </select>
           <button class="b-btn" type="submit">Найти</button>
         </form>
-        <p class="b-hint">Ищет по производителю, модели, логину и паролю. Слова через пробел сужают поиск. Звёздочкой отмечены проверенные записи.</p>
       </section>
 
       <div class="b-count">Найдено: <?= number_format($dc_total, 0, '.', ' ') ?><?= $dc_pages > 1 ? ', страница ' . $dc_page . ' из ' . $dc_pages : '' ?></div>

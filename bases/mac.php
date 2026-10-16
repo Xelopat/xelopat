@@ -94,10 +94,9 @@ function mac_qs(int $page): string {
     <?php else: ?>
       <section class="b-panel">
         <form class="b-form" method="get">
-          <input class="b-input mono" type="search" name="q" value="<?= mac_h($mac_query) ?>" placeholder="28:6F:B9:12:34:56 или Apple" autofocus>
+          <input class="b-input mono" type="search" name="q" value="<?= mac_h($mac_query) ?>" placeholder="28:6F:B9:12:34:56 или Apple" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus>
           <button class="b-btn" type="submit">Найти</button>
         </form>
-        <p class="b-hint">Можно вводить в любом виде: <code>28:6F:B9</code>, <code>28-6F-B9</code>, <code>286FB9</code> или целиком.</p>
       </section>
 
       <?php if ($mac_mode === 'mac'): ?>

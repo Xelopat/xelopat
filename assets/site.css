@@ -147,18 +147,19 @@ body.nav-open{
   padding:6px 10px;
   border:1px solid var(--line);
   border-radius:999px;
-  background:var(--panel);
+  background:transparent;
 }
 
 .auth-action{
-  background:var(--panel) !important;
+  background:transparent !important;
   border:1px solid var(--line) !important;
   border-radius:var(--radius);
   padding:7px 14px !important;
   color:var(--text) !important;
+  transition:border-color .18s ease, color .18s ease;
 }
 
-.auth-action:hover{ background:var(--panel-hover) !important; }
+.auth-action:hover{ border-color:var(--accent) !important; color:var(--accent) !important; }
 
 .burger{
   display:none;
@@ -166,11 +167,12 @@ body.nav-open{
   height:38px;
   border:1px solid var(--line) !important;
   border-radius:var(--radius);
-  background:var(--panel) !important;
+  background:transparent !important;
   align-items:center;
   justify-content:center;
 }
 
+.burger:hover{ border-color:var(--accent) !important; }
 .burger-lines{ width:18px; height:12px; position:relative; }
 .burger-lines span{
   position:absolute;
@@ -278,8 +280,15 @@ body.nav-open{
   text-transform:uppercase;
   letter-spacing:.04em;
 }
-a.dd-group-title{ text-decoration:none; }
-a.dd-group-title:hover{ color:var(--accent); }
+.nav a.dd-group-title{
+  color:var(--accent);
+  font-size:11px;
+  font-family:var(--mono);
+  font-weight:400;
+  line-height:1.5;
+  text-decoration:none;
+}
+.nav a.dd-group-title:hover{ color:var(--accent); text-decoration:underline; }
 
 .auth-modal{ position:fixed; inset:0; display:none; z-index:2000; }
 .auth-modal.open{ display:block; }
@@ -336,7 +345,7 @@ a.dd-group-title:hover{ color:var(--accent); }
 .auth-actions{ display:flex; gap:10px; margin-top:12px; }
 .auth-btn{
   border:1px solid var(--line);
-  background:var(--panel-2);
+  background:transparent;
   border-radius:var(--radius);
   padding:10px 14px;
   color:var(--text);
@@ -348,6 +357,8 @@ a.dd-group-title:hover{ color:var(--accent); }
   border-color:transparent;
   font-weight:700;
 }
+.auth-btn:hover{ border-color:var(--accent); color:var(--accent); }
+.auth-btn.primary:hover{ background:#ffd65c; color:#151518; }
 .auth-err{ margin-top:10px; color:var(--danger); font-size:13px; }
 
 @media (max-width: 900px){
@@ -507,7 +518,7 @@ a.dd-group-title:hover{ color:var(--accent); }
 
 .btn{
   border:1px solid var(--line);
-  background:var(--bg);
+  background:transparent;
   color:var(--text);
   border-radius:var(--radius);
   padding:10px 14px;

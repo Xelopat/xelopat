@@ -207,6 +207,27 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     margin-bottom:10px;
   }
 
+  .hero-side{ min-width:0; }
+  .d20{
+    display:block;
+    width:100%;
+    height:210px;
+    margin-top:6px;
+    cursor:grab;
+    touch-action:none;
+    outline:none;
+  }
+  .d20.is-grabbing{ cursor:grabbing; }
+  .d20:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:var(--radius); }
+  .visually-hidden{
+    position:absolute;
+    width:1px;
+    height:1px;
+    overflow:hidden;
+    clip:rect(0 0 0 0);
+    white-space:nowrap;
+  }
+
   .terminal{
     background:var(--panel);
     border:1px solid var(--line);
@@ -439,7 +460,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     .hero-divider{
       width:100%;
     }
-    .terminal{ display:none; }
+    .terminal, .d20{ display:none; }
     .section{
       padding:0 0 28px;
     }
@@ -505,6 +526,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
         </div>
       </div>
 
+      <div class="hero-side">
       <div class="terminal" id="fakeTerminal" data-terminal='<?= e($terminal_json) ?>'>
         <div class="term-bar">
           <div class="term-actions" role="toolbar" aria-label="Управление терминалом">
@@ -516,6 +538,9 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
         <div class="term-body">
           <div class="term-output" id="termOutput"></div>
         </div>
+      </div>
+      <canvas class="d20" id="d20" tabindex="0" role="button" aria-label="Кубик d20: нажмите или перетащите и отпустите, чтобы бросить"></canvas>
+      <div class="visually-hidden" id="d20Result" aria-live="polite"></div>
       </div>
     </section>
 
@@ -613,6 +638,246 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     </footer>
   </div>
 </div>
+<script>
+// Кубик d20 под терминалом: прозрачный икосаэдр в псевдо-3D. Клик или Enter бросает его,
+// можно взять мышью или пальцем и швырнуть. Когда он замирает, грань к зрителю подсвечивается.
+(function () {
+  const cv = document.getElementById('d20');
+  if (!cv || !cv.getContext) return;
+  const live = document.getElementById('d20Result');
+  const ctx = cv.getContext('2d');
+  const PHI = (1 + Math.sqrt(5)) / 2;
+  const R = 44;
+  const G = 0.0025;
+
+  const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const norm = (a) => mul(a, 1 / Math.hypot(a[0], a[1], a[2]));
+
+  // Вершины икосаэдра, грани: тройки вершин, попарно соединённых ребром длины 2
+  const raw = [];
+  [-1, 1].forEach((a) => [-1, 1].forEach((b) => raw.push([0, a, b * PHI], [a, b * PHI, 0], [b * PHI, 0, a])));
+  const faces = [];
+  const isEdge = (i, j) => Math.abs(Math.hypot(...sub(raw[i], raw[j])) - 2) < 1e-6;
+  for (let i = 0; i < 12; i += 1) for (let j = i + 1; j < 12; j += 1) for (let k = j + 1; k < 12; k += 1) {
+    if (!isEdge(i, j) || !isEdge(j, k) || !isEdge(i, k)) continue;
+    const c = mul(add(add(raw[i], raw[j]), raw[k]), 1 / 3);
+    const n = cross(sub(raw[j], raw[i]), sub(raw[k], raw[i]));
+    faces.push({ v: dot(n, c) > 0 ? [i, j, k] : [i, k, j], c: c, n: norm(c), num: 0 });
+  }
+  const verts = raw.map(norm);
+  faces.forEach((f) => { f.c = mul(f.c, 1 / Math.hypot(...raw[0])); });
+  // Числа как на настоящем кубике: противоположные грани в сумме дают 21
+  let next = 1;
+  faces.forEach((f) => {
+    if (f.num) return;
+    const opp = faces.find((o) => !o.num && o !== f && dot(o.n, f.n) < -0.999);
+    f.num = next; if (opp) opp.num = 21 - next; next += 1;
+  });
+  const edges = [];
+  faces.forEach((f, fi) => [[0, 1], [1, 2], [2, 0]].forEach(([a, b]) => {
+    const p = [f.v[a], f.v[b]].sort((x, y) => x - y);
+    const e = edges.find((q) => q.a === p[0] && q.b === p[1]);
+    if (e) e.f.push(fi); else edges.push({ a: p[0], b: p[1], f: [fi] });
+  }));
+
+  // Поворот хранится матрицей 3x3, угловая скорость в радианах за миллисекунду
+  let M = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  const apply = (m, v) => [dot(m[0], v), dot(m[1], v), dot(m[2], v)];
+  function rotate(w, dt) {
+    const ang = Math.hypot(w[0], w[1], w[2]) * dt;
+    if (ang < 1e-9) return;
+    const [x, y, z] = norm(w), c = Math.cos(ang), s = Math.sin(ang), t = 1 - c;
+    const r = [
+      [t * x * x + c, t * x * y - s * z, t * x * z + s * y],
+      [t * x * y + s * z, t * y * y + c, t * y * z - s * x],
+      [t * x * z - s * y, t * y * z + s * x, t * z * z + c],
+    ];
+    M = r.map((row) => [0, 1, 2].map((j) => row[0] * M[0][j] + row[1] * M[1][j] + row[2] * M[2][j]));
+    // Против накопления ошибки: снова делаем строки ортонормированными
+    const a = norm(M[0]), b = norm(sub(M[1], mul(a, dot(a, M[1]))));
+    M = [a, b, cross(a, b)];
+  }
+  rotate([0.6, 1, 0.3], 0.9);
+
+  let W = 0, H = 0, dpr = 1;
+  let x = 0, y = 0, vx = 0, vy = 0, w = [0, 0, 0];
+  let raf = 0, last = 0, grab = null, result = 0;
+  const floorY = () => H - R - 4;
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = cv.clientWidth; H = cv.clientHeight;
+    if (!W || !H) return;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    if (!x) { x = W / 2; y = floorY(); }
+    x = Math.min(Math.max(x, R), W - R); y = Math.min(y, floorY());
+    draw();
+  }
+
+  function project(p) {
+    const k = 260 / (260 - p[2] * R);
+    return [x + p[0] * R * k, y + p[1] * R * k, k];
+  }
+
+  function draw() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const P = verts.map((v) => project(apply(M, v)));
+    const F = faces.map((f) => ({ f: f, n: apply(M, f.n), c: apply(M, f.c) }));
+    const light = norm([-0.4, -0.7, 0.6]);
+
+    // Тень на полу: чем выше кубик, тем она меньше и бледнее
+    const lift = Math.max(0, floorY() - y);
+    ctx.fillStyle = 'rgba(0,0,0,' + (0.35 * Math.max(0.2, 1 - lift / 160)).toFixed(3) + ')';
+    ctx.beginPath(); ctx.ellipse(x, floorY() + R * 0.92, R * (0.85 - Math.min(lift, 160) / 500), 5, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.lineJoin = 'round';
+    // Задние рёбра видны сквозь прозрачное тело
+    ctx.strokeStyle = 'rgba(239,239,241,.12)';
+    ctx.lineWidth = 1;
+    edges.forEach((e) => {
+      if (e.f.some((fi) => F[fi].n[2] > 0)) return;
+      ctx.beginPath(); ctx.moveTo(P[e.a][0], P[e.a][1]); ctx.lineTo(P[e.b][0], P[e.b][1]); ctx.stroke();
+    });
+    F.forEach((q) => {
+      if (q.n[2] <= 0) return;
+      const shade = Math.max(0, dot(q.n, light));
+      const hit = result && q.f.num === result;
+      ctx.fillStyle = hit ? 'rgba(249,201,64,.30)' : 'rgba(249,201,64,' + (0.03 + shade * 0.09).toFixed(3) + ')';
+      const [a, b, c] = q.f.v;
+      ctx.beginPath(); ctx.moveTo(P[a][0], P[a][1]); ctx.lineTo(P[b][0], P[b][1]); ctx.lineTo(P[c][0], P[c][1]); ctx.closePath(); ctx.fill();
+    });
+    ctx.strokeStyle = 'rgba(239,239,241,.55)';
+    ctx.lineWidth = 1.2;
+    edges.forEach((e) => {
+      if (!e.f.some((fi) => F[fi].n[2] > 0)) return;
+      ctx.beginPath(); ctx.moveTo(P[e.a][0], P[e.a][1]); ctx.lineTo(P[e.b][0], P[e.b][1]); ctx.stroke();
+    });
+
+    // Числа лежат в плоскости грани: базис грани проецируется на экран, отсюда наклон и сжатие
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    F.forEach((q) => {
+      if (q.n[2] < 0.2) return;
+      const hit = result && q.f.num === result;
+      const t1 = norm(sub(apply(M, verts[q.f.v[0]]), q.c));
+      const t2 = cross(q.n, t1);
+      const [px, py, k] = project(q.c);
+      const s = R * 0.017 * k;
+      ctx.setTransform(t2[0] * s * dpr, t2[1] * s * dpr, -t1[0] * s * dpr, -t1[1] * s * dpr, px * dpr, py * dpr);
+      ctx.fillStyle = hit ? 'rgba(249,201,64,1)' : 'rgba(239,239,241,' + (0.2 + 0.7 * q.n[2]).toFixed(3) + ')';
+      ctx.font = '700 22px "Space Mono", ui-monospace, monospace';
+      const label = q.f.num === 6 || q.f.num === 9 ? q.f.num + '.' : String(q.f.num);
+      ctx.fillText(label, 0, 2);
+    });
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function settle() {
+    let best = null;
+    faces.forEach((f) => { const n = apply(M, f.n); if (!best || n[2] > best.z) best = { z: n[2], num: f.num }; });
+    result = best.num;
+    if (live) live.textContent = 'Выпало ' + result;
+    draw();
+  }
+
+  function step(now) {
+    raf = 0;
+    const dt = Math.min(32, now - (last || now));
+    last = now;
+    if (!grab) {
+      vy += G * dt;
+      x += vx * dt; y += vy * dt;
+      const fy = floorY();
+      if (x < R) { x = R; vx = -vx * 0.6; w = add(w, [0, 0.004 * Math.sign(vy || 1), 0]); }
+      if (x > W - R) { x = W - R; vx = -vx * 0.6; w = add(w, [0, -0.004, 0]); }
+      if (y < R) { y = R; vy = Math.abs(vy) * 0.5; }
+      const onFloor = y >= fy;
+      if (onFloor) {
+        y = fy;
+        if (vy > 0.08) {
+          const impact = vy;
+          vy = -vy * 0.5; vx *= 0.85;
+          w = add(mul(w, 0.7), [(Math.random() - 0.5) * impact * 0.02, (Math.random() - 0.5) * impact * 0.02, (Math.random() - 0.5) * impact * 0.01]);
+        } else {
+          vy = 0;
+          vx *= Math.pow(0.996, dt);
+          if (Math.abs(vx) < 0.004) vx = 0;
+          // Катится по полу: вращение подтягивается к качению без проскальзывания
+          const roll = vx / R;
+          const blend = 1 - Math.pow(0.985, dt);
+          w = [w[0] * (1 - blend), w[1] * (1 - blend), w[2] + (roll - w[2]) * blend];
+          if (!vx) w = mul(w, Math.pow(0.993, dt));
+        }
+      } else {
+        w = mul(w, Math.pow(0.9995, dt));
+      }
+      rotate(w, dt);
+      if (onFloor && !vy && !vx && Math.hypot(...w) < 0.0004) {
+        w = [0, 0, 0]; last = 0; settle(); return;
+      }
+    }
+    draw();
+    raf = requestAnimationFrame(step);
+  }
+  function play() { result = 0; if (live) live.textContent = ''; if (!raf) { last = 0; raf = requestAnimationFrame(step); } }
+
+  function toss() {
+    vx = (Math.random() - 0.5) * 0.8;
+    vy = -(0.75 + Math.random() * 0.25);
+    w = [(Math.random() - 0.5) * 0.07, (Math.random() - 0.5) * 0.07, (Math.random() - 0.5) * 0.03];
+    play();
+  }
+
+  function local(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+  cv.addEventListener('pointerdown', (e) => {
+    const [px, py] = local(e);
+    if (Math.hypot(px - x, py - y) > R * 1.25) return;
+    cv.setPointerCapture(e.pointerId);
+    cv.classList.add('is-grabbing');
+    grab = { dx: px - x, dy: py - y, sx: px, sy: py, t0: e.timeStamp, trail: [[px, py, e.timeStamp]] };
+    vx = vy = 0;
+    play();
+  });
+  cv.addEventListener('pointermove', (e) => {
+    const [px, py] = local(e);
+    if (!grab) { cv.style.cursor = Math.hypot(px - x, py - y) <= R * 1.25 ? '' : 'default'; return; }
+    const nx = Math.min(Math.max(px - grab.dx, R), W - R), ny = Math.min(Math.max(py - grab.dy, R), floorY());
+    w = [(ny - y) * 0.004, -(nx - x) * 0.004, 0];
+    x = nx; y = ny;
+    grab.trail.push([px, py, e.timeStamp]);
+    if (grab.trail.length > 6) grab.trail.shift();
+  });
+  function release(e) {
+    if (!grab) return;
+    const g = grab; grab = null;
+    cv.classList.remove('is-grabbing');
+    const [px, py] = local(e);
+    if (Math.hypot(px - g.sx, py - g.sy) < 6 && e.timeStamp - g.t0 < 350) { toss(); return; }
+    const a = g.trail[0], b = g.trail[g.trail.length - 1];
+    const span = Math.max(16, b[2] - a[2]);
+    const cap = (v) => Math.max(-2.5, Math.min(2.5, v));
+    vx = cap((b[0] - a[0]) / span); vy = cap((b[1] - a[1]) / span);
+    const speed = Math.hypot(vx, vy);
+    w = add(w, [(Math.random() - 0.5) * speed * 0.03, (Math.random() - 0.5) * speed * 0.03, vx * 0.01]);
+    play();
+  }
+  cv.addEventListener('pointerup', release);
+  cv.addEventListener('pointercancel', release);
+  cv.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toss(); }
+  });
+
+  if ('ResizeObserver' in window) new ResizeObserver(resize).observe(cv);
+  else window.addEventListener('resize', resize);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+  resize();
+})();
+</script>
 <script>
 (function () {
   const terminal = document.getElementById('fakeTerminal');

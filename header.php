@@ -30,6 +30,7 @@ $univer_sections = [
         'title' => 'Администрирование',
         'items' => [
             ['Апельсин', '/adminis/ip'],
+            ['Сетевая лаборатория', 'https://cybersecurity.xelopat.ru/lab'],
         ],
     ],
     'coursework' => [
@@ -165,7 +166,7 @@ if (isset($site_page_title)):
           <?php foreach ($univer_sections as $section): ?>
             <section class="dd-group">
               <?php if (!empty($section['href'])): ?>
-                <a class="dd-group-title" href="<?= site_h((string)$section['href']) ?>" title="Все калькуляторы раздела"><?= site_h((string)$section['title']) ?> →</a>
+                <a class="dd-group-title" href="<?= site_h((string)$section['href']) ?>" title="Все калькуляторы раздела"><?= site_h((string)$section['title']) ?></a>
               <?php else: ?>
                 <div class="dd-group-title"><?= site_h((string)$section['title']) ?></div>
               <?php endif; ?>
