@@ -977,6 +977,8 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     d.x += d.vx * dt; d.y += d.vy * dt;
     if (d.x < d.R) { d.x = d.R; d.vx = -d.vx * 0.6; d.w = add(d.w, [0, 0.004, 0]); }
     if (d.x > W - d.R) { d.x = W - d.R; d.vx = -d.vx * 0.6; d.w = add(d.w, [0, -0.004, 0]); }
+    // Потолок: верх холста над терминалом, кубик отскакивает от него и не улетает из виду
+    if (d.y < d.R) { d.y = d.R; d.vy = Math.abs(d.vy) * 0.5; }
     // На полу только тот, кто падает или лежит; кубик, которого только что подбросили, отрывается от пола
     d.onFloor = d.y >= fy && d.vy >= 0;
     if (d.onFloor) {
