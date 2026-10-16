@@ -175,10 +175,10 @@ $coll_gallery = $coll['layout'] === 'gallery';
   .co-card:hover{ border-color:#4a4a5c; transform:translateY(-2px); }
   .co-cover{ position:relative; aspect-ratio:16 / 10; background:var(--panel-2); overflow:hidden; }
   .co-cover img, .co-cover video{ width:100%; height:100%; object-fit:cover; display:block; }
-  /* По ширине: картинка целиком, высота своя. По высоте: рамка как обычно, картинка вписана без обрезки */
-  .co-cover.fit-width{ aspect-ratio:auto; }
-  .co-cover.fit-width img, .co-cover.fit-width video{ height:auto; }
-  .co-cover.fit-height img, .co-cover.fit-height video{ object-fit:contain; }
+  /* Рамка у всех карточек одна (16:10). По ширине: картинка во всю ширину, лишнее сверху и снизу обрезается;
+     по высоте: во всю высоту, лишнее по бокам обрезается */
+  .co-cover.fit-width img, .co-cover.fit-width video{ position:absolute; left:0; top:50%; width:100%; height:auto; transform:translateY(-50%); }
+  .co-cover.fit-height img, .co-cover.fit-height video{ position:absolute; top:0; left:50%; width:auto; height:100%; max-width:none; transform:translateX(-50%); }
   .co-cover-empty{ width:100%; height:100%; display:grid; place-items:center; color:#4a4a5c; font-family:var(--mono); font-size:28px; }
   .co-badge{
     position:absolute; right:8px; bottom:8px;
@@ -597,7 +597,7 @@ $coll_gallery = $coll['layout'] === 'gallery';
 
   const FIT_ORDER = ['auto', 'width', 'height'];
   const FIT_ICON = { auto: 'авто', width: '↔', height: '↕' };
-  const FIT_HINT = { auto: 'Заполнить рамку карточки', width: 'По ширине: фото целиком, высота своя', height: 'По высоте: рамка обычная, фото целиком' };
+  const FIT_HINT = { auto: 'Заполнить рамку карточки', width: 'По ширине: фото во всю ширину, верх и низ обрезаются', height: 'По высоте: фото во всю высоту, края обрезаются' };
 
   const MAX_SIDE = 2560;
   const VIDEO_RE = /\.(mp4|webm|mov|m4v)$/i;

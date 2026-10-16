@@ -212,18 +212,27 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     margin-bottom:10px;
   }
 
-  .hero-side{ min-width:0; }
-  .dice{
-    display:block;
-    width:100%;
+  .hero-side{ min-width:0; position:relative; }
+  /* Зона под терминалом ловит клики и броски, а рисует кубики холст на всю колонку:
+     при сильном броске они взлетают над терминалом */
+  .dice-zone{
     height:210px;
     margin-top:6px;
     cursor:grab;
     touch-action:none;
     outline:none;
   }
-  .dice.is-grabbing{ cursor:grabbing; }
-  .dice:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:var(--radius); }
+  .dice-zone.is-grabbing{ cursor:grabbing; }
+  .dice-zone:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:var(--radius); }
+  .dice{
+    position:absolute;
+    left:0;
+    top:-72px;
+    width:100%;
+    height:calc(100% + 72px);
+    pointer-events:none;
+    z-index:2;
+  }
   .visually-hidden{
     position:absolute;
     width:1px;
@@ -465,7 +474,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     .hero-divider{
       width:100%;
     }
-    .terminal, .dice{ display:none; }
+    .terminal, .dice, .dice-zone{ display:none; }
     .section{
       padding:0 0 28px;
     }
@@ -544,8 +553,9 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
           <div class="term-output" id="termOutput"></div>
         </div>
       </div>
-      <canvas class="dice" id="dice" tabindex="0" role="button" aria-label="Кубики: нажмите, чтобы бросить, или перетащите кубик и отпустите"
-        data-dice='<?= e($dice_json) ?>' data-auth="<?= $auth_user ? '1' : '0' ?>" data-csrf="<?= e($auth_csrf) ?>"></canvas>
+      <div class="dice-zone" id="diceZone" tabindex="0" role="button" aria-label="Кубики: нажмите, чтобы бросить, или перетащите кубик и отпустите"
+        data-dice='<?= e($dice_json) ?>' data-auth="<?= $auth_user ? '1' : '0' ?>" data-csrf="<?= e($auth_csrf) ?>"></div>
+      <canvas class="dice" id="dice" aria-hidden="true"></canvas>
       <div class="visually-hidden" id="diceResult" aria-live="polite"></div>
       </div>
     </section>
@@ -651,7 +661,8 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
 // у вошедших пользователей ещё и на сервере.
 (function () {
   const cv = document.getElementById('dice');
-  if (!cv || !cv.getContext) return;
+  const zone = document.getElementById('diceZone');
+  if (!cv || !zone || !cv.getContext) return;
   const live = document.getElementById('diceResult');
   const ctx = cv.getContext('2d');
   const PHI = (1 + Math.sqrt(5)) / 2;
@@ -773,18 +784,18 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
 
   function loadSettings() {
     const ok = (s) => s && TYPES.includes(+s.type) && +s.count >= 1 && +s.count <= MAX_COUNT;
-    try { const s = JSON.parse(cv.dataset.dice || 'null'); if (ok(s)) return { type: +s.type, count: +s.count }; } catch (e) { /* нет данных с сервера */ }
+    try { const s = JSON.parse(zone.dataset.dice || 'null'); if (ok(s)) return { type: +s.type, count: +s.count }; } catch (e) { /* нет данных с сервера */ }
     try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); if (ok(s)) return { type: +s.type, count: +s.count }; } catch (e) { /* хранилище недоступно */ }
     return { type: 20, count: 1 };
   }
   function saveSettings() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch (e) { /* приватный режим */ }
-    if (cv.dataset.auth === '1') {
+    if (zone.dataset.auth === '1') {
       fetch('/auth/prefs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ csrf: cv.dataset.csrf || '', dice: settings }),
+        body: JSON.stringify({ csrf: zone.dataset.csrf || '', dice: settings }),
       }).catch(function () {});
     }
   }
@@ -793,7 +804,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   let dice = [];
   let W = 0, H = 0, dpr = 1;
   let raf = 0, last = 0, grab = null, waiters = [], deadline = 0, snapping = false, rollId = 0;
-  let sum = null, sumAlpha = 0, fullRoll = false;
+  let sum = null, sumAlpha = 0;
   const radius = () => [0, 44, 40, 36, 32, 30, 28][settings.count];
   const floorY = (d) => H - d.R - 4;
 
@@ -888,13 +899,14 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     if (!W) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    // Сумма общего броска крупно и бледно на фоне, за кубиками
+    // Сумма крупно и еле заметным контуром на фоне, за кубиками
     if (sum !== null) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = '700 ' + Math.round(Math.min(H * 0.7, 140)) + 'px "Space Mono", ui-monospace, monospace';
-      ctx.fillStyle = 'rgba(249,201,64,' + (0.12 * sumAlpha).toFixed(3) + ')';
-      ctx.fillText(String(sum), W / 2, H * 0.42);
+      ctx.font = '700 ' + Math.round(Math.min(zone.offsetHeight * 0.7, 140)) + 'px "Space Mono", ui-monospace, monospace';
+      ctx.strokeStyle = 'rgba(249,201,64,' + (0.22 * sumAlpha).toFixed(3) + ')';
+      ctx.lineWidth = 1.2;
+      ctx.strokeText(String(sum), W / 2, H - 4 - zone.offsetHeight / 2);
     }
     dice.forEach(drawDie);
   }
@@ -951,8 +963,8 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     snapping = false;
     const res = dice.map((d) => d.result);
     if (live) live.textContent = 'Выпало: ' + res.map((r) => word(settings.type, r)).join(', ');
-    // Сумма имеет смысл, когда кубиков несколько и бросали все сразу; у монеток её нет
-    if (fullRoll && settings.type !== 2 && res.length > 1) showSum(res.reduce((a, b) => a + b, 0));
+    // Сумма имеет смысл, когда кубиков несколько; у монеток её нет
+    if (settings.type !== 2 && res.length > 1) showSum(res.reduce((a, b) => a + b, 0));
     else draw();
     const list = waiters; waiters = [];
     list.forEach((fn) => fn(res));
@@ -965,8 +977,8 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     d.x += d.vx * dt; d.y += d.vy * dt;
     if (d.x < d.R) { d.x = d.R; d.vx = -d.vx * 0.6; d.w = add(d.w, [0, 0.004, 0]); }
     if (d.x > W - d.R) { d.x = W - d.R; d.vx = -d.vx * 0.6; d.w = add(d.w, [0, -0.004, 0]); }
-    if (d.y < d.R) { d.y = d.R; d.vy = Math.abs(d.vy) * 0.5; }
-    d.onFloor = d.y >= fy;
+    // На полу только тот, кто падает или лежит; кубик, которого только что подбросили, отрывается от пола
+    d.onFloor = d.y >= fy && d.vy >= 0;
     if (d.onFloor) {
       d.y = fy;
       if (d.vy > 0.08) {
@@ -1032,11 +1044,10 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   }
 
   function roll() {
-    fullRoll = true;
     dice.forEach((d) => {
-      d.vx = (Math.random() - 0.5) * 0.8;
-      d.vy = -(0.75 + Math.random() * 0.25);
-      d.w = [(Math.random() - 0.5) * 0.07, (Math.random() - 0.5) * 0.07, (Math.random() - 0.5) * 0.03];
+      d.vx = (Math.random() - 0.5) * 1.0;
+      d.vy = -(1.2 + Math.random() * 0.35);
+      d.w = [(Math.random() - 0.5) * 0.14, (Math.random() - 0.5) * 0.14, (Math.random() - 0.5) * 0.06];
     });
     // Если вкладка уйдёт в фон посреди броска, кадры встанут; дедлайн не даёт команде dice зависнуть
     deadline = performance.now() + 9000;
@@ -1053,16 +1064,16 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     for (let i = dice.length - 1; i >= 0; i -= 1) if (Math.hypot(px - dice[i].x, py - dice[i].y) <= dice[i].R * 1.15) return dice[i];
     return null;
   }
-  cv.addEventListener('pointerdown', (e) => {
+  zone.addEventListener('pointerdown', (e) => {
     const [px, py] = local(e);
     const d = hitDie(px, py);
-    cv.setPointerCapture(e.pointerId);
+    zone.setPointerCapture(e.pointerId);
     grab = { d: d, dx: d ? px - d.x : 0, dy: d ? py - d.y : 0, sx: px, sy: py, t0: e.timeStamp, trail: [[px, py, e.timeStamp]] };
-    if (d) { cv.classList.add('is-grabbing'); d.vx = d.vy = 0; fullRoll = false; play(); }
+    if (d) { zone.classList.add('is-grabbing'); d.vx = d.vy = 0; play(); }
   });
-  cv.addEventListener('pointermove', (e) => {
+  zone.addEventListener('pointermove', (e) => {
     const [px, py] = local(e);
-    if (!grab || !grab.d) { cv.style.cursor = hitDie(px, py) ? '' : 'pointer'; if (grab) grab.trail.push([px, py, e.timeStamp]); return; }
+    if (!grab || !grab.d) { zone.style.cursor = hitDie(px, py) ? '' : 'pointer'; if (grab) grab.trail.push([px, py, e.timeStamp]); return; }
     const d = grab.d;
     const nx = Math.min(Math.max(px - grab.dx, d.R), W - d.R), ny = Math.min(Math.max(py - grab.dy, d.R), floorY(d));
     d.w = [(ny - d.y) * 0.004, -(nx - d.x) * 0.004, 0];
@@ -1073,7 +1084,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   function release(e) {
     if (!grab) return;
     const g = grab; grab = null;
-    cv.classList.remove('is-grabbing');
+    zone.classList.remove('is-grabbing');
     const [px, py] = local(e);
     if (Math.hypot(px - g.sx, py - g.sy) < 6 && e.timeStamp - g.t0 < 350) { roll(); return; }
     if (!g.d) return;
@@ -1086,9 +1097,9 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     deadline = performance.now() + 9000;
     play();
   }
-  cv.addEventListener('pointerup', release);
-  cv.addEventListener('pointercancel', release);
-  cv.addEventListener('keydown', (e) => {
+  zone.addEventListener('pointerup', release);
+  zone.addEventListener('pointercancel', release);
+  zone.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); roll(); }
   });
 
