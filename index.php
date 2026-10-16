@@ -129,6 +129,11 @@ function home_collection(string $key): array {
 $travels = home_collection('travel');
 $photos = home_collection('photo');
 
+// Кубики под терминалом: у вошедшего пользователя тип и количество берутся с сервера
+require_once __DIR__ . '/includes/user_prefs.php';
+$dice_prefs = $auth_user ? prefs_clean_dice(prefs_get((string)$auth_user['id'])['dice'] ?? null) : null;
+$dice_json = $dice_prefs ? (string)json_encode($dice_prefs) : '';
+
 $terminal_config = cfg($config, 'terminal', []);
 if (!is_array($terminal_config)) {
     $terminal_config = [];
@@ -208,7 +213,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   }
 
   .hero-side{ min-width:0; }
-  .d20{
+  .dice{
     display:block;
     width:100%;
     height:210px;
@@ -217,8 +222,8 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     touch-action:none;
     outline:none;
   }
-  .d20.is-grabbing{ cursor:grabbing; }
-  .d20:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:var(--radius); }
+  .dice.is-grabbing{ cursor:grabbing; }
+  .dice:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:var(--radius); }
   .visually-hidden{
     position:absolute;
     width:1px;
@@ -460,7 +465,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     .hero-divider{
       width:100%;
     }
-    .terminal, .d20{ display:none; }
+    .terminal, .dice{ display:none; }
     .section{
       padding:0 0 28px;
     }
@@ -539,8 +544,9 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
           <div class="term-output" id="termOutput"></div>
         </div>
       </div>
-      <canvas class="d20" id="d20" tabindex="0" role="button" aria-label="Кубик d20: нажмите или перетащите и отпустите, чтобы бросить"></canvas>
-      <div class="visually-hidden" id="d20Result" aria-live="polite"></div>
+      <canvas class="dice" id="dice" tabindex="0" role="button" aria-label="Кубики: нажмите, чтобы бросить, или перетащите кубик и отпустите"
+        data-dice='<?= e($dice_json) ?>' data-auth="<?= $auth_user ? '1' : '0' ?>" data-csrf="<?= e($auth_csrf) ?>"></canvas>
+      <div class="visually-hidden" id="diceResult" aria-live="polite"></div>
       </div>
     </section>
 
@@ -639,56 +645,118 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   </div>
 </div>
 <script>
-// Кубик d20 под терминалом: прозрачный икосаэдр в псевдо-3D. Клик или Enter бросает его,
-// можно взять мышью или пальцем и швырнуть. Когда он замирает, грань к зрителю подсвечивается.
+// Кубики под терминалом: прозрачные многогранники в псевдо-3D (d2 монетка, d4, d6, d8, d10, d12, d20).
+// Клик, Enter или команда dice в терминале бросают все кубики, отдельный кубик можно взять и швырнуть.
+// Когда кубики замирают, грань к зрителю подсвечивается. Тип и количество лежат в localStorage,
+// у вошедших пользователей ещё и на сервере.
 (function () {
-  const cv = document.getElementById('d20');
+  const cv = document.getElementById('dice');
   if (!cv || !cv.getContext) return;
-  const live = document.getElementById('d20Result');
+  const live = document.getElementById('diceResult');
   const ctx = cv.getContext('2d');
   const PHI = (1 + Math.sqrt(5)) / 2;
-  const R = 44;
+  const TYPES = [2, 4, 6, 8, 10, 12, 20];
+  const MAX_COUNT = 6;
   const G = 0.0025;
+  const STORE_KEY = 'xelopat.dice';
 
   const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
   const mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-  const norm = (a) => mul(a, 1 / Math.hypot(a[0], a[1], a[2]));
+  const len = (a) => Math.hypot(a[0], a[1], a[2]);
+  const norm = (a) => mul(a, 1 / len(a));
 
-  // Вершины икосаэдра, грани: тройки вершин, попарно соединённых ребром длины 2
-  const raw = [];
-  [-1, 1].forEach((a) => [-1, 1].forEach((b) => raw.push([0, a, b * PHI], [a, b * PHI, 0], [b * PHI, 0, a])));
-  const faces = [];
-  const isEdge = (i, j) => Math.abs(Math.hypot(...sub(raw[i], raw[j])) - 2) < 1e-6;
-  for (let i = 0; i < 12; i += 1) for (let j = i + 1; j < 12; j += 1) for (let k = j + 1; k < 12; k += 1) {
-    if (!isEdge(i, j) || !isEdge(j, k) || !isEdge(i, k)) continue;
-    const c = mul(add(add(raw[i], raw[j]), raw[k]), 1 / 3);
-    const n = cross(sub(raw[j], raw[i]), sub(raw[k], raw[i]));
-    faces.push({ v: dot(n, c) > 0 ? [i, j, k] : [i, k, j], c: c, n: norm(c), num: 0 });
+  // Все сочетания знаков у ненулевых координат: pm(1, 1, 1) даёт 8 вершин куба
+  function pm(x, y, z) {
+    const out = [];
+    for (const sx of x ? [-1, 1] : [1]) for (const sy of y ? [-1, 1] : [1]) for (const sz of z ? [-1, 1] : [1]) out.push([x * sx, y * sy, z * sz]);
+    return out;
   }
-  const verts = raw.map(norm);
-  faces.forEach((f) => { f.c = mul(f.c, 1 / Math.hypot(...raw[0])); });
-  // Числа как на настоящем кубике: противоположные грани в сумме дают 21
-  let next = 1;
-  faces.forEach((f) => {
-    if (f.num) return;
-    const opp = faces.find((o) => !o.num && o !== f && dot(o.n, f.n) < -0.999);
-    f.num = next; if (opp) opp.num = 21 - next; next += 1;
-  });
-  const edges = [];
-  faces.forEach((f, fi) => [[0, 1], [1, 2], [2, 0]].forEach(([a, b]) => {
-    const p = [f.v[a], f.v[b]].sort((x, y) => x - y);
-    const e = edges.find((q) => q.a === p[0] && q.b === p[1]);
-    if (e) e.f.push(fi); else edges.push({ a: p[0], b: p[1], f: [fi] });
-  }));
 
-  // Поворот хранится матрицей 3x3, угловая скорость в радианах за миллисекунду
-  let M = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  function vertices(n) {
+    if (n === 4) return [[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]];
+    if (n === 6) return pm(1, 1, 1);
+    if (n === 8) return [...pm(1, 0, 0), ...pm(0, 1, 0), ...pm(0, 0, 1)];
+    if (n === 10) {
+      // Пентагональный трапецоэдр: при такой высоте полюсов грани-«воздушные змеи» плоские
+      const z = 0.1056, c = Math.cos(Math.PI / 5), h = z * (1 + c) / (1 - c);
+      const ring = Array.from({ length: 10 }, (_, k) => [Math.cos(k * Math.PI / 5), Math.sin(k * Math.PI / 5), k % 2 ? -z : z]);
+      return [[0, 0, h], [0, 0, -h], ...ring];
+    }
+    if (n === 12) return [...pm(1, 1, 1), ...pm(0, 1 / PHI, PHI), ...pm(1 / PHI, PHI, 0), ...pm(PHI, 0, 1 / PHI)];
+    if (n === 20) return [...pm(0, 1, PHI), ...pm(1, PHI, 0), ...pm(PHI, 0, 1)];
+    // Монетка: плоская 24-угольная призма
+    return Array.from({ length: 48 }, (_, k) => [Math.cos((k % 24) * Math.PI / 12), Math.sin((k % 24) * Math.PI / 12), k < 24 ? 0.09 : -0.09]);
+  }
+
+  // Выпуклая оболочка перебором: плоскость через три вершины, по одну сторону от которой лежат все остальные
+  const geoCache = {};
+  function geometry(n) {
+    if (geoCache[n]) return geoCache[n];
+    let V = vertices(n);
+    const r = Math.max(...V.map(len));
+    V = V.map((v) => mul(v, 1 / r));
+    const faces = [];
+    const seen = new Set();
+    for (let i = 0; i < V.length; i += 1) for (let j = i + 1; j < V.length; j += 1) for (let k = j + 1; k < V.length; k += 1) {
+      let nrm = cross(sub(V[j], V[i]), sub(V[k], V[i]));
+      if (len(nrm) < 1e-9) continue;
+      nrm = norm(nrm);
+      let d = dot(nrm, V[i]);
+      let above = 0, below = 0;
+      for (const v of V) { const s = dot(nrm, v) - d; if (s > 1e-6) above += 1; else if (s < -1e-6) below += 1; }
+      if (above && below) continue;
+      if (above) { nrm = mul(nrm, -1); d = -d; }
+      const key = nrm.map((c) => Math.round(c * 1e4)).join(',');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const idx = V.map((v, q) => q).filter((q) => Math.abs(dot(nrm, V[q]) - d) < 1e-6);
+      const c = mul(idx.reduce((acc, q) => add(acc, V[q]), [0, 0, 0]), 1 / idx.length);
+      const u = norm(sub(V[idx[0]], c)), w = cross(nrm, u);
+      idx.sort((a, b) => Math.atan2(dot(sub(V[a], c), w), dot(sub(V[a], c), u)) - Math.atan2(dot(sub(V[b], c), w), dot(sub(V[b], c), u)));
+      let area = 0;
+      for (let q = 1; q < idx.length - 1; q += 1) area += len(cross(sub(V[idx[q]], V[idx[0]]), sub(V[idx[q + 1]], V[idx[0]]))) / 2;
+      // Куда смотрит верх числа: у квадрата на середину ребра, у остальных на самую дальнюю вершину
+      const dist = idx.map((q) => len(sub(V[q], c)));
+      const square = idx.length === 4 && Math.max(...dist) - Math.min(...dist) < 1e-6;
+      const tip = square ? mul(add(V[idx[0]], V[idx[1]]), 0.5) : V[idx[dist.indexOf(Math.max(...dist))]];
+      faces.push({ v: idx, n: nrm, c: c, up: norm(sub(tip, c)), area: area, num: 0 });
+    }
+    // Числа получают n самых крупных граней (у монетки это две плоскости), противоположные в сумме дают n + 1
+    const numbered = faces.slice().sort((a, b) => b.area - a.area).slice(0, n);
+    let lo = 1, hi = n;
+    numbered.forEach((f) => {
+      if (f.num) return;
+      f.num = lo; lo += 1;
+      const opp = numbered.find((o) => !o.num && dot(o.n, f.n) < -0.999);
+      if (opp) { opp.num = hi; hi -= 1; }
+    });
+    // У треугольных граней меньше места под число, чем у квадратов и пятиугольников той же площади
+    const font = n === 2 ? 0.3 : Math.min(numbered[0].v.length === 3 ? 0.46 : 0.5, Math.max(0.22, 0.55 * Math.sqrt(numbered[0].area)));
+    const edges = [];
+    faces.forEach((f, fi) => f.v.forEach((a, q) => {
+      const b = f.v[(q + 1) % f.v.length];
+      const p = a < b ? [a, b] : [b, a];
+      const e = edges.find((x) => x.a === p[0] && x.b === p[1]);
+      if (e) e.f.push(fi); else edges.push({ a: p[0], b: p[1], f: [fi] });
+    }));
+    // Рёбра между почти соседними по наклону гранями (бок монетки) не рисуем, чтобы не рябило
+    const drawn = edges.filter((e) => e.f.length < 2 || dot(faces[e.f[0]].n, faces[e.f[1]].n) < 0.94);
+    geoCache[n] = { n: n, V: V, faces: faces, edges: drawn, font: font };
+    return geoCache[n];
+  }
+
+  function label(n, num) {
+    if (n === 2) return num === 1 ? 'орёл' : 'решка';
+    return n >= 6 && (num === 6 || num === 9) ? num + '.' : String(num);
+  }
+  function word(n, num) { return n === 2 ? (num === 1 ? 'орёл' : 'решка') : String(num); }
+
   const apply = (m, v) => [dot(m[0], v), dot(m[1], v), dot(m[2], v)];
-  function rotate(w, dt) {
-    const ang = Math.hypot(w[0], w[1], w[2]) * dt;
+  function rotate(d, w, dt) {
+    const ang = len(w) * dt;
     if (ang < 1e-9) return;
     const [x, y, z] = norm(w), c = Math.cos(ang), s = Math.sin(ang), t = 1 - c;
     const r = [
@@ -696,159 +764,274 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
       [t * x * y + s * z, t * y * y + c, t * y * z - s * x],
       [t * x * z - s * y, t * y * z + s * x, t * z * z + c],
     ];
-    M = r.map((row) => [0, 1, 2].map((j) => row[0] * M[0][j] + row[1] * M[1][j] + row[2] * M[2][j]));
-    // Против накопления ошибки: снова делаем строки ортонормированными
+    const M = r.map((row) => [0, 1, 2].map((j) => row[0] * d.M[0][j] + row[1] * d.M[1][j] + row[2] * d.M[2][j]));
+    // Против накопления ошибки снова делаем строки ортонормированными
     const a = norm(M[0]), b = norm(sub(M[1], mul(a, dot(a, M[1]))));
-    M = [a, b, cross(a, b)];
+    d.M = [a, b, cross(a, b)];
   }
-  rotate([0.6, 1, 0.3], 0.9);
 
+  function loadSettings() {
+    const ok = (s) => s && TYPES.includes(+s.type) && +s.count >= 1 && +s.count <= MAX_COUNT;
+    try { const s = JSON.parse(cv.dataset.dice || 'null'); if (ok(s)) return { type: +s.type, count: +s.count }; } catch (e) { /* нет данных с сервера */ }
+    try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); if (ok(s)) return { type: +s.type, count: +s.count }; } catch (e) { /* хранилище недоступно */ }
+    return { type: 20, count: 1 };
+  }
+  function saveSettings() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch (e) { /* приватный режим */ }
+    if (cv.dataset.auth === '1') {
+      fetch('/auth/prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ csrf: cv.dataset.csrf || '', dice: settings }),
+      }).catch(function () {});
+    }
+  }
+
+  let settings = loadSettings();
+  let dice = [];
   let W = 0, H = 0, dpr = 1;
-  let x = 0, y = 0, vx = 0, vy = 0, w = [0, 0, 0];
-  let raf = 0, last = 0, grab = null, result = 0;
-  const floorY = () => H - R - 4;
+  let raf = 0, last = 0, grab = null, waiters = [], deadline = 0, snapping = false, rollId = 0;
+  const radius = () => [0, 44, 40, 36, 32, 30, 28][settings.count];
+  const floorY = (d) => H - d.R - 4;
+
+  function build() {
+    const g = geometry(settings.type);
+    const R = radius();
+    dice = Array.from({ length: settings.count }, (_, i) => {
+      const d = { g: g, R: R, M: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], x: 0, y: 0, vx: 0, vy: 0, w: [0, 0, 0], result: 0 };
+      rotate(d, [0.6 + i * 0.3, 1, 0.3 - i * 0.2], 0.9 + i * 0.7);
+      return d;
+    });
+    place();
+  }
+  function place() {
+    if (!W) return;
+    dice.forEach((d, i) => { d.x = W * (i + 1) / (dice.length + 1); d.y = floorY(d); });
+  }
 
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const first = !W;
     W = cv.clientWidth; H = cv.clientHeight;
     if (!W || !H) return;
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-    if (!x) { x = W / 2; y = floorY(); }
-    x = Math.min(Math.max(x, R), W - R); y = Math.min(y, floorY());
+    if (first) place();
+    dice.forEach((d) => { d.x = Math.min(Math.max(d.x, d.R), W - d.R); d.y = Math.min(d.y, floorY(d)); });
     draw();
   }
 
-  function project(p) {
-    const k = 260 / (260 - p[2] * R);
-    return [x + p[0] * R * k, y + p[1] * R * k, k];
-  }
-
-  function draw() {
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);
-    const P = verts.map((v) => project(apply(M, v)));
-    const F = faces.map((f) => ({ f: f, n: apply(M, f.n), c: apply(M, f.c) }));
+  function drawDie(d) {
+    const g = d.g, R = d.R;
+    const project = (p) => { const k = 260 / (260 - p[2] * R); return [d.x + p[0] * R * k, d.y + p[1] * R * k, k]; };
+    const P = g.V.map((v) => project(apply(d.M, v)));
+    const F = g.faces.map((f) => ({ f: f, n: apply(d.M, f.n), c: apply(d.M, f.c) }));
     const light = norm([-0.4, -0.7, 0.6]);
+    const front = (e) => e.f.some((fi) => F[fi].n[2] > 0);
 
     // Тень на полу: чем выше кубик, тем она меньше и бледнее
-    const lift = Math.max(0, floorY() - y);
+    const lift = Math.max(0, floorY(d) - d.y);
     ctx.fillStyle = 'rgba(0,0,0,' + (0.35 * Math.max(0.2, 1 - lift / 160)).toFixed(3) + ')';
-    ctx.beginPath(); ctx.ellipse(x, floorY() + R * 0.92, R * (0.85 - Math.min(lift, 160) / 500), 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(d.x, floorY(d) + R * 0.92, R * (0.85 - Math.min(lift, 160) / 500), 4, 0, 0, Math.PI * 2); ctx.fill();
 
     ctx.lineJoin = 'round';
-    // Задние рёбра видны сквозь прозрачное тело
     ctx.strokeStyle = 'rgba(239,239,241,.12)';
     ctx.lineWidth = 1;
-    edges.forEach((e) => {
-      if (e.f.some((fi) => F[fi].n[2] > 0)) return;
+    g.edges.forEach((e) => {
+      if (front(e)) return;
       ctx.beginPath(); ctx.moveTo(P[e.a][0], P[e.a][1]); ctx.lineTo(P[e.b][0], P[e.b][1]); ctx.stroke();
     });
     F.forEach((q) => {
       if (q.n[2] <= 0) return;
-      const shade = Math.max(0, dot(q.n, light));
-      const hit = result && q.f.num === result;
-      ctx.fillStyle = hit ? 'rgba(249,201,64,.30)' : 'rgba(249,201,64,' + (0.03 + shade * 0.09).toFixed(3) + ')';
-      const [a, b, c] = q.f.v;
-      ctx.beginPath(); ctx.moveTo(P[a][0], P[a][1]); ctx.lineTo(P[b][0], P[b][1]); ctx.lineTo(P[c][0], P[c][1]); ctx.closePath(); ctx.fill();
+      const hit = d.result && q.f.num === d.result;
+      ctx.fillStyle = hit ? 'rgba(249,201,64,.30)' : 'rgba(249,201,64,' + (0.03 + Math.max(0, dot(q.n, light)) * 0.09).toFixed(3) + ')';
+      ctx.beginPath();
+      q.f.v.forEach((vi, i) => (i ? ctx.lineTo(P[vi][0], P[vi][1]) : ctx.moveTo(P[vi][0], P[vi][1])));
+      ctx.closePath(); ctx.fill();
     });
     ctx.strokeStyle = 'rgba(239,239,241,.55)';
     ctx.lineWidth = 1.2;
-    edges.forEach((e) => {
-      if (!e.f.some((fi) => F[fi].n[2] > 0)) return;
+    g.edges.forEach((e) => {
+      if (!front(e)) return;
       ctx.beginPath(); ctx.moveTo(P[e.a][0], P[e.a][1]); ctx.lineTo(P[e.b][0], P[e.b][1]); ctx.stroke();
     });
 
     // Числа лежат в плоскости грани: базис грани проецируется на экран, отсюда наклон и сжатие
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    ctx.font = '700 22px "Space Mono", ui-monospace, monospace';
     F.forEach((q) => {
-      if (q.n[2] < 0.2) return;
-      const hit = result && q.f.num === result;
-      const t1 = norm(sub(apply(M, verts[q.f.v[0]]), q.c));
+      if (!q.f.num || q.n[2] < 0.2) return;
+      const hit = d.result && q.f.num === d.result;
+      const t1 = apply(d.M, q.f.up);
       const t2 = cross(q.n, t1);
       const [px, py, k] = project(q.c);
-      const s = R * 0.017 * k;
+      const s = R * g.font / 22 * k;
       ctx.setTransform(t2[0] * s * dpr, t2[1] * s * dpr, -t1[0] * s * dpr, -t1[1] * s * dpr, px * dpr, py * dpr);
       ctx.fillStyle = hit ? 'rgba(249,201,64,1)' : 'rgba(239,239,241,' + (0.2 + 0.7 * q.n[2]).toFixed(3) + ')';
-      ctx.font = '700 22px "Space Mono", ui-monospace, monospace';
-      const label = q.f.num === 6 || q.f.num === 9 ? q.f.num + '.' : String(q.f.num);
-      ctx.fillText(label, 0, 2);
+      ctx.fillText(label(g.n, q.f.num), 0, 2);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     });
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  function settle() {
+  function draw() {
+    if (!W) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    dice.forEach(drawDie);
+  }
+
+  function face(d) {
     let best = null;
-    faces.forEach((f) => { const n = apply(M, f.n); if (!best || n[2] > best.z) best = { z: n[2], num: f.num }; });
-    result = best.num;
-    if (live) live.textContent = 'Выпало ' + result;
+    d.g.faces.forEach((f) => { if (!f.num) return; const z = apply(d.M, f.n)[2]; if (!best || z > best.z) best = { z: z, f: f }; });
+    return best.f;
+  }
+
+  // Кубики замерли: выпавшая грань плавно доворачивается к зрителю с небольшим наклоном,
+  // чтобы был виден объём, а число встаёт ровно
+  const SNAP_TO = norm([0.2, -0.32, 1]);
+  function beginSnap() {
+    dice.forEach((d) => {
+      d.vx = d.vy = 0; d.w = [0, 0, 0];
+      const f = face(d);
+      d.result = f.num; d.snapN = f.n; d.snapUp = f.up;
+    });
+    snapping = true;
+  }
+  function snapStep(dt) {
+    let done = true;
+    dice.forEach((d) => {
+      const n = apply(d.M, d.snapN);
+      const axis = cross(n, SNAP_TO);
+      const ang = Math.atan2(len(axis), dot(n, SNAP_TO));
+      const t1 = apply(d.M, d.snapUp);
+      const up = [0, -1, 0];
+      const want = norm(sub(up, mul(n, dot(up, n))));
+      const twist = Math.atan2(dot(cross(t1, want), n), dot(t1, want));
+      if (ang < 0.004 && Math.abs(twist) < 0.004) return;
+      done = false;
+      const turn = add(len(axis) > 1e-6 ? mul(norm(axis), ang) : [0, 0, 0], mul(n, twist));
+      rotate(d, mul(turn, (1 - Math.pow(0.985, dt)) / dt), dt);
+    });
+    return done;
+  }
+
+  function finish() {
+    snapping = false;
+    const res = dice.map((d) => d.result);
+    if (live) live.textContent = 'Выпало: ' + res.map((r) => word(settings.type, r)).join(', ');
     draw();
+    const list = waiters; waiters = [];
+    list.forEach((fn) => fn(res));
+  }
+
+  function physics(d, dt) {
+    if (grab && grab.d === d) return;
+    const fy = floorY(d);
+    d.vy += G * dt;
+    d.x += d.vx * dt; d.y += d.vy * dt;
+    if (d.x < d.R) { d.x = d.R; d.vx = -d.vx * 0.6; d.w = add(d.w, [0, 0.004, 0]); }
+    if (d.x > W - d.R) { d.x = W - d.R; d.vx = -d.vx * 0.6; d.w = add(d.w, [0, -0.004, 0]); }
+    if (d.y < d.R) { d.y = d.R; d.vy = Math.abs(d.vy) * 0.5; }
+    d.onFloor = d.y >= fy;
+    if (d.onFloor) {
+      d.y = fy;
+      if (d.vy > 0.08) {
+        const hit = d.vy;
+        d.vy = -d.vy * 0.5; d.vx *= 0.85;
+        d.w = add(mul(d.w, 0.7), [(Math.random() - 0.5) * hit * 0.02, (Math.random() - 0.5) * hit * 0.02, (Math.random() - 0.5) * hit * 0.01]);
+      } else {
+        d.vy = 0;
+        d.vx *= Math.pow(0.996, dt);
+        if (Math.abs(d.vx) < 0.004) d.vx = 0;
+        // Катится по полу: вращение подтягивается к качению без проскальзывания
+        const blend = 1 - Math.pow(0.985, dt);
+        d.w = [d.w[0] * (1 - blend), d.w[1] * (1 - blend), d.w[2] + (d.vx / d.R - d.w[2]) * blend];
+        if (!d.vx) d.w = mul(d.w, Math.pow(0.993, dt));
+      }
+    } else {
+      d.w = mul(d.w, Math.pow(0.9995, dt));
+    }
+    rotate(d, d.w, dt);
+  }
+
+  // Кубики толкают друг друга как шары: раздвигаем и обмениваемся скоростью вдоль линии центров
+  function collide() {
+    for (let i = 0; i < dice.length; i += 1) for (let j = i + 1; j < dice.length; j += 1) {
+      const a = dice[i], b = dice[j];
+      const dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy) || 0.01, min = (a.R + b.R) * 0.98;
+      if (dist >= min) continue;
+      const nx = dx / dist, ny = dy / dist, push = (min - dist) / 2;
+      a.x -= nx * push; a.y -= ny * push; b.x += nx * push; b.y += ny * push;
+      const rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+      if (rel < 0) {
+        const imp = -0.8 * rel;
+        a.vx -= imp * nx; a.vy -= imp * ny; b.vx += imp * nx; b.vy += imp * ny;
+        a.w = add(a.w, [0, 0, -imp * 0.01]); b.w = add(b.w, [0, 0, imp * 0.01]);
+      }
+    }
   }
 
   function step(now) {
     raf = 0;
     const dt = Math.min(32, now - (last || now));
     last = now;
-    if (!grab) {
-      vy += G * dt;
-      x += vx * dt; y += vy * dt;
-      const fy = floorY();
-      if (x < R) { x = R; vx = -vx * 0.6; w = add(w, [0, 0.004 * Math.sign(vy || 1), 0]); }
-      if (x > W - R) { x = W - R; vx = -vx * 0.6; w = add(w, [0, -0.004, 0]); }
-      if (y < R) { y = R; vy = Math.abs(vy) * 0.5; }
-      const onFloor = y >= fy;
-      if (onFloor) {
-        y = fy;
-        if (vy > 0.08) {
-          const impact = vy;
-          vy = -vy * 0.5; vx *= 0.85;
-          w = add(mul(w, 0.7), [(Math.random() - 0.5) * impact * 0.02, (Math.random() - 0.5) * impact * 0.02, (Math.random() - 0.5) * impact * 0.01]);
-        } else {
-          vy = 0;
-          vx *= Math.pow(0.996, dt);
-          if (Math.abs(vx) < 0.004) vx = 0;
-          // Катится по полу: вращение подтягивается к качению без проскальзывания
-          const roll = vx / R;
-          const blend = 1 - Math.pow(0.985, dt);
-          w = [w[0] * (1 - blend), w[1] * (1 - blend), w[2] + (roll - w[2]) * blend];
-          if (!vx) w = mul(w, Math.pow(0.993, dt));
-        }
-      } else {
-        w = mul(w, Math.pow(0.9995, dt));
-      }
-      rotate(w, dt);
-      if (onFloor && !vy && !vx && Math.hypot(...w) < 0.0004) {
-        w = [0, 0, 0]; last = 0; settle(); return;
-      }
+    if (snapping && !grab) {
+      const done = snapStep(dt || 16);
+      draw();
+      if (done) { last = 0; finish(); return; }
+      raf = requestAnimationFrame(step);
+      return;
     }
+    dice.forEach((d) => physics(d, dt));
+    collide();
+    const resting = !grab && dice.every((d) => d.onFloor && !d.vy && !d.vx && len(d.w) < 0.0004);
+    if (resting || (!grab && deadline && now > deadline)) { deadline = 0; beginSnap(); }
     draw();
     raf = requestAnimationFrame(step);
   }
-  function play() { result = 0; if (live) live.textContent = ''; if (!raf) { last = 0; raf = requestAnimationFrame(step); } }
+  function play() {
+    snapping = false;
+    dice.forEach((d) => { d.result = 0; });
+    if (live) live.textContent = '';
+    if (!raf) { last = 0; raf = requestAnimationFrame(step); }
+  }
 
-  function toss() {
-    vx = (Math.random() - 0.5) * 0.8;
-    vy = -(0.75 + Math.random() * 0.25);
-    w = [(Math.random() - 0.5) * 0.07, (Math.random() - 0.5) * 0.07, (Math.random() - 0.5) * 0.03];
+  function roll() {
+    dice.forEach((d) => {
+      d.vx = (Math.random() - 0.5) * 0.8;
+      d.vy = -(0.75 + Math.random() * 0.25);
+      d.w = [(Math.random() - 0.5) * 0.07, (Math.random() - 0.5) * 0.07, (Math.random() - 0.5) * 0.03];
+    });
+    // Если вкладка уйдёт в фон посреди броска, кадры встанут; дедлайн не даёт команде dice зависнуть
+    deadline = performance.now() + 9000;
+    const done = new Promise((resolve) => waiters.push(resolve));
     play();
+    if (!W) { beginSnap(); finish(); }
+    const id = ++rollId;
+    setTimeout(() => { if (id === rollId && waiters.length && !grab) { if (!snapping) beginSnap(); finish(); } }, 11000);
+    return done;
   }
 
   function local(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+  function hitDie(px, py) {
+    for (let i = dice.length - 1; i >= 0; i -= 1) if (Math.hypot(px - dice[i].x, py - dice[i].y) <= dice[i].R * 1.15) return dice[i];
+    return null;
+  }
   cv.addEventListener('pointerdown', (e) => {
     const [px, py] = local(e);
-    if (Math.hypot(px - x, py - y) > R * 1.25) return;
+    const d = hitDie(px, py);
     cv.setPointerCapture(e.pointerId);
-    cv.classList.add('is-grabbing');
-    grab = { dx: px - x, dy: py - y, sx: px, sy: py, t0: e.timeStamp, trail: [[px, py, e.timeStamp]] };
-    vx = vy = 0;
-    play();
+    grab = { d: d, dx: d ? px - d.x : 0, dy: d ? py - d.y : 0, sx: px, sy: py, t0: e.timeStamp, trail: [[px, py, e.timeStamp]] };
+    if (d) { cv.classList.add('is-grabbing'); d.vx = d.vy = 0; play(); }
   });
   cv.addEventListener('pointermove', (e) => {
     const [px, py] = local(e);
-    if (!grab) { cv.style.cursor = Math.hypot(px - x, py - y) <= R * 1.25 ? '' : 'default'; return; }
-    const nx = Math.min(Math.max(px - grab.dx, R), W - R), ny = Math.min(Math.max(py - grab.dy, R), floorY());
-    w = [(ny - y) * 0.004, -(nx - x) * 0.004, 0];
-    x = nx; y = ny;
+    if (!grab || !grab.d) { cv.style.cursor = hitDie(px, py) ? '' : 'pointer'; if (grab) grab.trail.push([px, py, e.timeStamp]); return; }
+    const d = grab.d;
+    const nx = Math.min(Math.max(px - grab.dx, d.R), W - d.R), ny = Math.min(Math.max(py - grab.dy, d.R), floorY(d));
+    d.w = [(ny - d.y) * 0.004, -(nx - d.x) * 0.004, 0];
+    d.x = nx; d.y = ny;
     grab.trail.push([px, py, e.timeStamp]);
     if (grab.trail.length > 6) grab.trail.shift();
   });
@@ -857,21 +1040,33 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     const g = grab; grab = null;
     cv.classList.remove('is-grabbing');
     const [px, py] = local(e);
-    if (Math.hypot(px - g.sx, py - g.sy) < 6 && e.timeStamp - g.t0 < 350) { toss(); return; }
+    if (Math.hypot(px - g.sx, py - g.sy) < 6 && e.timeStamp - g.t0 < 350) { roll(); return; }
+    if (!g.d) return;
     const a = g.trail[0], b = g.trail[g.trail.length - 1];
     const span = Math.max(16, b[2] - a[2]);
     const cap = (v) => Math.max(-2.5, Math.min(2.5, v));
-    vx = cap((b[0] - a[0]) / span); vy = cap((b[1] - a[1]) / span);
-    const speed = Math.hypot(vx, vy);
-    w = add(w, [(Math.random() - 0.5) * speed * 0.03, (Math.random() - 0.5) * speed * 0.03, vx * 0.01]);
+    g.d.vx = cap((b[0] - a[0]) / span); g.d.vy = cap((b[1] - a[1]) / span);
+    const speed = Math.hypot(g.d.vx, g.d.vy);
+    g.d.w = add(g.d.w, [(Math.random() - 0.5) * speed * 0.03, (Math.random() - 0.5) * speed * 0.03, g.d.vx * 0.01]);
+    deadline = performance.now() + 9000;
     play();
   }
   cv.addEventListener('pointerup', release);
   cv.addEventListener('pointercancel', release);
   cv.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toss(); }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); roll(); }
   });
 
+  window.siteDice = {
+    TYPES: TYPES,
+    MAX_COUNT: MAX_COUNT,
+    get: () => ({ type: settings.type, count: settings.count }),
+    set: (s) => { settings = { type: s.type, count: s.count }; saveSettings(); build(); draw(); },
+    roll: roll,
+    word: word,
+  };
+
+  build();
   if ('ResizeObserver' in window) new ResizeObserver(resize).observe(cv);
   else window.addEventListener('resize', resize);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
@@ -901,8 +1096,8 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
   let cwd = [];
   const history = [];
   let historyIndex = -1;
-  const COMMANDS = ['help', 'ls', 'cd', 'pwd', 'cat', 'tree', 'whoami', 'echo', 'clear', 'uname', 'date', 'uptime', 'hostname', 'id', 'history'];
-  const COMMANDS_WITH_ARG = new Set(['ls', 'cd', 'cat', 'tree', 'echo']);
+  const COMMANDS = ['help', 'ls', 'cd', 'pwd', 'cat', 'tree', 'whoami', 'echo', 'clear', 'uname', 'date', 'uptime', 'hostname', 'id', 'history', 'dice'];
+  const COMMANDS_WITH_ARG = new Set(['ls', 'cd', 'cat', 'tree', 'echo', 'dice']);
   const PATH_COMMANDS = new Set(['ls', 'cd', 'cat', 'tree']);
   const LINK_PATTERN = /\[([^\]]+)\]\((\/[^)\s]+|https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s]+)/g;
   const hostname = String(config.hostname || 'xelopat@site');
@@ -1276,6 +1471,54 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     });
   }
 
+  // dice: бросок кубиков под терминалом. dice | dice NdM | dice -n count | dice -t dM
+  function diceCommand(rest) {
+    const D = window.siteDice;
+    if (!D) {
+      printError('dice: not available');
+      return;
+    }
+    const usage = () => printError('usage: dice [NdM] [-n count] [-t dM]');
+    let { type, count } = D.get();
+    let changed = false;
+    let roll = true;
+    for (let i = 0; i < rest.length; i++) {
+      const t = rest[i].toLowerCase();
+      if (t === '-n' || t === '-t') {
+        const v = (rest[++i] || '').toLowerCase();
+        if (!v) { usage(); return; }
+        if (t === '-n') {
+          if (!/^\d+$/.test(v) || +v < 1 || +v > D.MAX_COUNT) { printError('dice: invalid count: ' + v); return; }
+          count = +v;
+        } else {
+          const m = /^d?(\d+)$/.exec(v);
+          if (!m || !D.TYPES.includes(+m[1])) { printError('dice: invalid type: ' + v); return; }
+          type = +m[1];
+        }
+        changed = true;
+        roll = false;
+        continue;
+      }
+      const m = /^(\d*)d(\d+)$/.exec(t);
+      if (!m) { usage(); return; }
+      const c = m[1] ? +m[1] : 1;
+      if (c < 1 || c > D.MAX_COUNT) { printError('dice: invalid count: ' + m[1]); return; }
+      if (!D.TYPES.includes(+m[2])) { printError('dice: invalid type: d' + m[2]); return; }
+      count = c;
+      type = +m[2];
+      changed = true;
+    }
+    if (changed) D.set({ type: type, count: count });
+    if (!roll) return;
+    return {
+      wait: D.roll().then(res => {
+        const words = res.map(r => D.word(type, r));
+        const sum = res.reduce((a, b) => a + b, 0);
+        printInfo(type === 2 || res.length === 1 ? words.join(' ') : words.join(' ') + ' = ' + sum);
+      }),
+    };
+  }
+
   function handleCommand(command) {
     const tokens = command.split(/\s+/);
     const cmd = tokens[0].toLowerCase();
@@ -1286,13 +1529,24 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     const resolve = p => (p === '~' ? [] : p.startsWith('~/') ? normalizePath('/' + p.slice(2)) : normalizePath(p));
 
     switch (cmd) {
-      case 'help':
-        printInfo('Доступные команды:');
-        printInfo('  ls [-la] [path]   cd [path]   pwd   cat <file>   tree [path]');
-        printInfo('  whoami   id   hostname   uname [-a]   date   uptime   history');
-        printInfo('  echo <text>   clear');
-        printInfo('Tab дополняет команды и пути, стрелки вверх и вниз листают историю.');
+      case 'help': {
+        // Как compgen -c: только имена, по колонкам сверху вниз
+        const names = COMMANDS.slice().sort();
+        const width = Math.max(...names.map(n => n.length)) + 2;
+        const rows = Math.ceil(names.length / 4);
+        for (let r = 0; r < rows; r++) {
+          let line = '';
+          for (let c = 0; c < 4; c++) {
+            const name = names[c * rows + r];
+            if (name) line += name.padEnd(width, ' ');
+          }
+          printInfo(line.trimEnd());
+        }
         return;
+      }
+
+      case 'dice':
+        return diceCommand(rest);
 
       case 'clear':
         output.innerHTML = '';
@@ -1405,6 +1659,11 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
 
     if (result && result.cleared) {
       createPromptLine('');
+      return;
+    }
+    // Команда ещё работает (кубики катятся): приглашение появится, когда она закончит
+    if (result && result.wait) {
+      result.wait.then(() => { createPromptLine(''); focusInput(); });
       return;
     }
     createPromptLine('');
