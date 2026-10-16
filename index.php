@@ -109,7 +109,6 @@ function load_cards_collection(array $config, string $primary, string $fallback)
 $hero_tag = (string)cfg($config, 'hero.tag', '// личный сайт');
 $hero_name = (string)cfg($config, 'hero.name', 'Xelopat');
 $hero_offer = (string)cfg($config, 'hero.offer', 'Делаю сайты под ключ и слежу, чтобы их не взломали.');
-$hero_note = (string)cfg($config, 'hero.note', 'Разработка от идеи до запуска, а в кибербезопасности я тоже разбираюсь: проверю сайт на уязвимости.');
 $hero_telegram = (string)cfg($config, 'hero.telegram', 'xelopat');
 
 require_once __DIR__ . '/includes/collection_lib.php';
@@ -204,13 +203,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     font-weight:700;
     line-height:1.25;
     max-width:560px;
-  }
-  .hero-subtitle{
-    margin:0;
-    color:var(--muted);
-    font-size:15px;
-    line-height:1.6;
-    max-width:520px;
   }
   .hero-actions{
     display:flex;
@@ -494,9 +486,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
       font-size:clamp(36px, 10vw, 48px);
       margin:0 0 10px;
     }
-    .hero-subtitle{
-      font-size:14px;
-    }
     .hero-divider{
       width:100%;
     }
@@ -543,9 +532,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     .hero-name{
       font-size:clamp(32px, 12vw, 40px);
     }
-    .hero-subtitle{
-      font-size:14px;
-    }
     .hero-offer{ font-size:21px; }
     .hero-btn{ flex:1 1 auto; justify-content:center; }
     .sec-label{
@@ -572,9 +558,6 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
           <div class="hero-divider"></div>
         </div>
         <p class="hero-offer"><?= e($hero_offer) ?></p>
-        <?php if ($hero_note !== ''): ?>
-          <p class="hero-subtitle"><?= e($hero_note) ?></p>
-        <?php endif; ?>
         <div class="hero-actions">
           <a class="hero-btn hero-btn--primary" href="https://t.me/<?= e($hero_telegram) ?>" target="_blank" rel="noopener">Написать в Telegram</a>
           <a class="hero-btn" href="/projects">Мои работы</a>
@@ -782,31 +765,31 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
         const b = nodes[j];
         const d = Math.hypot(a.x - b.x, a.y - b.y);
         if (d < link) {
-          ctx.strokeStyle = 'rgba(148,150,168,' + ((1 - d / link) * .28).toFixed(3) + ')';
+          ctx.strokeStyle = 'rgba(148,150,168,' + ((1 - d / link) * .1).toFixed(3) + ')';
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
         }
       }
       if (mouse) {
         const d = Math.hypot(a.x - mouse.x, a.y - mouse.y);
         if (d < link * 1.3) {
-          ctx.strokeStyle = 'rgba(249,201,64,' + ((1 - d / (link * 1.3)) * .45).toFixed(3) + ')';
+          ctx.strokeStyle = 'rgba(249,201,64,' + ((1 - d / (link * 1.3)) * .16).toFixed(3) + ')';
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(mouse.x, mouse.y); ctx.stroke();
         }
       }
     }
-    ctx.fillStyle = 'rgba(148,150,168,.7)';
+    ctx.fillStyle = 'rgba(148,150,168,.25)';
     for (const n of nodes) { ctx.beginPath(); ctx.arc(n.x, n.y, 1.6, 0, Math.PI * 2); ctx.fill(); }
     if (reduce) return;
 
-    if (now - lastSpawn > 450 && packets.length < 14) { spawn(); lastSpawn = now; }
+    if (now - lastSpawn > 900 && packets.length < 6) { spawn(); lastSpawn = now; }
     packets = packets.filter(function (p) {
       p.t += p.v;
       if (p.t >= 1 || Math.hypot(p.a.x - p.b.x, p.a.y - p.b.y) > link) return false;
       const x = p.a.x + (p.b.x - p.a.x) * p.t, y = p.a.y + (p.b.y - p.a.y) * p.t;
-      ctx.shadowColor = 'rgba(' + p.c + ',.9)';
-      ctx.shadowBlur = 10;
-      ctx.fillStyle = 'rgba(' + p.c + ',1)';
-      ctx.beginPath(); ctx.arc(x, y, 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowColor = 'rgba(' + p.c + ',.4)';
+      ctx.shadowBlur = 6;
+      ctx.fillStyle = 'rgba(' + p.c + ',.45)';
+      ctx.beginPath(); ctx.arc(x, y, 1.8, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
       return true;
     });
