@@ -3,5 +3,6 @@ Disallow: /admin
 Disallow: /auth/
 Disallow: /data/
 Disallow: /crypto/process
+Disallow: /projects/demo/
 
 Sitemap: https://xelopat.ru/sitemap.xml

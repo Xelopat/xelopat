@@ -1,0 +1,1 @@
+import{j as s,R as t,B as i,S as r,O as e}from"./index-BbRcCN7A.js";function o(){return s.jsxs(t,{breakpoints:[[360,360],[767,1920],[1920,1920]],children:[s.jsx(i,{}),s.jsxs("div",{className:"subscription-root",children:[s.jsx(r,{}),s.jsx(e,{})]})]})}export{o as default};
