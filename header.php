@@ -4,6 +4,11 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/auth/lib.php';
 $auth_user = auth_current_user();
 $auth_csrf = csrf_token();
 $auth_next = (string)($_SERVER['REQUEST_URI'] ?? '/');
+// На страницах входа и регистрации окно ведёт туда же, куда и сама страница, а не обратно на форму
+if (strpos($auth_next, '/auth/') === 0) {
+    $auth_next = safe_next((string)($_GET['next'] ?? '/'), '/');
+    if (strpos($auth_next, '/auth/') === 0) $auth_next = '/';
+}
 $auth_is_admin = user_has_role($auth_user, 'admin');
 
 // Локальная статистика посещений (без IP, ботов и визитов админов)

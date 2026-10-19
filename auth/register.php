@@ -2,40 +2,26 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/lib.php';
+require_once __DIR__ . '/../includes/auth_page.php';
 
-$csrf = csrf_token();
-$next = safe_next((string)($_GET['next'] ?? '/'), '/');
+$next = auth_page_next((string)($_POST['next'] ?? $_GET['next'] ?? '/'));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $next = safe_next((string)($_POST['next'] ?? '/'), '/');
-
-    if (!csrf_check((string)($_POST['csrf'] ?? ''))) {
-        header("Location: /auth/register?next=" . urlencode($next) . "&err=csrf");
-        exit;
-    }
-
     $username = trim((string)($_POST['username'] ?? ''));
     $password = (string)($_POST['password'] ?? '');
     $password2 = (string)($_POST['password2'] ?? '');
+    $fail = function (string $message) use ($next, $username): void {
+        http_response_code(400);
+        auth_page('register', $next, $message, $username);
+    };
 
-    if (!preg_match(USERNAME_RE, $username)) {
-        header("Location: /auth/register?next=" . urlencode($next) . "&err=username");
-        exit;
-    }
-    if (strlen($password) < PASSWORD_MIN_LEN) {
-        header("Location: /auth/register?next=" . urlencode($next) . "&err=pass");
-        exit;
-    }
-    if ($password !== $password2) {
-        header("Location: /auth/register?next=" . urlencode($next) . "&err=pass2");
-        exit;
-    }
+    if (!csrf_check((string)($_POST['csrf'] ?? ''))) $fail('Сессия устарела, попробуй ещё раз.');
+    if (!preg_match(USERNAME_RE, $username)) $fail('Логин: от 3 до 32 символов, латиница, цифры, точка, дефис или подчёркивание.');
+    if (strlen($password) < PASSWORD_MIN_LEN) $fail('Пароль должен быть не короче ' . PASSWORD_MIN_LEN . ' символов.');
+    if ($password !== $password2) $fail('Пароли не совпадают.');
 
     $data = users_load();
-    if (user_find_by_username($data, $username)) {
-        header("Location: /auth/register?next=" . urlencode($next) . "&err=exists");
-        exit;
-    }
+    if (user_find_by_username($data, $username)) $fail('Такой логин уже занят.');
 
     // Первый зарегистрированный становится админом, остальные приходят без ролей
     $u = user_create($username, $password, count($data["users"]) === 0 ? ['admin'] : []);
@@ -43,30 +29,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     users_save($data);
 
     auth_login($username, $password);
-    header("Location: " . $next);
+    header('Location: ' . $next);
     exit;
 }
 
-// GET: показать страницу с header, чтобы модалка открылась
-$err = (string)($_GET['err'] ?? '');
-?>
-<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Регистрация</title>
-</head>
-<body>
-<?php @include $_SERVER["DOCUMENT_ROOT"] . "/header.php"; ?>
-<div style="max-width:900px;margin:40px auto;padding:16px;color:#64748b;">
-  Открой регистрацию через кнопку в шапке.
-  <?php if ($err): ?>
-    <div style="margin-top:10px;color:#7f1d1d;">Ошибка регистрации.</div>
-  <?php endif; ?>
-</div>
-<script>
-  window.__AUTH_OPEN__ = "register";
-</script>
-</body>
-</html>
+// Уже вошёл: форма не нужна
+if (auth_is_logged_in()) {
+    header('Location: ' . $next);
+    exit;
+}
+
+auth_page('register', $next);

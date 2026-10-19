@@ -532,6 +532,8 @@ body.nav-open{
   border-color:var(--accent);
   color:var(--accent);
 }
+.btn--primary{ background:var(--accent); border-color:transparent; color:#151518; }
+.btn--primary:hover{ background:#ffd65c; border-color:transparent; color:#151518; }
 
 .data-table{
   width:100%;
