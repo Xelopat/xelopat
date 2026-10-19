@@ -1,5 +1,5 @@
 <?php
-// /lisa-alisa/index.php — учёт квадратов на упаковке мебели. Редактировать может кто угодно.
+// /lisa-alisa/index.php — учёт квадратов на упаковке мебели. Видят и правят только роль «Лиса-Алиса» и админ.
 declare(strict_types=1);
 
 const LA_RATE = 18;          // ставка по умолчанию, ₽ за квадрат
@@ -56,8 +56,15 @@ function la_backup(string $file, string $dir): void {
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/auth/lib.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/lisa_cfg.php';
-// Смотреть могут все, записывать и откатывать — роль «Лиса-Алиса» и админ
+// Страница закрыта: и смотреть, и записывать могут только роль «Лиса-Алиса» и админ
 $la_can_edit = auth_can('lisa');
+if (!$la_can_edit) {
+    if (isset($_GET['api'])) {
+        la_json(auth_current_user() ? 403 : 401, ['error' => 'Доступ только для Лисы-Алисы и админа']);
+    }
+    // Гостя отправит на вход, вошедшему без роли ответит 403
+    require_role('lisa');
+}
 $la_cfg = la_config();
 $la_off = function (string $k) use ($la_cfg): string { return $la_cfg['blocks'][$k] ? '' : ' la-off'; };
 
@@ -70,9 +77,6 @@ if (isset($_GET['api'])) {
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         la_json(405, ['error' => 'Метод не поддерживается']);
-    }
-    if (!$la_can_edit) {
-        la_json(403, ['error' => 'Записывать может только Лиса-Алиса или админ']);
     }
     if (!csrf_check((string)($_SERVER['HTTP_X_CSRF'] ?? ''))) {
         la_json(400, ['error' => 'Сессия устарела, обнови страницу']);
