@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Терминал Росатома</title>
+<link rel="icon" type="image/svg+xml" href="./vite.svg">
+<style>
+  /* Три экрана терминала: сверху два больших, под ними пульт. Весь стенд 16:9 и вписан в окно. */
+  html, body { margin: 0; height: 100%; background: #0b0d14; color: #c9cbd6; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  .stage { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: min(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9;
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 0; }
+  .screen { position: relative; background: #000; overflow: hidden; }
+  .screen iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+  .left { grid-column: 1 / 3; grid-row: 1; }
+  .right { grid-column: 3 / 5; grid-row: 1; }
+  .control { grid-column: 2 / 4; grid-row: 2; }
+  .left, .right { border-bottom: 1px solid #23263a; }
+  .left { border-right: 1px solid #23263a; }
+  .label { position: absolute; left: 8px; top: 8px; z-index: 2; padding: 3px 7px; border-radius: 4px;
+    background: rgba(11, 13, 20, .7); color: #e8e9ef; font-size: 11px; letter-spacing: .02em; pointer-events: none; }
+  .note { grid-row: 2; align-self: center; padding: 0 6%; color: #9496a8; font-size: clamp(11px, 1.05vw, 15px); }
+  .note b { display: block; color: #e8e9ef; font-weight: 600; margin-bottom: .4em; }
+  .note-l { grid-column: 1; text-align: right; }
+  .note-r { grid-column: 4; }
+  .gate { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; background: rgba(11, 13, 20, .78);
+    border: 0; width: 100%; color: inherit; font: inherit; cursor: pointer; }
+  .gate span { padding: 12px 18px; border: 1px solid #f9c940; border-radius: 6px; color: #f9c940; font-size: 15px; }
+  .gate[hidden] { display: none; }
+  @media (max-aspect-ratio: 1 / 1) {
+    body { overflow: auto; }
+    .stage { position: static; transform: none; width: 100%; aspect-ratio: auto; display: flex; flex-direction: column; }
+    .screen { aspect-ratio: 16 / 9; }
+    .control { order: -1; }
+    .left, .right { border: 0; border-top: 1px solid #23263a; }
+    .note { display: none; }
+  }
+</style>
+<script>window.__DEMO_BAR={title:"демо Терминал",links:[{label:"Все проекты",href:"/projects",current:false}]};</script>
+<script src="./_demo/demo-bar.js" defer></script>
+</head>
+<body>
+<div class="stage">
+  <div class="screen left"><span class="label">Левый экран</span><iframe title="Левый экран" src="./app.html#left" allow="autoplay; fullscreen"></iframe></div>
+  <div class="screen right"><span class="label">Правый экран</span><iframe title="Правый экран" src="./app.html#right" allow="autoplay; fullscreen"></iframe></div>
+  <p class="note note-l"><b>Сенсорный пульт</b>Посетитель выбирает направление, пульт показывает фото и описание.</p>
+  <div class="screen control"><span class="label">Пульт</span><iframe title="Пульт" src="./app.html#control" allow="autoplay; fullscreen"></iframe></div>
+  <p class="note note-r"><b>Два больших экрана</b>Синхронно запускают ролики сцены, после окончания возвращаются к заставке.</p>
+</div>
+<button class="gate" id="gate" type="button"><span>Нажмите, чтобы включить терминал со звуком</span></button>
+<script>
+  // В Electron экраны общаются через IPC, в браузере каждый фрейм шлёт команду наверх, а отсюда она уходит во все три
+  window.addEventListener('message', function (e) {
+    if (e.origin !== location.origin || !e.data || !e.data.t) return;
+    document.querySelectorAll('iframe').forEach(function (f) { try { f.contentWindow.postMessage(e.data, location.origin); } catch (_) {} });
+  });
+  // Ролики идут со звуком, а браузер разрешает его только после действия пользователя на странице
+  document.getElementById('gate').addEventListener('click', function () {
+    this.hidden = true;
+    document.querySelectorAll('iframe').forEach(function (f) {
+      try { f.contentDocument.querySelectorAll('video').forEach(function (v) { v.play().catch(function () {}); }); } catch (_) {}
+    });
+  });
+</script>
+</body>
+</html>

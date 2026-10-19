@@ -1,0 +1,34 @@
+@font-face {
+    font-family: 'Rosatom';
+    src: url('../fonts/FiraSans-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Rosatom';
+    src: url('../fonts/FiraSans-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Rosatom';
+    src: url('../fonts/FiraSans-Light.ttf') format('truetype');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Rosatom';
+    src: url('../fonts/FiraSans-Italic.ttf') format('truetype');
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+}
+
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #0f172a; }
+body { font-family: 'Rosatom', 'Segoe UI', system-ui, sans-serif; }
+main { width: 100%; height: 100%; }
+
+.canvas-inner { position: relative; }
