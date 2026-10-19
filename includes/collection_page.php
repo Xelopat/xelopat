@@ -69,8 +69,10 @@ if (isset($_GET['api'])) {
             $dt = DateTime::createFromFormat('!Y-m-d', $date);
             if (!$dt || $dt->format('Y-m-d') !== $date) coll_api_out(400, ['error' => 'Некорректная дата.']);
         }
-        if ($link !== '' && !preg_match('~^https?://~i', $link)) $link = 'https://' . $link;
-        if ($link !== '' && !filter_var($link, FILTER_VALIDATE_URL)) coll_api_out(400, ['error' => 'Ссылка выглядит неправильно.']);
+        if ($link !== '' && !coll_is_local_path($link)) {
+            if (!preg_match('~^https?://~i', $link)) $link = 'https://' . $link;
+            if (!filter_var($link, FILTER_VALIDATE_URL)) coll_api_out(400, ['error' => 'Ссылка выглядит неправильно.']);
+        }
 
         // Порядок существующих медиа (и добавленные по ссылке) приходит из формы
         $keep = json_decode((string)($_POST['keep'] ?? '[]'), true);
@@ -99,8 +101,8 @@ if (isset($_GET['api'])) {
                 $src = trim((string)($k['src'] ?? ''));
                 if ($src === '') continue;
                 if (isset($bySrc[$src])) { $media[] = $bySrc[$src]; unset($bySrc[$src]); continue; }
-                // Новая внешняя ссылка
-                if (preg_match('~^https?://~i', $src) && filter_var($src, FILTER_VALIDATE_URL)) {
+                // Новая ссылка: внешняя или на файл этого сайта
+                if (coll_is_local_path($src) || (preg_match('~^https?://~i', $src) && filter_var($src, FILTER_VALIDATE_URL))) {
                     $media[] = ['type' => coll_media_kind($src), 'src' => $src, 'preview' => ''];
                 }
             }
@@ -132,6 +134,17 @@ if (isset($_GET['api'])) {
         coll_api_out(200, ['ok' => true, 'id' => $result['item']['id'], 'warnings' => $errors]);
     }
 
+    if ($api === 'starter') {
+        $added = coll_mutate($coll_key, function (array &$items) use ($coll_key) {
+            $missing = coll_missing_starters($coll_key, $items);
+            foreach ($missing as $c) {
+                $items[] = coll_normalize_item($c + ['id' => coll_new_id(), 'created' => date('c'), 'updated' => date('c')]);
+            }
+            return count($missing);
+        });
+        coll_api_out(200, ['ok' => true, 'added' => $added]);
+    }
+
     coll_api_out(400, ['error' => 'Неизвестное действие']);
 }
 
@@ -148,6 +161,23 @@ $site_page_title = $coll['title'] . ' — xelopat';
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 $coll_csrf = $coll_is_admin ? csrf_token() : '';
 $coll_gallery = $coll['layout'] === 'gallery';
+$coll_cases = $coll['layout'] === 'cases';
+$coll_starters = $coll_is_admin ? count(coll_missing_starters($coll_key, $coll_items)) : 0;
+
+const COLL_MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+
+// В кейсах дата до месяца: «декабрь 2025»
+function coll_month_human(string $d): string {
+    if (!preg_match('/^(\d{4})-(\d{2})/', $d, $m)) return $d;
+    return COLL_MONTHS[(int)$m[2] - 1] . ' ' . $m[1];
+}
+
+// Адрес в строке «браузера» над скриншотом
+function coll_link_label(string $link): string {
+    if ($link === '') return '';
+    $url = coll_is_local_path($link) ? 'xelopat.ru' . $link : preg_replace('~^https?://(www\.)?~i', '', $link);
+    return rtrim((string)$url, '/');
+}
 ?>
 <style>
   /* В разделах ссылки без подчёркивания: карточки целиком кликабельные */
@@ -210,6 +240,55 @@ $coll_gallery = $coll['layout'] === 'gallery';
   .co-shot-cap b{ display:block; font-size:14px; }
   .co-shot-cap span{ font-size:11px; font-family:var(--mono); color:#d9d9e0; }
   @media (hover:none){ .co-shot-cap{ opacity:1; } }
+
+  /* кейсы (проекты): скриншот в рамке браузера, стек, кнопки демо и подробностей */
+  .pj-list{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:20px; }
+  .pj{
+    display:flex; flex-direction:column; min-width:0;
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-lg); overflow:hidden;
+    transition:border-color .16s ease;
+  }
+  .pj:hover{ border-color:#4a4a5c; }
+  .pj-shot{
+    display:block; padding:16px 16px 0; color:inherit;
+    background:radial-gradient(110% 80% at 50% 0%, rgba(249,201,64,.09), transparent 62%), var(--panel-2);
+    border-bottom:1px solid var(--line);
+  }
+  .pj-frame{
+    display:block; border:1px solid var(--line); border-bottom:0; border-radius:var(--radius) var(--radius) 0 0; overflow:hidden;
+    background:var(--bg); box-shadow:0 -8px 30px rgba(0,0,0,.28);
+  }
+  .pj-chrome{ height:26px; display:flex; align-items:center; gap:6px; padding:0 10px; background:#1a1a21; border-bottom:1px solid var(--line); }
+  .pj-chrome i{ flex:none; width:8px; height:8px; border-radius:50%; background:#3a3a48; }
+  .pj-url{
+    flex:1; min-width:0; margin-left:8px; padding:3px 8px; border-radius:var(--radius-sm); background:var(--panel-2);
+    font-family:var(--mono); font-size:10.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .pj-img{ display:block; position:relative; aspect-ratio:16 / 10; overflow:hidden; background:var(--panel-2); }
+  .pj-img img, .pj-img video{ width:100%; height:100%; object-fit:cover; object-position:top; display:block; transition:transform .5s ease; }
+  .pj-img.fit-width img, .pj-img.fit-width video{ position:absolute; left:0; top:50%; height:auto; transform:translateY(-50%); }
+  .pj-img.fit-height img, .pj-img.fit-height video{ position:absolute; top:0; left:50%; width:auto; max-width:none; transform:translateX(-50%); }
+  .pj:hover .pj-img:not(.fit-width):not(.fit-height) img{ transform:scale(1.025); }
+  .pj-body{ padding:18px 20px 20px; display:flex; flex-direction:column; gap:10px; flex:1; min-width:0; }
+  .pj-meta{ display:flex; align-items:center; gap:14px; font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .pj-live{ display:inline-flex; align-items:center; gap:7px; color:var(--accent); }
+  .pj-live::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px rgba(249,201,64,.16); }
+  .pj-title{ margin:0; font-size:22px; line-height:1.25; }
+  .pj-title a{ color:inherit; }
+  .pj-title a:hover{ color:var(--accent); }
+  .pj-desc{ margin:0; color:var(--muted); font-size:15px; line-height:1.6; }
+  .pj-stack{ list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:6px; }
+  .pj-stack li{ padding:3px 8px; border:1px solid var(--line); border-radius:var(--radius-sm); font-family:var(--mono); font-size:11px; color:#c5c8d6; }
+  .pj-actions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:auto; padding-top:8px; }
+  .pj-actions .btn{ padding:9px 14px; font-size:13px; }
+  /* первый проект во всю ширину: скриншот слева, текст справа */
+  .pj--wide{ grid-column:1 / -1; flex-direction:row; }
+  .pj--wide .pj-shot{ flex:0 0 58%; padding:22px 0 22px 22px; border-bottom:0; border-right:1px solid var(--line); }
+  .pj--wide .pj-frame{ border:1px solid var(--line); border-radius:var(--radius); }
+  .pj--wide .pj-body{ padding:28px 28px 26px; justify-content:center; }
+  .pj--wide .pj-title{ font-size:28px; }
+  .pj--wide .pj-actions{ margin-top:10px; }
+  .pj-starter{ border-color:var(--accent); color:var(--accent); }
 
   .co-empty{ padding:40px 0; text-align:center; color:var(--muted); }
 
@@ -291,6 +370,14 @@ $coll_gallery = $coll['layout'] === 'gallery';
   .co-save:hover{ color:#1b1606; filter:brightness(1.08); }
   .co-save:disabled{ opacity:.6; cursor:default; }
 
+  @media (max-width: 900px){
+    .pj-list{ grid-template-columns:1fr; }
+    .pj--wide{ flex-direction:column; }
+    .pj--wide .pj-shot{ flex:none; padding:16px 16px 0; border-right:0; border-bottom:1px solid var(--line); }
+    .pj--wide .pj-frame{ border-bottom:0; border-radius:var(--radius) var(--radius) 0 0; }
+    .pj--wide .pj-body{ padding:18px 20px 20px; }
+    .pj--wide .pj-title{ font-size:24px; }
+  }
   @media (max-width: 760px){
     .co-view{ grid-template-columns:1fr; }
     .co-main{ min-height:220px; }
@@ -310,10 +397,14 @@ $coll_gallery = $coll['layout'] === 'gallery';
       <div>
         <div class="page-label"><?= coll_h($coll['label']) ?></div>
         <h1 class="page-title"><?= coll_h($coll['title']) ?></h1>
+        <?php if (!empty($coll['lead'])): ?><p class="page-sub" style="margin-bottom:0"><?= coll_h($coll['lead']) ?></p><?php endif; ?>
       </div>
       <div class="co-tools">
-        <?php if (count($coll_items) > 4): ?>
+        <?php if (count($coll_items) > 6): ?>
           <input class="co-search" type="search" id="coSearch" placeholder="Поиск" autocomplete="off">
+        <?php endif; ?>
+        <?php if ($coll_starters): ?>
+          <button class="btn pj-starter" type="button" id="coStarter">+ Демо-проекты (<?= $coll_starters ?>)</button>
         <?php endif; ?>
         <?php if ($coll_is_admin): ?>
           <button class="btn co-add" type="button" id="coAdd">+ Добавить</button>
@@ -325,8 +416,8 @@ $coll_gallery = $coll['layout'] === 'gallery';
       <div class="co-empty"><?= coll_h($coll['empty']) ?><?= $coll_is_admin ? ' Нажми «Добавить».' : '' ?></div>
     <?php endif; ?>
 
-    <div class="<?= $coll_gallery ? 'co-gallery' : 'co-grid' ?>" id="coList">
-      <?php foreach ($coll_items as $it): ?>
+    <div class="<?= $coll_gallery ? 'co-gallery' : ($coll_cases ? 'pj-list' : 'co-grid') ?>" id="coList">
+      <?php foreach ($coll_items as $n => $it): ?>
         <?php
           $cover = coll_cover($it);
           $search = coll_lower($it['title'] . ' ' . $it['description'] . ' ' . $it['details'] . ' ' . implode(' ', $it['tags']));
@@ -344,6 +435,44 @@ $coll_gallery = $coll['layout'] === 'gallery';
             <?php if ($count > 1): ?><span class="co-badge"><?= $count ?></span><?php endif; ?>
             <span class="co-shot-cap"><b><?= coll_h($it['title']) ?></b><?php if ($it['date']): ?><span><?= coll_h(coll_date_human($it['date'])) ?></span><?php endif; ?></span>
           </a>
+        <?php elseif ($coll_cases): ?>
+          <?php
+            $url = coll_item_url($coll_key, $it);
+            $is_demo = strpos($it['link'], '/projects/demo/') === 0;
+          ?>
+          <article class="pj<?= $n === 0 ? ' pj--wide' : '' ?>" data-id="<?= coll_h($it['id']) ?>" data-search="<?= coll_h($search) ?>">
+            <a class="pj-shot" href="<?= coll_h($url) ?>" tabindex="-1" aria-hidden="true">
+              <span class="pj-frame">
+                <span class="pj-chrome"><i></i><i></i><i></i><?php if ($it['link']): ?><span class="pj-url"><?= coll_h(coll_link_label($it['link'])) ?></span><?php endif; ?></span>
+                <span class="pj-img fit-<?= coll_h($it['fit']) ?>">
+                  <?php if ($cover && $cover['type'] === 'image'): ?>
+                    <img src="<?= coll_h($cover['preview'] ?: $cover['src']) ?>" alt="" loading="<?= $n < 2 ? 'eager' : 'lazy' ?>">
+                  <?php elseif ($cover): ?>
+                    <video src="<?= coll_h($cover['src']) ?>#t=0.1" preload="metadata" muted playsinline></video>
+                  <?php else: ?>
+                    <span class="co-cover-empty">◇</span>
+                  <?php endif; ?>
+                </span>
+              </span>
+            </a>
+            <div class="pj-body">
+              <div class="pj-meta">
+                <?php if ($it['date']): ?><span><?= coll_h(coll_month_human($it['date'])) ?></span><?php endif; ?>
+                <?php if ($is_demo): ?><span class="pj-live">живое демо</span><?php endif; ?>
+              </div>
+              <h2 class="pj-title"><a href="<?= coll_h($url) ?>"><?= coll_h($it['title']) ?></a></h2>
+              <?php if ($it['description'] !== ''): ?><p class="pj-desc"><?= coll_h($it['description']) ?></p><?php endif; ?>
+              <?php if ($it['tags']): ?>
+                <ul class="pj-stack"><?php foreach ($it['tags'] as $t): ?><li><?= coll_h($t) ?></li><?php endforeach; ?></ul>
+              <?php endif; ?>
+              <div class="pj-actions">
+                <?php if ($it['link']): ?>
+                  <a class="btn btn--primary pj-open" href="<?= coll_h($it['link']) ?>" target="_blank" rel="noopener"><?= $is_demo ? 'Открыть демо' : 'Открыть' ?> ↗</a>
+                <?php endif; ?>
+                <a class="btn" href="<?= coll_h($url) ?>">Подробнее</a>
+              </div>
+            </div>
+          </article>
         <?php else: ?>
           <a class="co-card" href="<?= coll_h(coll_item_url($coll_key, $it)) ?>" data-id="<?= coll_h($it['id']) ?>" data-search="<?= coll_h($search) ?>">
             <div class="co-cover fit-<?= coll_h($it['fit']) ?>">
@@ -527,7 +656,10 @@ $coll_gallery = $coll['layout'] === 'gallery';
     linkify($('coVDetails'), it.details);
     const link = $('coVLink');
     link.hidden = !it.link;
-    if (it.link) link.href = it.link;
+    if (it.link) {
+      link.href = it.link;
+      link.textContent = it.link.indexOf('/projects/demo/') === 0 ? 'Открыть демо ↗' : 'Открыть ссылку ↗';
+    }
 
     const thumbs = $('coThumbs'); thumbs.textContent = '';
     thumbs.hidden = it.media.length < 2;
@@ -544,14 +676,15 @@ $coll_gallery = $coll['layout'] === 'gallery';
 
   $('coList').addEventListener('click', (e) => {
     const a = e.target.closest('[data-id]');
-    if (!a || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    // Кнопка демо в карточке ведёт на сам проект, а не в просмотр
+    if (!a || e.target.closest('.pj-open') || e.ctrlKey || e.metaKey || e.shiftKey) return;
     e.preventDefault();
     openView(a.dataset.id);
   });
 
   document.addEventListener('keydown', (e) => {
     if (!openModalEl) return;
-    if (e.key === 'Escape') closeModal(openModalEl);
+    if (e.key === 'Escape') { closeModal(openModalEl); return; }
     if (openModalEl.id === 'coViewModal' && current && current.media.length > 1 && !e.target.closest('input,textarea')) {
       if (e.key === 'ArrowLeft') showMedia(mediaIdx - 1);
       if (e.key === 'ArrowRight') showMedia(mediaIdx + 1);
@@ -585,6 +718,23 @@ $coll_gallery = $coll['layout'] === 'gallery';
   if (startId) openView(startId, false);
 
   if (!IS_ADMIN) return;
+
+  // Готовые карточки демо-проектов: добавить недостающие
+  const starter = $('coStarter');
+  if (starter) starter.addEventListener('click', async () => {
+    starter.disabled = true;
+    const body = new FormData();
+    body.append('csrf', CSRF);
+    try {
+      const r = await fetch(BASE + '?api=starter', { method: 'POST', body, credentials: 'same-origin' });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Не получилось');
+      location.reload();
+    } catch (err) {
+      starter.disabled = false;
+      alert(err.message);
+    }
+  });
 
   /* ---------- редактирование ---------- */
   const form = $('coForm');

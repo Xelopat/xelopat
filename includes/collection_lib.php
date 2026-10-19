@@ -10,8 +10,11 @@ const COLLECTIONS = [
         'label' => '// projects',
         'url' => '/projects',
         'legacy' => ['cards', 'projects'],
-        'layout' => 'cards',
+        'layout' => 'cases',
+        'lead' => 'Сайты, админки и приложения для киосков. Почти у каждого проекта есть живое демо на тестовых данных: его можно открыть и покликать.',
         'empty' => 'Проектов пока нет.',
+        // Готовые карточки демо: админ добавляет недостающие одной кнопкой
+        'starter' => '/projects/demo/cards.json',
     ],
     'travel' => [
         'title' => 'Путешествия',
@@ -208,6 +211,28 @@ function coll_cover(array $item): ?array {
 
 function coll_item_url(string $key, array $item): string {
     return coll_def($key)['url'] . '?item=' . rawurlencode($item['id']);
+}
+
+// Ссылка на страницу этого же сайта: /path, но не //host
+function coll_is_local_path(string $s): bool {
+    return (bool)preg_match('~^/(?!/)\S*$~', $s);
+}
+
+// Стартовые карточки, которых ещё нет в коллекции (сверяем по ссылке)
+function coll_missing_starters(string $key, array $items): array {
+    $file = (string)(coll_def($key)['starter'] ?? '');
+    if ($file === '' || !is_file(coll_root() . $file)) return [];
+    $cards = json_decode((string)file_get_contents(coll_root() . $file), true);
+    $have = [];
+    foreach ($items as $it) if ($it['link'] !== '') $have[rtrim($it['link'], '/')] = true;
+    $out = [];
+    foreach ((array)$cards as $c) {
+        if (!is_array($c) || trim((string)($c['title'] ?? '')) === '') continue;
+        if (isset($have[rtrim((string)($c['link'] ?? ''), '/')])) continue;
+        $c['media'] = array_map(fn($src) => ['type' => coll_media_kind((string)$src), 'src' => (string)$src, 'preview' => ''], (array)($c['media'] ?? []));
+        $out[] = $c;
+    }
+    return $out;
 }
 
 /* ---------------- файлы ---------------- */
