@@ -291,8 +291,14 @@ function coll_rich(string $text): string {
 
 
   /* страница проекта */
-  .cs-back{ display:inline-flex; align-items:center; gap:6px; margin-bottom:18px; font-family:var(--mono); font-size:13px; color:var(--muted); }
-  .cs-back:hover{ color:var(--accent); }
+  .cs-back{
+    position:sticky; top:calc(var(--header-h) + 12px); z-index:30;
+    display:flex; align-items:center; gap:8px; width:fit-content; margin:0 0 22px; padding:9px 16px;
+    font-family:var(--mono); font-size:13px; color:var(--text);
+    background:rgba(24,24,31,.82); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border:1px solid var(--line); border-radius:999px; box-shadow:0 6px 20px rgba(0,0,0,.35);
+  }
+  .cs-back:hover{ color:var(--accent); border-color:var(--accent); }
   .cs-hero{ max-width:820px; }
   .cs-meta{ display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:10px; font-family:var(--mono); font-size:12px; color:var(--muted); }
   .cs-title{ margin:0 0 14px; font-size:clamp(30px, 5vw, 46px); line-height:1.1; }
@@ -790,7 +796,8 @@ function coll_rich(string $text): string {
 
   const CASE_ID = <?= json_encode($coll_case ? $coll_case['id'] : '') ?>;
   const listEl = $('coList');
-  if (listEl) listEl.addEventListener('click', (e) => {
+  // Кейсы ведут на свою страницу, окно просмотра только для остальных разделов
+  if (listEl && !listEl.classList.contains('pj-list')) listEl.addEventListener('click', (e) => {
     const a = e.target.closest('[data-id]');
     // Кнопка демо в карточке ведёт на сам проект, а не в просмотр
     if (!a || e.target.closest('.pj-open') || e.ctrlKey || e.metaKey || e.shiftKey) return;
