@@ -305,7 +305,7 @@ function coll_rich(string $text): string {
   .cs-lead{ margin:0 0 20px; font-size:clamp(16px, 2.2vw, 19px); line-height:1.6; color:var(--muted); }
   .cs-actions{ display:flex; flex-wrap:wrap; gap:10px; }
   .cs-cover{ display:block; margin:30px 0 0; border-radius:var(--radius-lg); overflow:hidden; background:var(--panel-2); }
-  .cs-cover img, .cs-cover video{ display:block; width:100%; height:auto; }
+  .cs-cover img, .cs-cover video{ display:block; width:100%; height:auto; max-height:min(80vh, 760px); object-fit:contain; }
   .cs-body{ display:grid; grid-template-columns:minmax(0, 1fr) 280px; gap:48px; margin-top:40px; align-items:start; }
   .cs-text{ font-size:16.5px; line-height:1.75; color:#d3d5e0; max-width:68ch; }
   .cs-text p{ margin:0 0 1.1em; }
@@ -316,7 +316,7 @@ function coll_rich(string $text): string {
   .cs-side p{ margin:0; font-size:14px; color:#d3d5e0; }
   .cs-gallery{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px; margin-top:40px; }
   .cs-gallery a{ display:block; border-radius:var(--radius); overflow:hidden; background:var(--panel-2); }
-  .cs-gallery img, .cs-gallery video{ display:block; width:100%; height:auto; }
+  .cs-gallery img, .cs-gallery video{ display:block; width:100%; height:auto; max-height:min(72vh, 640px); object-fit:contain; }
   .cs-nav{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:56px; padding-top:28px; border-top:1px solid var(--line); }
   .cs-nav a{
     position:relative; display:flex; align-items:center; gap:16px; min-width:0; padding:12px 18px 12px 12px;
