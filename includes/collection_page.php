@@ -157,7 +157,15 @@ $coll_js_items = array_map(function ($it) {
     return $it;
 }, $coll_items);
 
-$site_page_title = $coll['title'] . ' — xelopat';
+$coll_case = null;
+$coll_case_pos = -1;
+if ($coll['layout'] === 'cases' && isset($_GET['item'])) {
+    foreach ($coll_items as $n => $it) {
+        if ($it['id'] === (string)$_GET['item']) { $coll_case = $it; $coll_case_pos = $n; break; }
+    }
+}
+
+$site_page_title = ($coll_case ? $coll_case['title'] : $coll['title']) . ' — xelopat';
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 $coll_csrf = $coll_is_admin ? csrf_token() : '';
 $coll_gallery = $coll['layout'] === 'gallery';
@@ -172,11 +180,16 @@ function coll_month_human(string $d): string {
     return COLL_MONTHS[(int)$m[2] - 1] . ' ' . $m[1];
 }
 
-// Адрес в строке «браузера» над скриншотом
-function coll_link_label(string $link): string {
-    if ($link === '') return '';
-    $url = coll_is_local_path($link) ? 'xelopat.ru' . $link : preg_replace('~^https?://(www\.)?~i', '', $link);
-    return rtrim((string)$url, '/');
+// Подробное описание: абзацы по пустой строке, http-ссылки кликабельные
+function coll_rich(string $text): string {
+    $out = '';
+    foreach (preg_split('~\R{2,}~', trim($text)) as $para) {
+        if (trim($para) === '') continue;
+        $h = coll_h($para);
+        $h = preg_replace('~(https?://[^\s<]+)~i', '<a href="$1" target="_blank" rel="noopener">$1</a>', $h);
+        $out .= '<p>' . nl2br($h, false) . '</p>';
+    }
+    return $out;
 }
 ?>
 <style>
@@ -249,21 +262,7 @@ function coll_link_label(string $link): string {
     transition:border-color .16s ease;
   }
   .pj:hover{ border-color:#4a4a5c; }
-  .pj-shot{
-    display:block; padding:18px; color:inherit;
-    background:radial-gradient(110% 80% at 50% 0%, rgba(249,201,64,.09), transparent 62%), var(--panel-2);
-    border-bottom:1px solid var(--line);
-  }
-  .pj-frame{
-    display:block; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
-    background:var(--bg); box-shadow:0 10px 30px rgba(0,0,0,.35);
-  }
-  .pj-chrome{ height:26px; display:flex; align-items:center; gap:6px; padding:0 10px; background:#1a1a21; border-bottom:1px solid var(--line); }
-  .pj-chrome i{ flex:none; width:8px; height:8px; border-radius:50%; background:#3a3a48; }
-  .pj-url{
-    flex:1; min-width:0; margin-left:8px; padding:3px 8px; border-radius:var(--radius-sm); background:var(--panel-2);
-    font-family:var(--mono); font-size:10.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  }
+  .pj-shot{ display:block; color:inherit; border-bottom:1px solid var(--line); }
   .pj-img{ display:block; position:relative; aspect-ratio:16 / 10; overflow:hidden; background:var(--panel-2); }
   .pj-img img, .pj-img video{ width:100%; height:100%; object-fit:cover; object-position:top; display:block; transition:transform .5s ease; }
   .pj-img.fit-width img, .pj-img.fit-width video{ position:absolute; left:0; top:50%; height:auto; transform:translateY(-50%); }
@@ -283,12 +282,54 @@ function coll_link_label(string $link): string {
   .pj-actions .btn{ padding:9px 14px; font-size:13px; }
   /* первый проект во всю ширину: скриншот слева, текст справа */
   .pj--wide{ grid-column:1 / -1; flex-direction:row; }
-  .pj--wide .pj-shot{ flex:0 0 58%; display:flex; align-items:center; padding:28px; border-bottom:0; border-right:1px solid var(--line); }
-  .pj--wide .pj-frame{ width:100%; }
+  .pj--wide .pj-shot{ flex:0 0 58%; display:flex; border-bottom:0; border-right:1px solid var(--line); }
+  .pj--wide .pj-img{ flex:1; aspect-ratio:auto; min-height:300px; }
   .pj--wide .pj-body{ padding:28px 28px 26px; justify-content:center; }
   .pj--wide .pj-title{ font-size:28px; }
   .pj--wide .pj-actions{ margin-top:10px; }
   .pj-starter{ border-color:var(--accent); color:var(--accent); }
+
+
+  /* страница проекта */
+  .cs-back{ display:inline-flex; align-items:center; gap:6px; margin-bottom:18px; font-family:var(--mono); font-size:13px; color:var(--muted); }
+  .cs-back:hover{ color:var(--accent); }
+  .cs-hero{ max-width:820px; }
+  .cs-meta{ display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:10px; font-family:var(--mono); font-size:12px; color:var(--muted); }
+  .cs-title{ margin:0 0 14px; font-size:clamp(30px, 5vw, 46px); line-height:1.1; }
+  .cs-lead{ margin:0 0 20px; font-size:clamp(16px, 2.2vw, 19px); line-height:1.6; color:var(--muted); }
+  .cs-actions{ display:flex; flex-wrap:wrap; gap:10px; }
+  .cs-cover{ display:block; margin:30px 0 0; border-radius:var(--radius-lg); overflow:hidden; background:var(--panel-2); }
+  .cs-cover img, .cs-cover video{ display:block; width:100%; height:auto; }
+  .cs-body{ display:grid; grid-template-columns:minmax(0, 1fr) 280px; gap:48px; margin-top:40px; align-items:start; }
+  .cs-text{ font-size:16.5px; line-height:1.75; color:#d3d5e0; max-width:68ch; }
+  .cs-text p{ margin:0 0 1.1em; }
+  .cs-text a{ color:var(--accent); word-break:break-word; }
+  .cs-side{ position:sticky; top:90px; display:flex; flex-direction:column; gap:18px; padding:20px; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-lg); }
+  .cs-side h3{ margin:0 0 8px; font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .cs-side .pj-stack li{ font-size:12px; }
+  .cs-side p{ margin:0; font-size:14px; color:#d3d5e0; }
+  .cs-gallery{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px; margin-top:40px; }
+  .cs-gallery a{ display:block; border-radius:var(--radius); overflow:hidden; background:var(--panel-2); }
+  .cs-gallery img, .cs-gallery video{ display:block; width:100%; height:auto; }
+  .cs-nav{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:56px; padding-top:28px; border-top:1px solid var(--line); }
+  .cs-nav a{ display:flex; flex-direction:column; gap:4px; padding:16px 18px; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); color:inherit; min-width:0; }
+  .cs-nav a:hover{ border-color:var(--accent); }
+  .cs-nav small{ font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .cs-nav b{ font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cs-nav .next{ text-align:right; grid-column:2; }
+  @media (max-width: 900px){
+    .cs-body{ grid-template-columns:1fr; gap:28px; }
+    .cs-side{ position:static; order:-1; }
+  }
+  @media (max-width: 560px){
+    .cs-cover{ margin-top:22px; border-radius:var(--radius); }
+    .cs-body{ margin-top:28px; }
+    .cs-text{ font-size:16px; }
+    .cs-gallery{ grid-template-columns:1fr; margin-top:28px; }
+    .cs-actions .btn{ flex:1 1 auto; justify-content:center; text-align:center; }
+    .cs-nav{ grid-template-columns:1fr; margin-top:40px; }
+    .cs-nav .next{ grid-column:auto; text-align:left; }
+  }
 
   .co-empty{ padding:40px 0; text-align:center; color:var(--muted); }
 
@@ -373,17 +414,14 @@ function coll_link_label(string $link): string {
   @media (max-width: 900px){
     .pj-list{ grid-template-columns:1fr; }
     .pj--wide{ flex-direction:column; }
-    .pj--wide .pj-shot{ flex:none; display:block; padding:18px; border-right:0; border-bottom:1px solid var(--line); }
+    .pj--wide .pj-shot{ flex:none; display:block; border-right:0; border-bottom:1px solid var(--line); }
+    .pj--wide .pj-img{ aspect-ratio:16 / 10; min-height:0; }
     .pj--wide .pj-body{ padding:18px 20px 20px; }
     .pj--wide .pj-title{ font-size:24px; }
   }
   @media (max-width: 560px){
     .pj-list{ gap:16px; }
-    .pj-shot, .pj--wide .pj-shot{ padding:12px; }
-    .pj-chrome{ height:22px; padding:0 8px; gap:5px; }
-    .pj-chrome i{ width:7px; height:7px; }
-    .pj-url{ font-size:9.5px; margin-left:4px; }
-    .pj-img{ aspect-ratio:4 / 3; }
+    .pj-img, .pj--wide .pj-img{ aspect-ratio:4 / 3; }
     .pj-body, .pj--wide .pj-body{ padding:16px 16px 18px; gap:8px; }
     .pj-title, .pj--wide .pj-title{ font-size:20px; }
     .pj-desc{ font-size:14px; line-height:1.55; }
@@ -405,6 +443,72 @@ function coll_link_label(string $link): string {
 
 <main class="page">
   <div class="page-wrap">
+<?php if ($coll_case): ?>
+    <?php
+      $c = $coll_case;
+      $cu = $c['link'];
+      $c_demo = strpos($cu, '/projects/demo/') === 0;
+      $c_cover = coll_cover($c);
+      $c_rest = array_values(array_filter($c['media'], fn($m) => $m !== $c_cover));
+      $c_prev = $coll_case_pos > 0 ? $coll_items[$coll_case_pos - 1] : null;
+      $c_next = $coll_items[$coll_case_pos + 1] ?? null;
+    ?>
+    <a class="cs-back" href="<?= coll_h($coll['url']) ?>">← Все проекты</a>
+    <header class="cs-hero">
+      <div class="cs-meta">
+        <?php if ($c['date']): ?><span><?= coll_h(coll_month_human($c['date'])) ?></span><?php endif; ?>
+        <?php if ($c_demo): ?><span class="pj-live">живое демо</span><?php endif; ?>
+      </div>
+      <h1 class="cs-title"><?= coll_h($c['title']) ?></h1>
+      <?php if ($c['description'] !== ''): ?><p class="cs-lead"><?= coll_h($c['description']) ?></p><?php endif; ?>
+      <div class="cs-actions">
+        <?php if ($cu): ?><a class="btn btn--primary" href="<?= coll_h($cu) ?>" target="_blank" rel="noopener"><?= $c_demo ? 'Открыть демо' : 'Открыть' ?> ↗</a><?php endif; ?>
+        <?php if ($coll_is_admin): ?>
+          <button class="btn" type="button" id="csEdit">Изменить</button>
+          <button class="btn co-del" type="button" id="csDelete">Удалить</button>
+        <?php endif; ?>
+      </div>
+    </header>
+
+    <?php if ($c_cover): ?>
+      <div class="cs-cover">
+        <?php if ($c_cover['type'] === 'image'): ?><img src="<?= coll_h($c_cover['src']) ?>" alt="<?= coll_h($c['title']) ?>">
+        <?php else: ?><video src="<?= coll_h($c_cover['src']) ?>" controls playsinline preload="metadata"></video><?php endif; ?>
+      </div>
+    <?php endif; ?>
+
+    <div class="cs-body">
+      <div class="cs-text"><?= coll_rich($c['details']) ?></div>
+      <aside class="cs-side">
+        <?php if ($c['tags']): ?>
+          <div><h3>Стек</h3><ul class="pj-stack"><?php foreach ($c['tags'] as $t): ?><li><?= coll_h($t) ?></li><?php endforeach; ?></ul></div>
+        <?php endif; ?>
+        <?php if ($c_demo): ?>
+          <div><h3>Демо</h3><p>Работает на тестовых данных, без сервера: можно кликать и пробовать.</p></div>
+        <?php endif; ?>
+        <?php if ($cu): ?><a class="btn btn--primary" href="<?= coll_h($cu) ?>" target="_blank" rel="noopener" style="justify-content:center"><?= $c_demo ? 'Открыть демо' : 'Открыть' ?> ↗</a><?php endif; ?>
+      </aside>
+    </div>
+
+    <?php if ($c_rest): ?>
+      <div class="cs-gallery">
+        <?php foreach ($c_rest as $m): ?>
+          <?php if ($m['type'] === 'image'): ?>
+            <a href="<?= coll_h($m['src']) ?>" target="_blank" rel="noopener"><img src="<?= coll_h($m['src']) ?>" alt="" loading="lazy"></a>
+          <?php else: ?>
+            <a><video src="<?= coll_h($m['src']) ?>" controls playsinline preload="metadata"></video></a>
+          <?php endif; ?>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+
+    <?php if ($c_prev || $c_next): ?>
+      <nav class="cs-nav">
+        <?php if ($c_prev): ?><a class="prev" href="<?= coll_h(coll_item_url($coll_key, $c_prev)) ?>"><small>← Предыдущий</small><b><?= coll_h($c_prev['title']) ?></b></a><?php endif; ?>
+        <?php if ($c_next): ?><a class="next" href="<?= coll_h(coll_item_url($coll_key, $c_next)) ?>"><small>Следующий →</small><b><?= coll_h($c_next['title']) ?></b></a><?php endif; ?>
+      </nav>
+    <?php endif; ?>
+    <?php else: ?>
     <div class="co-head">
       <div>
         <div class="page-label"><?= coll_h($coll['label']) ?></div>
@@ -454,9 +558,7 @@ function coll_link_label(string $link): string {
           ?>
           <article class="pj<?= $n === 0 ? ' pj--wide' : '' ?>" data-id="<?= coll_h($it['id']) ?>" data-search="<?= coll_h($search) ?>">
             <a class="pj-shot" href="<?= coll_h($url) ?>" tabindex="-1" aria-hidden="true">
-              <span class="pj-frame">
-                <span class="pj-chrome"><i></i><i></i><i></i><?php if ($it['link']): ?><span class="pj-url"><?= coll_h(coll_link_label($it['link'])) ?></span><?php endif; ?></span>
-                <span class="pj-img fit-<?= coll_h($it['fit']) ?>">
+              <span class="pj-img fit-<?= coll_h($it['fit']) ?>">
                   <?php if ($cover && $cover['type'] === 'image'): ?>
                     <img src="<?= coll_h($cover['preview'] ?: $cover['src']) ?>" alt="" loading="<?= $n < 2 ? 'eager' : 'lazy' ?>">
                   <?php elseif ($cover): ?>
@@ -464,7 +566,6 @@ function coll_link_label(string $link): string {
                   <?php else: ?>
                     <span class="co-cover-empty">◇</span>
                   <?php endif; ?>
-                </span>
               </span>
             </a>
             <div class="pj-body">
@@ -510,6 +611,7 @@ function coll_link_label(string $link): string {
       <?php endforeach; ?>
     </div>
     <div class="co-empty" id="coNothing" hidden>Ничего не найдено.</div>
+    <?php endif; ?>
   </div>
 </main>
 
@@ -686,7 +788,9 @@ function coll_link_label(string $link): string {
     if (push !== false) history.replaceState(null, '', BASE + '?item=' + encodeURIComponent(id));
   }
 
-  $('coList').addEventListener('click', (e) => {
+  const CASE_ID = <?= json_encode($coll_case ? $coll_case['id'] : '') ?>;
+  const listEl = $('coList');
+  if (listEl) listEl.addEventListener('click', (e) => {
     const a = e.target.closest('[data-id]');
     // Кнопка демо в карточке ведёт на сам проект, а не в просмотр
     if (!a || e.target.closest('.pj-open') || e.ctrlKey || e.metaKey || e.shiftKey) return;
@@ -727,7 +831,8 @@ function coll_link_label(string $link): string {
   });
 
   const startId = new URLSearchParams(location.search).get('item');
-  if (startId) openView(startId, false);
+  if (CASE_ID) current = byId[CASE_ID];
+  else if (startId) openView(startId, false);
 
   if (!IS_ADMIN) return;
 
@@ -894,14 +999,15 @@ function coll_link_label(string $link): string {
     setTimeout(() => form.elements.title.focus(), 50);
   }
 
-  $('coAdd').onclick = () => openForm(null);
+  if ($('coAdd')) $('coAdd').onclick = () => openForm(null);
   // Кнопка «+ Добавить» из админки ведёт сюда с ?add=1
   if (new URLSearchParams(location.search).has('add')) {
     history.replaceState(null, '', BASE);
     openForm(null);
   }
   $('coEdit').onclick = () => { closeModal($('coViewModal')); openForm(current); };
-  $('coDelete').onclick = async () => {
+  if ($('csEdit')) $('csEdit').onclick = () => openForm(current);
+  const doDelete = async () => {
     if (!confirm(`Удалить «${current.title}» вместе с файлами?`)) return;
     const fd = new FormData();
     fd.append('csrf', CSRF);
@@ -911,6 +1017,8 @@ function coll_link_label(string $link): string {
     if (!r.ok) { alert(j.error || 'Не удалось удалить'); return; }
     location.href = BASE;
   };
+  $('coDelete').onclick = doDelete;
+  if ($('csDelete')) $('csDelete').onclick = doDelete;
 
   // Выбор файлов кнопкой
   const input = $('coFiles');
