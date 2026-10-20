@@ -328,8 +328,21 @@ function coll_rich(string $text): string {
   .cs-nav-t{ display:flex; flex-direction:column; gap:4px; min-width:0; flex:1; }
   .cs-nav small{ font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
   .cs-nav b{ font-size:16px; line-height:1.3; }
-  .cs-nav-arrow{ flex:none; display:grid; place-items:center; width:34px; height:34px; border-radius:50%; border:1px solid var(--line); font-style:normal; color:var(--muted); transition:all .16s ease; }
-  .cs-nav a:hover .cs-nav-arrow{ background:var(--accent); border-color:var(--accent); color:#1b1606; }
+  .cs-nav-arrow{
+    position:relative; flex:none; width:52px; height:52px; border-radius:50%; overflow:hidden;
+    display:block; font-style:normal; color:var(--accent);
+    background:rgba(249,201,64,.08); border:1.5px solid rgba(249,201,64,.45);
+    transition:background .25s ease, color .25s ease, box-shadow .25s ease, border-color .25s ease, transform .25s ease;
+  }
+  .cs-nav-arrow svg{ position:absolute; left:50%; top:50%; width:24px; height:24px; margin:-12px 0 0 -12px; transition:transform .35s cubic-bezier(.5,0,.2,1); }
+  .cs-nav-arrow svg + svg{ transform:translateX(-46px); }
+  .cs-nav .prev .cs-nav-arrow svg{ transform:scaleX(-1); }
+  .cs-nav .prev .cs-nav-arrow svg + svg{ transform:scaleX(-1) translateX(-46px); }
+  .cs-nav a:hover .cs-nav-arrow{ background:var(--accent); border-color:var(--accent); color:#1b1606; box-shadow:0 0 0 6px rgba(249,201,64,.14), 0 8px 24px rgba(249,201,64,.35); transform:scale(1.06); }
+  .cs-nav a:hover .cs-nav-arrow svg{ transform:translateX(46px); }
+  .cs-nav a:hover .cs-nav-arrow svg + svg{ transform:translateX(0); }
+  .cs-nav .prev:hover .cs-nav-arrow svg{ transform:scaleX(-1) translateX(46px); }
+  .cs-nav .prev:hover .cs-nav-arrow svg + svg{ transform:scaleX(-1) translateX(0); }
   .cs-nav .prev{ flex-direction:row-reverse; text-align:right; }
   .cs-nav .prev .cs-nav-t{ align-items:flex-end; }
   .cs-nav .next{ grid-column:2; }
@@ -361,6 +374,7 @@ function coll_rich(string $text): string {
     .cs-nav{ grid-template-columns:1fr; margin-top:40px; }
     .cs-nav .next{ grid-column:auto; }
     .cs-nav img{ width:72px; height:54px; }
+    .cs-nav-arrow{ width:44px; height:44px; }
     .cs-nav b{ font-size:15px; }
     .cs-lb-a{ top:auto; bottom:12px; transform:none; }
     .cs-lb img{ max-height:80vh; }
@@ -545,7 +559,7 @@ function coll_rich(string $text): string {
             <a class="<?= $cls ?>" href="<?= coll_h(coll_item_url($coll_key, $nb)) ?>">
               <?php if ($nc && $nc['type'] === 'image'): ?><img src="<?= coll_h($nc['preview'] ?: $nc['src']) ?>" alt="" loading="lazy"><?php endif; ?>
               <span class="cs-nav-t"><small><?= $lab ?></small><b><?= coll_h($nb['title']) ?></b></span>
-              <i class="cs-nav-arrow" aria-hidden="true"><?= $cls === 'prev' ? '←' : '→' ?></i>
+              <i class="cs-nav-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 5.5 19.5 12 13 18.5"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 5.5 19.5 12 13 18.5"/></svg></i>
             </a>
           <?php else: ?><span></span><?php endif; ?>
         <?php endforeach; ?>
