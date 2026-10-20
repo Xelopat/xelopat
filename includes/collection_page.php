@@ -318,11 +318,36 @@ function coll_rich(string $text): string {
   .cs-gallery a{ display:block; border-radius:var(--radius); overflow:hidden; background:var(--panel-2); }
   .cs-gallery img, .cs-gallery video{ display:block; width:100%; height:auto; }
   .cs-nav{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:56px; padding-top:28px; border-top:1px solid var(--line); }
-  .cs-nav a{ display:flex; flex-direction:column; gap:4px; padding:16px 18px; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); color:inherit; min-width:0; }
-  .cs-nav a:hover{ border-color:var(--accent); }
-  .cs-nav small{ font-family:var(--mono); font-size:11px; color:var(--muted); }
-  .cs-nav b{ font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .cs-nav .next{ text-align:right; grid-column:2; }
+  .cs-nav a{
+    position:relative; display:flex; align-items:center; gap:16px; min-width:0; padding:12px 18px 12px 12px;
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-lg); color:inherit;
+    transition:border-color .16s ease, transform .16s ease;
+  }
+  .cs-nav a:hover{ border-color:var(--accent); transform:translateY(-2px); }
+  .cs-nav img{ flex:none; width:96px; height:64px; object-fit:cover; object-position:top; border-radius:var(--radius-sm); }
+  .cs-nav-t{ display:flex; flex-direction:column; gap:4px; min-width:0; flex:1; }
+  .cs-nav small{ font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+  .cs-nav b{ font-size:16px; line-height:1.3; }
+  .cs-nav-arrow{ flex:none; display:grid; place-items:center; width:34px; height:34px; border-radius:50%; border:1px solid var(--line); font-style:normal; color:var(--muted); transition:all .16s ease; }
+  .cs-nav a:hover .cs-nav-arrow{ background:var(--accent); border-color:var(--accent); color:#1b1606; }
+  .cs-nav .prev{ flex-direction:row-reverse; text-align:right; }
+  .cs-nav .prev .cs-nav-t{ align-items:flex-end; }
+  .cs-nav .next{ grid-column:2; }
+  .cs-nav .next .cs-nav-t{ align-items:flex-start; text-align:left; }
+  .cs-nav .next img{ order:-1; }
+  .cs-cover{ cursor:zoom-in; }
+  .cs-gallery a{ cursor:zoom-in; }
+  .cs-lb{ position:fixed; inset:0; z-index:3000; display:flex; align-items:center; justify-content:center; background:rgba(8,8,12,.94); }
+  .cs-lb[hidden]{ display:none; }
+  .cs-lb img{ max-width:min(94vw, 1800px); max-height:88vh; object-fit:contain; border-radius:var(--radius-sm); user-select:none; }
+  .cs-lb button{ position:absolute; display:grid; place-items:center; border:1px solid var(--line); background:rgba(30,30,38,.8); color:var(--text); border-radius:50%; cursor:pointer; font-size:26px; line-height:1; }
+  .cs-lb button:hover{ border-color:var(--accent); color:var(--accent); }
+  .cs-lb button[hidden]{ display:none; }
+  .cs-lb-x{ top:16px; right:16px; width:44px; height:44px; font-size:28px !important; }
+  .cs-lb-a{ top:50%; width:48px; height:48px; transform:translateY(-50%); }
+  .cs-lb-a.prev{ left:16px; }
+  .cs-lb-a.next{ right:16px; }
+  .cs-lb-n{ position:absolute; bottom:16px; left:50%; transform:translateX(-50%); padding:4px 12px; border-radius:999px; background:rgba(30,30,38,.8); font-family:var(--mono); font-size:12px; color:var(--muted); }
   @media (max-width: 900px){
     .cs-body{ grid-template-columns:1fr; gap:28px; }
     .cs-side{ position:static; order:-1; }
@@ -334,7 +359,11 @@ function coll_rich(string $text): string {
     .cs-gallery{ grid-template-columns:1fr; margin-top:28px; }
     .cs-actions .btn{ flex:1 1 auto; justify-content:center; text-align:center; }
     .cs-nav{ grid-template-columns:1fr; margin-top:40px; }
-    .cs-nav .next{ grid-column:auto; text-align:left; }
+    .cs-nav .next{ grid-column:auto; }
+    .cs-nav img{ width:72px; height:54px; }
+    .cs-nav b{ font-size:15px; }
+    .cs-lb-a{ top:auto; bottom:12px; transform:none; }
+    .cs-lb img{ max-height:80vh; }
   }
 
   .co-empty{ padding:40px 0; text-align:center; color:var(--muted); }
@@ -477,10 +506,11 @@ function coll_rich(string $text): string {
     </header>
 
     <?php if ($c_cover): ?>
-      <div class="cs-cover">
-        <?php if ($c_cover['type'] === 'image'): ?><img src="<?= coll_h($c_cover['src']) ?>" alt="<?= coll_h($c['title']) ?>">
-        <?php else: ?><video src="<?= coll_h($c_cover['src']) ?>" controls playsinline preload="metadata"></video><?php endif; ?>
-      </div>
+      <?php if ($c_cover['type'] === 'image'): ?>
+        <a class="cs-cover" href="<?= coll_h($c_cover['src']) ?>" data-lb><img src="<?= coll_h($c_cover['src']) ?>" alt="<?= coll_h($c['title']) ?>"></a>
+      <?php else: ?>
+        <div class="cs-cover"><video src="<?= coll_h($c_cover['src']) ?>" controls playsinline preload="metadata"></video></div>
+      <?php endif; ?>
     <?php endif; ?>
 
     <div class="cs-body">
@@ -500,7 +530,7 @@ function coll_rich(string $text): string {
       <div class="cs-gallery">
         <?php foreach ($c_rest as $m): ?>
           <?php if ($m['type'] === 'image'): ?>
-            <a href="<?= coll_h($m['src']) ?>" target="_blank" rel="noopener"><img src="<?= coll_h($m['src']) ?>" alt="" loading="lazy"></a>
+            <a href="<?= coll_h($m['src']) ?>" data-lb><img src="<?= coll_h($m['src']) ?>" alt="" loading="lazy"></a>
           <?php else: ?>
             <a><video src="<?= coll_h($m['src']) ?>" controls playsinline preload="metadata"></video></a>
           <?php endif; ?>
@@ -509,11 +539,26 @@ function coll_rich(string $text): string {
     <?php endif; ?>
 
     <?php if ($c_prev || $c_next): ?>
-      <nav class="cs-nav">
-        <?php if ($c_prev): ?><a class="prev" href="<?= coll_h(coll_item_url($coll_key, $c_prev)) ?>"><small>← Предыдущий</small><b><?= coll_h($c_prev['title']) ?></b></a><?php endif; ?>
-        <?php if ($c_next): ?><a class="next" href="<?= coll_h(coll_item_url($coll_key, $c_next)) ?>"><small>Следующий →</small><b><?= coll_h($c_next['title']) ?></b></a><?php endif; ?>
+      <nav class="cs-nav" aria-label="Другие проекты">
+        <?php foreach ([['prev', $c_prev, 'Предыдущий'], ['next', $c_next, 'Следующий']] as [$cls, $nb, $lab]): ?>
+          <?php if ($nb): $nc = coll_cover($nb); ?>
+            <a class="<?= $cls ?>" href="<?= coll_h(coll_item_url($coll_key, $nb)) ?>">
+              <?php if ($nc && $nc['type'] === 'image'): ?><img src="<?= coll_h($nc['preview'] ?: $nc['src']) ?>" alt="" loading="lazy"><?php endif; ?>
+              <span class="cs-nav-t"><small><?= $lab ?></small><b><?= coll_h($nb['title']) ?></b></span>
+              <i class="cs-nav-arrow" aria-hidden="true"><?= $cls === 'prev' ? '←' : '→' ?></i>
+            </a>
+          <?php else: ?><span></span><?php endif; ?>
+        <?php endforeach; ?>
       </nav>
     <?php endif; ?>
+
+    <div class="cs-lb" id="csLb" hidden>
+      <button class="cs-lb-x" type="button" aria-label="Закрыть">×</button>
+      <button class="cs-lb-a prev" type="button" aria-label="Назад">‹</button>
+      <img id="csLbImg" alt="">
+      <button class="cs-lb-a next" type="button" aria-label="Вперёд">›</button>
+      <div class="cs-lb-n" id="csLbN"></div>
+    </div>
     <?php else: ?>
     <div class="co-head">
       <div>
@@ -840,6 +885,47 @@ function coll_rich(string $text): string {
   const startId = new URLSearchParams(location.search).get('item');
   if (CASE_ID) current = byId[CASE_ID];
   else if (startId) openView(startId, false);
+
+  /* ---------- полноэкранный просмотр фото на странице проекта ---------- */
+  const lb = $('csLb');
+  if (lb) {
+    const shots = [...document.querySelectorAll('[data-lb]')];
+    const img = $('csLbImg');
+    const single = shots.length < 2;
+    let li = 0;
+    const lbShow = (i) => {
+      li = (i + shots.length) % shots.length;
+      img.src = shots[li].href;
+      $('csLbN').textContent = (li + 1) + ' / ' + shots.length;
+    };
+    const lbOpen = (i) => { lbShow(i); lb.hidden = false; document.body.style.overflow = 'hidden'; };
+    const lbClose = () => { lb.hidden = true; img.removeAttribute('src'); document.body.style.overflow = ''; };
+    shots.forEach((a, i) => a.addEventListener('click', (e) => {
+      if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+      e.preventDefault();
+      lbOpen(i);
+    }));
+    lb.querySelectorAll('.cs-lb-a').forEach((b) => { b.hidden = single; });
+    $('csLbN').hidden = single;
+    lb.querySelector('.prev').onclick = () => lbShow(li - 1);
+    lb.querySelector('.next').onclick = () => lbShow(li + 1);
+    lb.querySelector('.cs-lb-x').onclick = lbClose;
+    lb.addEventListener('click', (e) => { if (e.target === lb) lbClose(); });
+    document.addEventListener('keydown', (e) => {
+      if (lb.hidden) return;
+      if (e.key === 'Escape') lbClose();
+      if (!single && e.key === 'ArrowLeft') lbShow(li - 1);
+      if (!single && e.key === 'ArrowRight') lbShow(li + 1);
+    });
+    let lx = null;
+    lb.addEventListener('touchstart', (e) => { lx = e.touches[0].clientX; }, { passive: true });
+    lb.addEventListener('touchend', (e) => {
+      if (lx == null || single) return;
+      const dx = e.changedTouches[0].clientX - lx;
+      if (Math.abs(dx) > 50) lbShow(li + (dx < 0 ? 1 : -1));
+      lx = null;
+    });
+  }
 
   if (!IS_ADMIN) return;
 
