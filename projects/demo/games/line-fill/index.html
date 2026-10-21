@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#151b26" />
+    <script>window.__sdkLoadError = true</script>
+    <title>Поле линий</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background:
+          radial-gradient(
+            circle at 50% 18%,
+            rgba(90, 134, 192, 0.14) 0%,
+            rgba(90, 134, 192, 0.05) 28%,
+            transparent 55%
+          ),
+          radial-gradient(circle at 15% 90%, rgba(67, 108, 137, 0.08) 0%, transparent 45%),
+          linear-gradient(180deg, #151b26 0%, #19212e 48%, #1c2633 100%);
+        overscroll-behavior: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #game {
+        position: fixed;
+        inset: 0;
+      }
+      #game canvas {
+        display: block;
+        touch-action: none;
+      }
+    </style>
+    
+    <script type="module" crossorigin src="./assets/index-CPm1mRe9.js"></script>
+  </head>
+  <body>
+    <div id="game"></div>
+  </body>
+</html>

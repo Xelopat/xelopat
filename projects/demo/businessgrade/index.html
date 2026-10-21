@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Обновление бизнеса: внедрение автоматизации в продажи, закупки и работу с документами. Каталог решений и интерактивные примеры.">
+  <meta name="color-scheme" content="light">
+  <title>Обновление бизнеса | BusinessGrade</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23152f3c'/%3E%3Cpath d='M8 24V17h5v7m3 0V12h5v12m3 0V7h3v17' stroke='%23e3eee9' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+<a class="skip" href="#main">Перейти к содержимому</a>
+<header class="header">
+  <div class="wrap header-inner">
+    <a class="brand" href="#" aria-label="Обновление бизнеса, на главную">
+      <svg viewBox="0 0 36 36" aria-hidden="true"><path d="M4 29V19h7v10M15 29V12h7v17M26 29V5h7v24" fill="none" stroke="currentColor" stroke-width="3.5"/></svg>
+      <span>Обновление<br>бизнеса</span>
+    </a>
+    <nav aria-label="Основная навигация"><a href="#solutions">Решения</a><a href="#demo">Демо</a><a href="#approach">Внедрение</a></nav>
+    <a class="button small outline header-cta" href="#brief">Выбрать задачу <span aria-hidden="true">↗</span></a>
+  </div>
+</header>
+<main id="main">
+  <section class="hero wrap">
+    <div class="hero-copy">
+      <p class="eyebrow"><span class="square"></span> BUSINESSGRADE / АВТОМАТИЗАЦИЯ ПРОЦЕССОВ</p>
+      <h1>Меньше рутины.<br><span>Больше движения.</span></h1>
+      <p class="lead">Обновляем привычную работу с заявками, документами и данными. Начинаем с одной задачи, проверяем результат и встраиваем решение в ваш процесс.</p>
+      <div class="actions"><a class="button" href="#demo">Попробовать на примере <span aria-hidden="true">↗</span></a><a class="text-link" href="#solutions">Каталог решений <span aria-hidden="true">↓</span></a></div>
+      <div class="hero-note"><span>Одна задача на пилот</span><span>Понятный результат</span><span>Проверка человеком</span></div>
+    </div>
+    <div class="hero-preview" aria-label="Пример подготовки коммерческого предложения">
+      <div class="preview-top"><span class="light-dot"></span><span>КП ИЗ СПЕЦИФИКАЦИИ</span><span class="preview-label">УЧЕБНЫЙ ПРИМЕР</span></div>
+      <div class="preview-flow"><span>Файл заявки</span><span aria-hidden="true">→</span><span class="flow-end">Черновик КП</span></div>
+      <div class="preview-file"><div class="file-glyph" aria-hidden="true">↗</div><div><b>Спецификация заказа</b><small>4 строки · учебный прайс</small></div><span class="pill light">Обработано</span></div>
+      <div class="preview-table"><div class="preview-row muted"><span>АРТИКУЛ</span><span>КОЛ-ВО</span><span>СТАТУС</span></div><div class="preview-row"><span>CAB-315</span><span>100 м</span><span class="ok">В прайсе</span></div><div class="preview-row"><span>CAB-325</span><span>250 м</span><span class="ok">В прайсе</span></div><div class="preview-row"><span>AUTO-16</span><span>8 шт</span><span class="ok">В прайсе</span></div><div class="preview-row"><span>UNKNOWN-01</span><span>5 шт</span><span class="warn">Уточнить</span></div></div>
+      <div class="preview-bottom"><span>Сумма найденных позиций<small>Без НДС. Одна позиция не оценена.</small></span><strong>43 960 ₽</strong></div>
+      <a href="#demo" class="preview-link" data-demo="quote">Открыть и изменить пример <span aria-hidden="true">↗</span></a>
+    </div>
+  </section>
+
+  <div class="strip"><div class="wrap strip-inner"><span class="eyebrow">ПОДХОДЯЩИЕ ЗАДАЧИ</span><span>Продажи</span><span>Закупки</span><span>Документы</span><span>Работа команды</span><span>Отчётность</span></div></div>
+
+  <section id="solutions" class="section wrap">
+    <div class="section-top"><div><p class="eyebrow">01 / ВИТРИНА УЛУЧШЕНИЙ</p><h2>Что можно обновить<br>в вашей работе</h2></div><p class="section-description">У каждого решения есть конкретный вход, результат и способ проверки. Состав пилота согласуем на ваших примерах.</p></div>
+    <div class="filters" aria-label="Фильтры решений">
+      <button type="button" class="filter active" data-filter="all" aria-pressed="true">Все решения <span>12</span></button>
+      <button type="button" class="filter" data-filter="start" aria-pressed="false">Первый запуск <span>3</span></button>
+      <button type="button" class="filter" data-filter="Продажи" aria-pressed="false">Продажи</button>
+      <button type="button" class="filter" data-filter="Закупки" aria-pressed="false">Закупки</button>
+      <button type="button" class="filter" data-filter="Документы" aria-pressed="false">Документы</button>
+      <button type="button" class="filter" data-filter="Команда" aria-pressed="false">Команда</button>
+      <button type="button" class="filter" data-filter="Управление" aria-pressed="false">Управление</button>
+    </div>
+    <div id="catalog" class="catalog-grid"></div>
+    <p class="fineprint">Цены в карточках: предварительные ориентиры стоимости ограниченного пилота, а не рыночная статистика или готовая смета. Лицензии, облачные расходы и дополнительные интеграции оцениваются отдельно.</p>
+    <a href="./BusinessGrade_Catalog_2026-10-13.md" download class="text-link">Скачать каталог и план разработки <span aria-hidden="true">↓</span></a>
+  </section>
+
+  <section id="demo" class="demo-section">
+    <div class="wrap">
+      <div class="section-top"><div><p class="eyebrow">02 / ПОПРОБУЙТЕ САМИ</p><h2>Задача. Действие.<br>Понятный результат.</h2></div><p class="section-description">Измените пример и посмотрите, что получится. Расчёты и проверки работают в браузере на учебных данных.</p></div>
+      <div class="demo-shell">
+        <div class="demo-nav" role="tablist" aria-label="Демонстрации решений">
+          <button type="button" role="tab" aria-selected="true" aria-controls="demo-panel" class="demo-tab active" id="tab-quote" data-demo="quote"><span>01</span> КП из спецификации</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="demo-panel" class="demo-tab" id="tab-inbox" data-demo="inbox" tabindex="-1"><span>02</span> Входящая заявка</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="demo-panel" class="demo-tab" id="tab-prices" data-demo="prices" tabindex="-1"><span>03</span> Сверка прайсов</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="demo-panel" class="demo-tab" id="tab-invoice" data-demo="invoice" tabindex="-1"><span>04</span> Проверка счёта</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="demo-panel" class="demo-tab" id="tab-knowledge" data-demo="knowledge" tabindex="-1"><span>05</span> База знаний</button>
+          <div class="demo-disclosure"><span class="square"></span><b>Демонстрационная версия</b><p>Обработка по правилам. ИИ, CRM, OCR и внешние системы не подключены. Данные из полей остаются в браузере.</p></div>
+        </div>
+        <div id="demo-panel" class="demo-content" role="tabpanel" aria-labelledby="tab-quote" tabindex="0"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="value" class="section wrap value-section">
+    <div class="value-copy"><p class="eyebrow">03 / ЭКОНОМИКА ЗАДАЧИ</p><h2>Сначала считаем.<br>Затем внедряем.</h2><p>Время сотрудника, объём операций и стоимость поддержки помогают определить разумный масштаб пилота.</p><p class="fineprint">Стоимость освобождённого времени становится денежным эффектом, если позволяет избежать расходов или получить измеримую дополнительную прибыль. Фиксированная зарплата сама по себе не уменьшается.</p></div>
+    <div class="calculator">
+      <form id="roi-form" class="calc-fields">
+        <label>Операций в месяц<input name="volume" type="number" min="0" max="1000000" value="80" required></label>
+        <label>Стоимость часа, ₽<input name="hourly" type="number" min="0" max="1000000" value="600" required></label>
+        <label>Минут до внедрения<input name="before" type="number" min="0" max="100000" value="45" required></label>
+        <label>Минут после внедрения<input name="after" type="number" min="0" max="100000" value="15" required></label>
+        <label>Стоимость внедрения, ₽<input name="setup" type="number" min="0" max="100000000" value="39900" required></label>
+        <label>Расходы в месяц, ₽<input name="monthly" type="number" min="0" max="100000000" value="4900" required></label>
+        <label class="full">Доля стоимости времени, превращаемая в денежный эффект, %<input name="cashShare" type="number" min="0" max="100" step="1" value="0" required><small>0%: только высвобождение времени. 100%: вся оценка подтверждена избегаемыми расходами или дополнительной прибылью.</small></label>
+      </form>
+      <div id="roi-result" class="calc-result" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="approach" class="approach-section"><div class="wrap">
+    <div class="section-top"><div><p class="eyebrow">04 / КАК РАБОТАЕМ</p><h2>Обновление начинается<br>с одного процесса</h2></div><p class="section-description">Проверяем возможности ваших текущих инструментов, согласуем границы и сравниваем полный процесс до и после.</p></div>
+    <div class="steps"><article><span>01</span><h3>Разбираем задачу</h3><p>Изучаем частоту, примеры и исключения. Проверяем, что можно настроить в уже используемых системах.</p></article><article><span>02</span><h3>Согласуем пилот</h3><p>Фиксируем один сценарий, данные, цену и критерии приёмки. Показываем результат на обезличенных примерах.</p></article><article><span>03</span><h3>Проверяем в работе</h3><p>Сотрудник использует решение и отмечает ошибки. Считаем всё время обработки, включая проверку и исключения.</p></article><article><span>04</span><h3>Расширяем по результату</h3><p>Передаём инструкции и обсуждаем поддержку. Следующий процесс подключаем после оценки первого.</p></article></div>
+    <div class="tools-note"><b>Подбираем инструмент под задачу</b><p>CRM и её штатные функции · Python и обработка таблиц · n8n для интеграций · Yandex AI Studio / OCR · DataLens · локальные модели при обоснованной необходимости</p><small>Состав решения и условия обработки данных согласуются отдельно. Интеграции перечислены как варианты, а не подключённые функции этого сайта.</small></div>
+  </div></section>
+
+  <section id="brief" class="section wrap brief-section">
+    <div><p class="eyebrow">05 / ПЕРВЫЙ ШАГ</p><h2>Сформулируйте<br>задачу для пилота</h2><p class="lead">Выберите процесс и опишите, что сейчас делается вручную. Получится короткий бриф, с которым удобно обсуждать внедрение.</p><p class="fineprint">В этом прототипе бриф можно скопировать или скачать. Форма не отправляет заявку, контакты для обращения ещё не подключены.</p></div>
+    <form id="brief-form" class="brief-form">
+      <label>Процесс<select name="solution" id="brief-solution"></select></label>
+      <label>Что сейчас делается вручную?<textarea name="task" rows="3" maxlength="3000" placeholder="Например: переносим строки из Excel в шаблон КП и сверяем цены по прайсу." required></textarea></label>
+      <div class="calc-fields"><label>Операций в месяц<input name="frequency" type="number" min="1" max="1000000" value="80" required></label><label>Используемые системы<input name="systems" maxlength="300" placeholder="Excel, 1С, Битрикс24…"></label></div>
+      <label>Какой результат нужен?<textarea name="result" rows="2" maxlength="2000" placeholder="Например: черновик КП со всеми строками и отдельный список несовпадений." required></textarea></label>
+      <button type="submit" class="button">Собрать бриф <span aria-hidden="true">↗</span></button>
+      <div id="brief-output" hidden><label>Ваш бриф<textarea id="brief-text" readonly rows="9"></textarea></label><div class="actions"><button type="button" class="button small outline" id="brief-copy">Скопировать</button><button type="button" class="text-link" id="brief-download">Скачать .txt ↓</button></div><p id="brief-message" class="fineprint" aria-live="polite"></p></div>
+    </form>
+  </section>
+</main>
+<footer><div class="wrap footer-top"><a class="brand" href="#"><span>Обновление<br>бизнеса</span></a><span class="eyebrow">BUSINESSGRADE</span><p>Автоматизация задач.<br>Измеримый результат.</p></div><div class="wrap footer-bottom"><span>Интерактивный прототип · 13.10.2026</span><button type="button" class="text-link" id="sources-toggle" aria-expanded="false" aria-controls="sources">Источники и границы демо ↓</button></div><div id="sources" class="wrap sources" hidden><p>Основание выбора сценариев: исследование Яндекса и «Яков и Партнёры» за 2025 год, документация готовых сервисов и пригодность задачи для ограниченного пилота. Общероссийского рейтинга покупок этих 12 внедрений нет. Список является нашей рабочей приоритизацией.</p><ul><li><a href="https://yandex.ru/company/news/08-12-2025-01" target="_blank" rel="noopener">Исследование ИИ в России, 08.12.2025</a>: выборка крупных компаний, не доказательство спроса малого бизнеса.</li><li><a href="https://ir.yandex.ru/press-releases?id=12-03-2026-01&year=2026" target="_blank" rel="noopener">Результаты Yandex B2B Tech за 2025 год, 12.03.2026</a>: раскрытие поставщика.</li><li><a href="https://helpdesk.bitrix24.ru/open/24481492/" target="_blank" rel="noopener">CoPilot и речевая аналитика</a>; <a href="https://helpdesk.bitrix24.ru/open/18048120/" target="_blank" rel="noopener">почта в CRM</a>.</li><li><a href="https://yandex.cloud/ru/docs/vision/quickstart" target="_blank" rel="noopener">Yandex Vision OCR</a>; <a href="https://yandex.cloud/ru/docs/datalens/operations/connection/create-file" target="_blank" rel="noopener">файлы в DataLens</a>.</li><li><a href="https://support.n8n.io/article/can-i-use-your-license-for-my-use-case" target="_blank" rel="noopener">Условия применения n8n</a>: лицензия проверяется под конкретную схему внедрения.</li></ul><p>Все цены и трудозатраты в каталоге являются предварительными оценками. Публичных клиентских кейсов и доказанной окупаемости у этого прототипа пока нет. Демо работают локально, без сервера обработки, модели ИИ и интеграций. Страница не сохраняет введённые данные.</p></div></footer>
+<dialog id="detail-dialog" aria-labelledby="detail-title"><button type="button" class="dialog-close" aria-label="Закрыть описание">×</button><div id="detail-content"></div></dialog>
+<noscript><div class="noscript">Для интерактивных примеров и каталога включите JavaScript. <a href="./BusinessGrade_Catalog_2026-10-13.md">Текстовый каталог доступен здесь.</a></div></noscript>
+<script>window.__DEMO_BAR=/[?&]shot/.test(location.search)?null:{title:"демо BusinessGrade",links:[{label:"Все проекты",href:"/projects",current:false}]};</script><script src="./_demo/demo-bar.js" defer></script>
+</body>
+</html>

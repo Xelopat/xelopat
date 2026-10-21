@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Игры для Яндекс Игр, демо</title>
+<style>
+  :root{ --bg:#151518; --line:#333340; --text:#efeff1; --muted:#9496a8; --accent:#f9c940; --mono:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{ background:radial-gradient(60% 40% at 25% 0, rgba(249,201,64,.09), transparent 70%), var(--bg); color:var(--text); font:15px/1.55 Inter,system-ui,-apple-system,"Segoe UI",sans-serif; padding:34px 18px 100px; }
+  .wrap{ max-width:1100px; margin:0 auto; }
+  .label{ font-family:var(--mono); font-size:12px; color:var(--accent); margin-bottom:10px; }
+  h1{ margin:0 0 12px; font-size:clamp(30px,4.6vw,52px); line-height:1.05; letter-spacing:-.03em; }
+  .lead{ max-width:700px; margin:0 0 30px; color:var(--muted); font-size:clamp(15px,1.5vw,18px); }
+  .grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:22px; }
+  .g{ display:flex; flex-direction:column; border:1px solid #2c2c38; border-radius:18px; overflow:hidden; background:linear-gradient(180deg,#20202a,#17171d); box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 24px 48px -28px rgba(0,0,0,.8); transition:.22s; }
+  .g:hover{ border-color:rgba(249,201,64,.55); transform:translateY(-4px); box-shadow:0 30px 60px -28px rgba(0,0,0,.9), 0 18px 50px -24px rgba(249,201,64,.35); }
+  .shot{ position:relative; display:block; aspect-ratio:16/9; border:0; padding:0; width:100%; cursor:pointer; background:#101014; overflow:hidden; }
+  .shot img{ width:100%; height:100%; object-fit:cover; display:block; transition:transform .5s; }
+  .g:hover .shot img{ transform:scale(1.03); }
+  .shot::after{ content:""; position:absolute; inset:0; background:linear-gradient(180deg,transparent 50%,rgba(10,10,14,.55)); }
+  .play{ position:absolute; z-index:2; right:14px; bottom:14px; display:flex; align-items:center; gap:8px; padding:9px 16px; border-radius:999px; background:var(--accent); color:#1b1606; font:700 13px Inter,sans-serif; box-shadow:0 8px 24px rgba(0,0,0,.4); }
+  .body{ padding:18px 20px 20px; display:flex; flex-direction:column; gap:10px; flex:1; }
+  .body h2{ margin:0; font-size:22px; letter-spacing:-.015em; }
+  .body p{ margin:0; color:var(--muted); font-size:14.5px; line-height:1.6; }
+  .tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:auto; padding-top:4px; }
+  .tags span{ padding:4px 11px; border:1px solid #33333f; border-radius:999px; background:rgba(255,255,255,.04); font-family:var(--mono); font-size:11px; color:#c5c8d6; }
+  .foot{ margin-top:26px; color:var(--muted); font-size:13px; }
+
+  .ov{ position:fixed; inset:0; z-index:100; display:none; flex-direction:column; background:#0b0b0e; }
+  .ov.on{ display:flex; }
+  .ovbar{ flex:none; display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid var(--line); background:#151518; }
+  .ovbar b{ font-size:15px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ovbar button{ padding:8px 14px; border:1px solid var(--line); border-radius:999px; background:rgba(255,255,255,.05); color:var(--text); font:600 13px Inter,sans-serif; cursor:pointer; }
+  .ovbar button:hover{ border-color:var(--accent); color:var(--accent); }
+  .ov iframe{ flex:1; width:100%; border:0; background:#000; }
+
+  @media (max-width:760px){ .grid{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="label">// html5 games</div>
+  <h1>Игры для Яндекс Игр</h1>
+  <p class="lead">Четыре казуальные игры, которые работают в браузере на компьютере и телефоне. Нажмите на обложку и играйте прямо здесь. Игры сделаны для платформы Яндекс Игр, здесь они запущены отдельно от неё и без рекламы.</p>
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="ov" id="ov" aria-hidden="true">
+  <div class="ovbar"><b id="ovT"></b><button id="ovR" type="button">Начать заново</button><button id="ovX" type="button">Закрыть</button></div>
+  <iframe id="fr" title="Игра" allow="fullscreen; autoplay" allowfullscreen></iframe>
+</div>
+
+<script>window.__DEMO_BAR=/[?&]shot/.test(location.search)?null:{title:"демо Игры",links:[{label:"Все проекты",href:"/projects",current:false}]};</script>
+<script src="./_demo/demo-bar.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  var GAMES = [
+    {id:'car-parking', t:'Парковка: Побег', d:'Сдвигайте машины, чтобы выпустить нужную к выезду. Уровни по нарастающей, подсказки, отмена хода, награда звёздами.', tags:['Vite','TypeScript','Спрайты WebP']},
+    {id:'2048-roguelite', t:'2048: Новый путь', d:'Классическая 2048 с элементами roguelike: опыт за объединения, выбор одной карты из трёх, энергия и активный инструмент.', tags:['Phaser 3','TypeScript','Vite']},
+    {id:'line-fill', t:'Поле линий', d:'Спокойная уровневая головоломка: заполните поле непрерывными линиями ограниченной длины, не пересекая их.', tags:['Phaser 3','TypeScript','Vite']},
+    {id:'block-puzzle', t:'Ровный ряд', d:'Блочная головоломка: фигуры из набора ставятся на поле 8 на 8, считаются очки и рекорд.', tags:['Phaser 3','TypeScript','Vite']}
+  ];
+  var $ = function(id){ return document.getElementById(id); };
+  var cur = null;
+  $('grid').innerHTML = GAMES.map(function(g){
+    return '<article class="g"><button class="shot" type="button" data-id="' + g.id + '" aria-label="Играть: ' + g.t + '"><img src="./covers/' + g.id + '.webp" alt="" loading="lazy"><span class="play">&#9654; Играть</span></button>' +
+      '<div class="body"><h2>' + g.t + '</h2><p>' + g.d + '</p><div class="tags">' + g.tags.map(function(x){ return '<span>' + x + '</span>'; }).join('') + '</div></div></article>';
+  }).join('');
+  function open(id){
+    cur = GAMES.filter(function(g){ return g.id === id; })[0];
+    $('ovT').textContent = cur.t; $('fr').src = './' + id + '/index.html';
+    $('ov').classList.add('on'); $('ov').setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden';
+  }
+  function close(){ $('ov').classList.remove('on'); $('ov').setAttribute('aria-hidden', 'true'); $('fr').src = 'about:blank'; document.body.style.overflow = ''; }
+  $('grid').addEventListener('click', function(e){ var b = e.target.closest('.shot'); if (b) open(b.dataset.id); });
+  $('ovX').onclick = close;
+  $('ovR').onclick = function(){ if (cur) $('fr').src = './' + cur.id + '/index.html'; };
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && $('ov').classList.contains('on')) close(); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,2245 @@
+[
+  {
+    "source": "public/assets/runtime/3d/field/asphalt/asphalt__yaw045.webp",
+    "output": "public/assets/runtime/3d/field/asphalt/asphalt__yaw045.webp",
+    "runtimeSize": [
+      256,
+      253
+    ],
+    "bytes": 6948,
+    "reused": true
+  },
+  {
+    "source": "public/assets/runtime/3d/field/asphalt_2/asphalt_2__yaw045.webp",
+    "output": "public/assets/runtime/3d/field/asphalt_2/asphalt_2__yaw045.webp",
+    "runtimeSize": [
+      256,
+      253
+    ],
+    "bytes": 9272,
+    "reused": true
+  },
+  {
+    "source": "public/assets/runtime/3d/field/asphalt_3/asphalt_3__yaw045.webp",
+    "output": "public/assets/runtime/3d/field/asphalt_3/asphalt_3__yaw045.webp",
+    "runtimeSize": [
+      256,
+      253
+    ],
+    "bytes": 7874,
+    "reused": true
+  },
+  {
+    "source": "public/assets/runtime/3d/field/asphalt_4/asphalt_4__yaw045.webp",
+    "output": "public/assets/runtime/3d/field/asphalt_4/asphalt_4__yaw045.webp",
+    "runtimeSize": [
+      256,
+      253
+    ],
+    "bytes": 9706,
+    "reused": true
+  },
+  {
+    "source": "public/assets/runtime/3d/field/border/border__yaw045.webp",
+    "output": "public/assets/runtime/3d/field/border/border__yaw045.webp",
+    "runtimeSize": [
+      43,
+      256
+    ],
+    "bytes": 832,
+    "reused": true
+  },
+  {
+    "source": "public/assets/runtime/3d/field/border/border__yaw135.webp",
+    "output": "public/assets/runtime/3d/field/border/border__yaw135.webp",
+    "runtimeSize": [
+      256,
+      44
+    ],
+    "bytes": 816,
+    "reused": true
+  },
+  {
+    "source": "renders/3d/decorations/tree/tree__yaw045.png",
+    "output": "public/assets/runtime/3d/decorations/tree/tree__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      358
+    ],
+    "bytes": 12922
+  },
+  {
+    "source": "renders/3d/decorations/bench/bench__yaw135.png",
+    "output": "public/assets/runtime/3d/decorations/bench/bench__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      228
+    ],
+    "bytes": 5838
+  },
+  {
+    "source": "renders/3d/decorations/cabin/cabin__yaw045.png",
+    "output": "public/assets/runtime/3d/decorations/cabin/cabin__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      319,
+      384
+    ],
+    "bytes": 5870
+  },
+  {
+    "source": "renders/3d/decorations/grass_1/grass_1__yaw045.png",
+    "output": "public/assets/runtime/3d/decorations/grass_1/grass_1__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      381
+    ],
+    "bytes": 7976
+  },
+  {
+    "source": "renders/3d/decorations/grass_2/grass_2__yaw045.png",
+    "output": "public/assets/runtime/3d/decorations/grass_2/grass_2__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      253,
+      384
+    ],
+    "bytes": 11106
+  },
+  {
+    "source": "renders/3d/decorations/flowerbed/flowerbed__yaw045.png",
+    "output": "public/assets/runtime/3d/decorations/flowerbed/flowerbed__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      375,
+      384
+    ],
+    "bytes": 18146
+  },
+  {
+    "source": "renders/3d/decorations/bin/bin__yaw045.png",
+    "output": "public/assets/runtime/3d/decorations/bin/bin__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      227,
+      384
+    ],
+    "bytes": 5242
+  },
+  {
+    "source": "renders/3d/decorations/cone/cone__yaw045.png",
+    "output": "public/assets/runtime/3d/decorations/cone/cone__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      381,
+      384
+    ],
+    "bytes": 15860
+  },
+  {
+    "source": "renders/3d/decorations/column/column__yaw045.png",
+    "output": "public/assets/runtime/3d/decorations/column/column__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      323,
+      384
+    ],
+    "bytes": 12982
+  },
+  {
+    "source": "renders/3d/decorations/barrier_closer/barrier_closer__yaw045.png",
+    "output": "public/assets/runtime/3d/decorations/barrier_closer/barrier_closer__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      127,
+      384
+    ],
+    "bytes": 3154
+  },
+  {
+    "source": "renders/3d/decorations/barrier_open/barrier_open__yaw045.png",
+    "output": "public/assets/runtime/3d/decorations/barrier_open/barrier_open__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      267,
+      384
+    ],
+    "bytes": 6488
+  },
+  {
+    "source": "renders/3d/cars/bus_3/green/green__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/bus_3/green/green__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      154,
+      384
+    ],
+    "bytes": 5756,
+    "family": "bus_3",
+    "color": "green",
+    "gridLength": 3,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/bus_3/green/green__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/bus_3/green/green__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      159
+    ],
+    "bytes": 6550,
+    "family": "bus_3",
+    "color": "green",
+    "gridLength": 3,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/bus_3/green/green__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/bus_3/green/green__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      152,
+      384
+    ],
+    "bytes": 5828,
+    "family": "bus_3",
+    "color": "green",
+    "gridLength": 3,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/bus_3/green/green__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/bus_3/green/green__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      159
+    ],
+    "bytes": 6088,
+    "family": "bus_3",
+    "color": "green",
+    "gridLength": 3,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/bus_3/light_green/light_green__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/bus_3/light_green/light_green__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      154,
+      384
+    ],
+    "bytes": 5450,
+    "family": "bus_3",
+    "color": "light_green",
+    "gridLength": 3,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/bus_3/light_green/light_green__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/bus_3/light_green/light_green__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      159
+    ],
+    "bytes": 6066,
+    "family": "bus_3",
+    "color": "light_green",
+    "gridLength": 3,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/bus_3/light_green/light_green__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/bus_3/light_green/light_green__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      152,
+      384
+    ],
+    "bytes": 5448,
+    "family": "bus_3",
+    "color": "light_green",
+    "gridLength": 3,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/bus_3/light_green/light_green__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/bus_3/light_green/light_green__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      159
+    ],
+    "bytes": 5598,
+    "family": "bus_3",
+    "color": "light_green",
+    "gridLength": 3,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/main/main/main__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/main/main/main__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      144,
+      256
+    ],
+    "bytes": 7184,
+    "family": "main",
+    "color": "main",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/main/main/main__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/main/main/main__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      144
+    ],
+    "bytes": 7748,
+    "family": "main",
+    "color": "main",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/main/main/main__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/main/main/main__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      141,
+      256
+    ],
+    "bytes": 6974,
+    "family": "main",
+    "color": "main",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/main/main/main__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/main/main/main__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      144
+    ],
+    "bytes": 7740,
+    "family": "main",
+    "color": "main",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/blue/blue__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/blue/blue__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      145,
+      256
+    ],
+    "bytes": 7338,
+    "family": "minicooper_2",
+    "color": "blue",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/blue/blue__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/blue/blue__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      148
+    ],
+    "bytes": 7874,
+    "family": "minicooper_2",
+    "color": "blue",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/blue/blue__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/blue/blue__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      145,
+      256
+    ],
+    "bytes": 7226,
+    "family": "minicooper_2",
+    "color": "blue",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/blue/blue__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/blue/blue__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      148
+    ],
+    "bytes": 7942,
+    "family": "minicooper_2",
+    "color": "blue",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/green/green__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/green/green__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      145,
+      256
+    ],
+    "bytes": 7402,
+    "family": "minicooper_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/green/green__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/green/green__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      148
+    ],
+    "bytes": 7936,
+    "family": "minicooper_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/green/green__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/green/green__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      145,
+      256
+    ],
+    "bytes": 7358,
+    "family": "minicooper_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/green/green__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/green/green__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      148
+    ],
+    "bytes": 8018,
+    "family": "minicooper_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/red/red__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/red/red__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      145,
+      256
+    ],
+    "bytes": 7268,
+    "family": "minicooper_2",
+    "color": "red",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/red/red__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/red/red__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      148
+    ],
+    "bytes": 7958,
+    "family": "minicooper_2",
+    "color": "red",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/red/red__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/red/red__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      145,
+      256
+    ],
+    "bytes": 7322,
+    "family": "minicooper_2",
+    "color": "red",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/red/red__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/red/red__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      148
+    ],
+    "bytes": 7958,
+    "family": "minicooper_2",
+    "color": "red",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/yellow/yellow__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/yellow/yellow__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      145,
+      256
+    ],
+    "bytes": 7530,
+    "family": "minicooper_2",
+    "color": "yellow",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/yellow/yellow__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/yellow/yellow__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      148
+    ],
+    "bytes": 8156,
+    "family": "minicooper_2",
+    "color": "yellow",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/yellow/yellow__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/yellow/yellow__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      145,
+      256
+    ],
+    "bytes": 7610,
+    "family": "minicooper_2",
+    "color": "yellow",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/minicooper_2/yellow/yellow__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/minicooper_2/yellow/yellow__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      148
+    ],
+    "bytes": 8180,
+    "family": "minicooper_2",
+    "color": "yellow",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/black/black__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/black/black__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      128,
+      256
+    ],
+    "bytes": 4890,
+    "family": "offroad_2",
+    "color": "black",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/black/black__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/black/black__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      128
+    ],
+    "bytes": 5142,
+    "family": "offroad_2",
+    "color": "black",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/black/black__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/black/black__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      126,
+      256
+    ],
+    "bytes": 4848,
+    "family": "offroad_2",
+    "color": "black",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/black/black__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/black/black__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      128
+    ],
+    "bytes": 5160,
+    "family": "offroad_2",
+    "color": "black",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/green/green__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/green/green__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      128,
+      256
+    ],
+    "bytes": 5476,
+    "family": "offroad_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/green/green__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/green/green__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      128
+    ],
+    "bytes": 5752,
+    "family": "offroad_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/green/green__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/green/green__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      126,
+      256
+    ],
+    "bytes": 5572,
+    "family": "offroad_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/green/green__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/green/green__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      128
+    ],
+    "bytes": 5818,
+    "family": "offroad_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/purple/purple__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/purple/purple__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      128,
+      256
+    ],
+    "bytes": 5336,
+    "family": "offroad_2",
+    "color": "purple",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/purple/purple__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/purple/purple__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      128
+    ],
+    "bytes": 5532,
+    "family": "offroad_2",
+    "color": "purple",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/purple/purple__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/purple/purple__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      126,
+      256
+    ],
+    "bytes": 5282,
+    "family": "offroad_2",
+    "color": "purple",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/purple/purple__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/purple/purple__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      128
+    ],
+    "bytes": 5568,
+    "family": "offroad_2",
+    "color": "purple",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/red/red__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/red/red__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      128,
+      256
+    ],
+    "bytes": 6004,
+    "family": "offroad_2",
+    "color": "red",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/red/red__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/red/red__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      128
+    ],
+    "bytes": 6218,
+    "family": "offroad_2",
+    "color": "red",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/red/red__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/red/red__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      126,
+      256
+    ],
+    "bytes": 6056,
+    "family": "offroad_2",
+    "color": "red",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/red/red__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/red/red__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      128
+    ],
+    "bytes": 6076,
+    "family": "offroad_2",
+    "color": "red",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/white/white__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/white/white__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      128,
+      256
+    ],
+    "bytes": 5324,
+    "family": "offroad_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/white/white__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/white/white__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      128
+    ],
+    "bytes": 5352,
+    "family": "offroad_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/white/white__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/white/white__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      126,
+      256
+    ],
+    "bytes": 5330,
+    "family": "offroad_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/offroad_2/white/white__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/offroad_2/white/white__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      128
+    ],
+    "bytes": 5344,
+    "family": "offroad_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/blue/blue__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/blue/blue__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      138,
+      256
+    ],
+    "bytes": 6128,
+    "family": "pickup_2",
+    "color": "blue",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/blue/blue__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/blue/blue__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      142
+    ],
+    "bytes": 5950,
+    "family": "pickup_2",
+    "color": "blue",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/blue/blue__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/blue/blue__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      137,
+      256
+    ],
+    "bytes": 6074,
+    "family": "pickup_2",
+    "color": "blue",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/blue/blue__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/blue/blue__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      142
+    ],
+    "bytes": 5860,
+    "family": "pickup_2",
+    "color": "blue",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/brown/brown__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/brown/brown__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      138,
+      256
+    ],
+    "bytes": 5978,
+    "family": "pickup_2",
+    "color": "brown",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/brown/brown__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/brown/brown__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      142
+    ],
+    "bytes": 5948,
+    "family": "pickup_2",
+    "color": "brown",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/brown/brown__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/brown/brown__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      137,
+      256
+    ],
+    "bytes": 5966,
+    "family": "pickup_2",
+    "color": "brown",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/brown/brown__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/brown/brown__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      142
+    ],
+    "bytes": 5718,
+    "family": "pickup_2",
+    "color": "brown",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/green/green__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/green/green__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      138,
+      256
+    ],
+    "bytes": 6394,
+    "family": "pickup_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/green/green__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/green/green__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      142
+    ],
+    "bytes": 6330,
+    "family": "pickup_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/green/green__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/green/green__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      137,
+      256
+    ],
+    "bytes": 6506,
+    "family": "pickup_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/green/green__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/green/green__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      142
+    ],
+    "bytes": 6134,
+    "family": "pickup_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/orange/orange__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/orange/orange__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      138,
+      256
+    ],
+    "bytes": 6540,
+    "family": "pickup_2",
+    "color": "orange",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/orange/orange__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/orange/orange__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      142
+    ],
+    "bytes": 6454,
+    "family": "pickup_2",
+    "color": "orange",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/orange/orange__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/orange/orange__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      137,
+      256
+    ],
+    "bytes": 6644,
+    "family": "pickup_2",
+    "color": "orange",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/orange/orange__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/orange/orange__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      142
+    ],
+    "bytes": 6354,
+    "family": "pickup_2",
+    "color": "orange",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/pink/pink__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/pink/pink__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      138,
+      256
+    ],
+    "bytes": 6500,
+    "family": "pickup_2",
+    "color": "pink",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/pink/pink__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/pink/pink__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      142
+    ],
+    "bytes": 6494,
+    "family": "pickup_2",
+    "color": "pink",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/pink/pink__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/pink/pink__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      137,
+      256
+    ],
+    "bytes": 6516,
+    "family": "pickup_2",
+    "color": "pink",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/pink/pink__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/pink/pink__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      142
+    ],
+    "bytes": 6338,
+    "family": "pickup_2",
+    "color": "pink",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/white/white__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/white/white__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      138,
+      256
+    ],
+    "bytes": 5806,
+    "family": "pickup_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/white/white__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/white/white__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      142
+    ],
+    "bytes": 5718,
+    "family": "pickup_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/white/white__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/white/white__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      137,
+      256
+    ],
+    "bytes": 6000,
+    "family": "pickup_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/pickup_2/white/white__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/pickup_2/white/white__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      142
+    ],
+    "bytes": 5570,
+    "family": "pickup_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/green/green__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/green/green__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      133,
+      256
+    ],
+    "bytes": 6782,
+    "family": "sedan_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/green/green__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/green/green__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      132
+    ],
+    "bytes": 6886,
+    "family": "sedan_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/green/green__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/green/green__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      132,
+      256
+    ],
+    "bytes": 6474,
+    "family": "sedan_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/green/green__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/green/green__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      132
+    ],
+    "bytes": 6926,
+    "family": "sedan_2",
+    "color": "green",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/red/red__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/red/red__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      133,
+      256
+    ],
+    "bytes": 7148,
+    "family": "sedan_2",
+    "color": "red",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/red/red__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/red/red__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      132
+    ],
+    "bytes": 7334,
+    "family": "sedan_2",
+    "color": "red",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/red/red__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/red/red__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      132,
+      256
+    ],
+    "bytes": 7012,
+    "family": "sedan_2",
+    "color": "red",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/red/red__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/red/red__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      132
+    ],
+    "bytes": 7286,
+    "family": "sedan_2",
+    "color": "red",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/violet/violet__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/violet/violet__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      133,
+      256
+    ],
+    "bytes": 6718,
+    "family": "sedan_2",
+    "color": "violet",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/violet/violet__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/violet/violet__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      132
+    ],
+    "bytes": 6806,
+    "family": "sedan_2",
+    "color": "violet",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/violet/violet__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/violet/violet__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      132,
+      256
+    ],
+    "bytes": 6620,
+    "family": "sedan_2",
+    "color": "violet",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/violet/violet__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/violet/violet__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      132
+    ],
+    "bytes": 6902,
+    "family": "sedan_2",
+    "color": "violet",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/white/white__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/white/white__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      133,
+      256
+    ],
+    "bytes": 6292,
+    "family": "sedan_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/white/white__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/white/white__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      132
+    ],
+    "bytes": 6348,
+    "family": "sedan_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/white/white__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/white/white__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      132,
+      256
+    ],
+    "bytes": 6126,
+    "family": "sedan_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/white/white__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/white/white__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      132
+    ],
+    "bytes": 6492,
+    "family": "sedan_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/yellow/yellow__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/yellow/yellow__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      133,
+      256
+    ],
+    "bytes": 7430,
+    "family": "sedan_2",
+    "color": "yellow",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/yellow/yellow__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/yellow/yellow__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      132
+    ],
+    "bytes": 7670,
+    "family": "sedan_2",
+    "color": "yellow",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/yellow/yellow__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/yellow/yellow__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      132,
+      256
+    ],
+    "bytes": 7112,
+    "family": "sedan_2",
+    "color": "yellow",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/sedan_2/yellow/yellow__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/sedan_2/yellow/yellow__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      132
+    ],
+    "bytes": 7606,
+    "family": "sedan_2",
+    "color": "yellow",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/blue/blue__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/blue/blue__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      168,
+      384
+    ],
+    "bytes": 5062,
+    "family": "truck_3",
+    "color": "blue",
+    "gridLength": 3,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/blue/blue__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/blue/blue__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      182
+    ],
+    "bytes": 6738,
+    "family": "truck_3",
+    "color": "blue",
+    "gridLength": 3,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/blue/blue__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/blue/blue__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      160,
+      384
+    ],
+    "bytes": 5284,
+    "family": "truck_3",
+    "color": "blue",
+    "gridLength": 3,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/blue/blue__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/blue/blue__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      182
+    ],
+    "bytes": 6108,
+    "family": "truck_3",
+    "color": "blue",
+    "gridLength": 3,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/green/green__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/green/green__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      168,
+      384
+    ],
+    "bytes": 4944,
+    "family": "truck_3",
+    "color": "green",
+    "gridLength": 3,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/green/green__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/green/green__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      182
+    ],
+    "bytes": 6400,
+    "family": "truck_3",
+    "color": "green",
+    "gridLength": 3,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/green/green__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/green/green__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      160,
+      384
+    ],
+    "bytes": 5150,
+    "family": "truck_3",
+    "color": "green",
+    "gridLength": 3,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/green/green__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/green/green__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      182
+    ],
+    "bytes": 5970,
+    "family": "truck_3",
+    "color": "green",
+    "gridLength": 3,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/orange/orange__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/orange/orange__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      168,
+      384
+    ],
+    "bytes": 5014,
+    "family": "truck_3",
+    "color": "orange",
+    "gridLength": 3,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/orange/orange__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/orange/orange__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      182
+    ],
+    "bytes": 6686,
+    "family": "truck_3",
+    "color": "orange",
+    "gridLength": 3,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/orange/orange__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/orange/orange__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      160,
+      384
+    ],
+    "bytes": 5270,
+    "family": "truck_3",
+    "color": "orange",
+    "gridLength": 3,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/orange/orange__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/orange/orange__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      182
+    ],
+    "bytes": 6062,
+    "family": "truck_3",
+    "color": "orange",
+    "gridLength": 3,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/white/white__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/white/white__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      168,
+      384
+    ],
+    "bytes": 4688,
+    "family": "truck_3",
+    "color": "white",
+    "gridLength": 3,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/white/white__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/white/white__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      182
+    ],
+    "bytes": 5928,
+    "family": "truck_3",
+    "color": "white",
+    "gridLength": 3,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/white/white__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/white/white__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      160,
+      384
+    ],
+    "bytes": 4818,
+    "family": "truck_3",
+    "color": "white",
+    "gridLength": 3,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/truck_3/white/white__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/truck_3/white/white__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      384,
+      182
+    ],
+    "bytes": 5616,
+    "family": "truck_3",
+    "color": "white",
+    "gridLength": 3,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/unversal_2/grey/grey__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/unversal_2/grey/grey__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      134,
+      256
+    ],
+    "bytes": 4678,
+    "family": "unversal_2",
+    "color": "grey",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/unversal_2/grey/grey__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/unversal_2/grey/grey__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      137
+    ],
+    "bytes": 4866,
+    "family": "unversal_2",
+    "color": "grey",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/unversal_2/grey/grey__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/unversal_2/grey/grey__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      130,
+      256
+    ],
+    "bytes": 4420,
+    "family": "unversal_2",
+    "color": "grey",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/unversal_2/grey/grey__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/unversal_2/grey/grey__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      137
+    ],
+    "bytes": 4882,
+    "family": "unversal_2",
+    "color": "grey",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/unversal_2/pink/pink__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/unversal_2/pink/pink__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      134,
+      256
+    ],
+    "bytes": 5530,
+    "family": "unversal_2",
+    "color": "pink",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/unversal_2/pink/pink__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/unversal_2/pink/pink__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      137
+    ],
+    "bytes": 5828,
+    "family": "unversal_2",
+    "color": "pink",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/unversal_2/pink/pink__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/unversal_2/pink/pink__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      130,
+      256
+    ],
+    "bytes": 5294,
+    "family": "unversal_2",
+    "color": "pink",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/unversal_2/pink/pink__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/unversal_2/pink/pink__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      137
+    ],
+    "bytes": 5866,
+    "family": "unversal_2",
+    "color": "pink",
+    "gridLength": 2,
+    "view": "yaw315"
+  },
+  {
+    "source": "renders/3d/cars/unversal_2/white/white__yaw045.png",
+    "output": "public/assets/runtime/3d/cars/unversal_2/white/white__yaw045.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      134,
+      256
+    ],
+    "bytes": 4844,
+    "family": "unversal_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw045"
+  },
+  {
+    "source": "renders/3d/cars/unversal_2/white/white__yaw135.png",
+    "output": "public/assets/runtime/3d/cars/unversal_2/white/white__yaw135.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      137
+    ],
+    "bytes": 5050,
+    "family": "unversal_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw135"
+  },
+  {
+    "source": "renders/3d/cars/unversal_2/white/white__yaw225.png",
+    "output": "public/assets/runtime/3d/cars/unversal_2/white/white__yaw225.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      130,
+      256
+    ],
+    "bytes": 4600,
+    "family": "unversal_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw225"
+  },
+  {
+    "source": "renders/3d/cars/unversal_2/white/white__yaw315.png",
+    "output": "public/assets/runtime/3d/cars/unversal_2/white/white__yaw315.webp",
+    "sourceSize": [
+      1024,
+      1024
+    ],
+    "runtimeSize": [
+      256,
+      137
+    ],
+    "bytes": 5050,
+    "family": "unversal_2",
+    "color": "white",
+    "gridLength": 2,
+    "view": "yaw315"
+  }
+]

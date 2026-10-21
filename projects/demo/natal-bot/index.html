@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Бот натальной карты, демо</title>
+<style>
+  :root{ --bg:#151518; --line:#333340; --text:#efeff1; --muted:#9496a8; --accent:#f9c940; --mono:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --tg-bg:#0e1621; --tg-head:#17212b; --tg-in:#182533; --tg-out:#2b5278; --tg-btn:#2b3b4d; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{ background:radial-gradient(60% 40% at 25% 0, rgba(249,201,64,.09), transparent 70%), var(--bg); color:var(--text); font:15px/1.55 Inter,system-ui,-apple-system,"Segoe UI",sans-serif; padding:34px 18px 100px; }
+  .wrap{ max-width:1100px; margin:0 auto; }
+  .label{ font-family:var(--mono); font-size:12px; color:var(--accent); margin-bottom:10px; }
+  h1{ margin:0 0 12px; font-size:clamp(30px,4.6vw,52px); line-height:1.05; letter-spacing:-.03em; }
+  .lead{ max-width:700px; margin:0 0 28px; color:var(--muted); font-size:clamp(15px,1.5vw,18px); }
+  .grid{ display:grid; grid-template-columns:380px minmax(0,1fr); gap:34px; align-items:start; }
+
+  .phone{ width:380px; height:740px; border-radius:38px; border:1px solid #2a2a35; background:#0a0a0d; padding:10px; box-shadow:0 50px 100px -40px rgba(0,0,0,.95), 0 0 0 1px rgba(255,255,255,.04); }
+  .screen{ position:relative; height:100%; border-radius:30px; overflow:hidden; background:var(--tg-bg); display:flex; flex-direction:column; }
+  .top{ flex:none; display:flex; align-items:center; gap:10px; padding:12px 14px; background:var(--tg-head); border-bottom:1px solid #0d141c; }
+  .ava{ width:38px; height:38px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #3b4a7a, #141b33); border:1.5px solid #c9a24d; display:grid; place-items:center; color:#e3c06e; font-size:18px; }
+  .nm b{ display:block; font-size:15px; color:#fff; line-height:1.2; } .nm span{ font-size:12px; color:#6d8499; }
+  .chat{ flex:1; overflow-y:auto; padding:14px 12px 10px; display:flex; flex-direction:column; gap:6px; scroll-behavior:smooth;
+    background:radial-gradient(circle at 20% 10%, rgba(255,255,255,.03) 0 2px, transparent 2px) 0 0/34px 34px, var(--tg-bg); }
+  .msg{ max-width:88%; padding:8px 11px 7px; border-radius:14px; font-size:14.5px; line-height:1.4; color:#e8edf2; white-space:pre-line; animation:pop .22s ease; word-break:break-word; }
+  .msg.bot{ align-self:flex-start; background:var(--tg-in); border-bottom-left-radius:4px; }
+  .msg.me{ align-self:flex-end; background:var(--tg-out); border-bottom-right-radius:4px; }
+  .msg .tm{ display:block; text-align:right; margin-top:3px; font-size:11px; color:rgba(255,255,255,.4); }
+  .msg b{ color:#fff; }
+  .photo{ align-self:flex-start; width:88%; border-radius:14px; border-bottom-left-radius:4px; overflow:hidden; background:var(--tg-in); animation:pop .22s ease; }
+  .photo img{ display:block; width:100%; height:auto; cursor:zoom-in; }
+  .photo .cap{ padding:8px 11px 8px; font-size:14px; color:#e8edf2; white-space:pre-line; }
+  .sys{ align-self:center; margin:6px 0; padding:4px 12px; border-radius:999px; background:rgba(23,33,43,.9); color:#8aa1b6; font-size:12.5px; text-align:center; animation:pop .22s ease; }
+  .inl{ align-self:flex-start; width:88%; display:flex; flex-direction:column; gap:4px; animation:pop .22s ease; }
+  .inl .r{ display:flex; gap:4px; }
+  .inl button{ flex:1; padding:9px 10px; border:0; border-radius:10px; background:var(--tg-btn); color:#e8edf2; font:500 13.5px Inter,sans-serif; cursor:pointer; transition:filter .15s; }
+  .inl button:hover:not(:disabled){ filter:brightness(1.25); }
+  .inl button:disabled{ opacity:.5; cursor:default; }
+  .typing{ align-self:flex-start; padding:10px 14px; border-radius:14px; border-bottom-left-radius:4px; background:var(--tg-in); display:flex; gap:4px; }
+  .typing i{ width:6px; height:6px; border-radius:50%; background:#6d8499; animation:bl 1s infinite; }
+  .typing i:nth-child(2){ animation-delay:.15s; } .typing i:nth-child(3){ animation-delay:.3s; }
+  @keyframes bl{ 0%,60%,100%{ opacity:.3; transform:translateY(0); } 30%{ opacity:1; transform:translateY(-3px); } }
+  @keyframes pop{ from{ opacity:0; transform:translateY(6px) scale(.98); } to{ opacity:1; transform:none; } }
+  .in{ flex:none; padding:8px; background:var(--tg-head); border-top:1px solid #0d141c; display:flex; gap:8px; align-items:center; }
+  .in input{ flex:1; min-width:0; padding:11px 14px; border:0; border-radius:20px; background:#0e1621; color:#e8edf2; font:14.5px Inter,sans-serif; outline:none; }
+  .in input::placeholder{ color:#5d7388; }
+  .in button{ flex:none; width:42px; height:42px; border:0; border-radius:50%; background:#2b5278; color:#fff; font-size:18px; cursor:pointer; }
+  .in button:disabled{ opacity:.4; cursor:default; }
+
+  .lb{ position:fixed; inset:0; z-index:100; display:none; place-items:center; background:rgba(8,8,12,.92); cursor:zoom-out; }
+  .lb.on{ display:grid; } .lb img{ max-width:94vw; max-height:92vh; border-radius:10px; }
+
+  .side{ display:flex; flex-direction:column; gap:18px; min-width:0; }
+  .card{ border:1px solid var(--line); border-radius:16px; background:linear-gradient(180deg,#20202a,#17171d); padding:20px 22px; min-width:0; box-shadow:inset 0 1px 0 rgba(255,255,255,.05); }
+  .card h2{ margin:0 0 8px; font-size:19px; letter-spacing:-.01em; }
+  .card p{ margin:0 0 10px; color:#cfd1dc; font-size:14.5px; }
+  .card ul{ margin:0; padding-left:18px; color:#cfd1dc; font-size:14.5px; } .card li{ margin-bottom:6px; }
+  .steps{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+  .steps span{ padding:5px 12px; border:1px solid #33333f; border-radius:999px; background:rgba(255,255,255,.04); font-family:var(--mono); font-size:11.5px; color:var(--muted); transition:.25s; }
+  .steps span.on{ border-color:var(--accent); color:var(--accent); background:rgba(249,201,64,.08); }
+  .steps span.done{ color:#5ad39b; border-color:rgba(90,211,155,.4); }
+  .again{ padding:10px 16px; border:1px solid var(--accent); border-radius:10px; background:transparent; color:var(--accent); font:700 13px Inter,sans-serif; cursor:pointer; margin-top:6px; }
+  .again:hover{ background:var(--accent); color:#1b1606; }
+
+  @media (max-width:900px){ .grid{ grid-template-columns:1fr; justify-items:center; gap:26px; } .side{ width:100%; } .phone{ width:min(380px,100%); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="label">// telegram bot</div>
+  <h1>Бот натальной карты</h1>
+  <p class="lead">Бот спрашивает имя, дату, время и город рождения, строит карту по астрономическим расчётам и присылает картинку с коротким разбором. Полный разбор из пяти карточек открывается после оплаты. Пройдите диалог сами: в поле ввода уже стоят тестовые данные, их можно заменить.</p>
+
+  <div class="grid">
+    <div class="phone"><div class="screen">
+      <div class="top"><div class="ava">&#9788;</div><div class="nm"><b>Натальная карта</b><span>бот</span></div></div>
+      <div class="chat" id="chat"></div>
+      <form class="in" id="form" autocomplete="off"><input id="inp" placeholder="Сообщение" disabled><button id="send" type="submit" disabled aria-label="Отправить">&#10148;</button></form>
+    </div></div>
+
+    <div class="side">
+      <div class="card">
+        <h2>Где вы сейчас</h2>
+        <div class="steps" id="steps"><span data-s="0">имя</span><span data-s="1">дата</span><span data-s="2">время</span><span data-s="3">город</span><span data-s="4">проверка</span><span data-s="5">карта</span><span data-s="6">полный разбор</span></div>
+        <button class="again" id="again" type="button">Начать заново</button>
+      </div>
+      <div class="card">
+        <h2>Как это устроено</h2>
+        <ul>
+          <li>Положения планет считает астрономический движок Swiss Ephemeris, а не языковая модель.</li>
+          <li>Модель, если её включить, только пересказывает уже рассчитанные факты и не выдумывает положения.</li>
+          <li>Перед расчётом бот показывает найденное место, часовой пояс и всю анкету, любое поле можно исправить.</li>
+          <li>Полный разбор из пяти карточек оплачивается звёздами Telegram, у оплаты есть возврат.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="lb" id="lb"><img id="lbImg" alt=""></div>
+
+<script>window.__DEMO_BAR=/[?&]shot/.test(location.search)?null:{title:"демо Натальный бот",links:[{label:"Все проекты",href:"/projects",current:false}]};</script>
+<script src="./_demo/demo-bar.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var chat = $('chat'), inp = $('inp'), send = $('send'), run = 0, stage = -1, D = {};
+  var PRICE = 99;
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function tm(){ var d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  function esc(s){ return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+  function scroll(){ chat.scrollTop = chat.scrollHeight; }
+  function mark(s){ [].forEach.call(document.querySelectorAll('#steps span'), function(x){ var n = +x.dataset.s; x.className = n < s ? 'done' : (n === s ? 'on' : ''); }); }
+  function me(t){ var m = document.createElement('div'); m.className = 'msg me'; m.innerHTML = esc(t) + '<span class="tm">' + tm() + '</span>'; chat.appendChild(m); scroll(); }
+  function sys(t){ var m = document.createElement('div'); m.className = 'sys'; m.textContent = t; chat.appendChild(m); scroll(); }
+  async function typing(ms){ var id = run, t = document.createElement('div'); t.className = 'typing'; t.innerHTML = '<i></i><i></i><i></i>'; chat.appendChild(t); scroll(); await wait(ms || 600); t.remove(); return id === run; }
+  async function bot(html, rows){
+    if (!(await typing())) return;
+    var m = document.createElement('div'); m.className = 'msg bot'; m.innerHTML = html + '<span class="tm">' + tm() + '</span>'; chat.appendChild(m);
+    if (rows) addButtons(rows);
+    scroll();
+  }
+  function addButtons(rows){
+    var w = document.createElement('div'); w.className = 'inl';
+    rows.forEach(function(row){ var r = document.createElement('div'); r.className = 'r';
+      row.forEach(function(b){ var x = document.createElement('button'); x.type = 'button'; x.textContent = b[0]; x.onclick = function(){ if (x.disabled) return; [].forEach.call(w.querySelectorAll('button'), function(y){ y.disabled = true; }); b[1](b[0]); }; r.appendChild(x); });
+      w.appendChild(r); });
+    chat.appendChild(w); scroll();
+  }
+  async function photo(src, cap){
+    if (!(await typing(900))) return;
+    var p = document.createElement('div'); p.className = 'photo'; p.innerHTML = '<img src="' + src + '" alt="">' + (cap ? '<div class="cap">' + cap + '</div>' : '');
+    p.querySelector('img').onclick = function(){ $('lbImg').src = src; $('lb').classList.add('on'); };
+    chat.appendChild(p); scroll();
+  }
+  $('lb').onclick = function(){ $('lb').classList.remove('on'); };
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') $('lb').classList.remove('on'); });
+
+  function ask(s, ph, def){ stage = s; mark(s); inp.disabled = false; send.disabled = false; inp.placeholder = ph; inp.value = def; inp.focus(); inp.select(); }
+  function lock(){ inp.disabled = true; send.disabled = true; inp.value = ''; inp.placeholder = 'Сообщение'; }
+
+  async function start(){
+    mark(0); D = {};
+    await bot('Привет! Я построю вашу натальную карту.\n\nПродолжая пользоваться ботом, вы соглашаетесь с Политикой обработки данных (/privacy).\n\nКак вас зовут? Для отмены в любой момент отправьте /cancel.');
+    ask(0, 'Имя', 'Анна');
+  }
+  $('form').onsubmit = async function(e){
+    e.preventDefault();
+    var v = inp.value.trim(); if (!v || inp.disabled) return;
+    var s = stage, id = run;
+    if (v === '/cancel') { me(v); lock(); await bot('Расчёт отменён. Чтобы начать заново, отправьте /start.'); return; }
+    if (s === 0) {
+      if (v.length > 80) { me(v); await bot('Напишите имя текстом — от 1 до 80 символов.'); return; }
+      me(v); lock(); D.name = v;
+      if (D.editing) { D.editing = false; return confirm_(); }
+      await bot('Введите дату рождения в формате ДД.ММ.ГГГГ:'); if (id !== run) return; ask(1, 'ДД.ММ.ГГГГ', '05.07.1990');
+    } else if (s === 1) {
+      var m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(v), d = m && new Date(+m[3], +m[2] - 1, +m[1]);
+      me(v);
+      if (!m || d.getFullYear() !== +m[3] || d.getMonth() !== +m[2] - 1 || d.getDate() !== +m[1] || d > new Date()) { await bot('Не удалось разобрать дату. Введите её в формате ДД.ММ.ГГГГ, например 05.07.1990.'); return; }
+      lock(); D.date = v;
+      if (D.editing) { D.editing = false; return confirm_(); }
+      await bot('Введите точное время рождения в формате ЧЧ:ММ:'); if (id !== run) return; ask(2, 'ЧЧ:ММ', '14:30');
+    } else if (s === 2) {
+      var t = /^(\d{1,2}):(\d{2})$/.exec(v); me(v);
+      if (!t || +t[1] > 23 || +t[2] > 59) { await bot('Не удалось разобрать время. Введите его в формате ЧЧ:ММ, например 14:30.'); return; }
+      lock(); D.time = pad(+t[1]) + ':' + t[2];
+      if (D.editing) { D.editing = false; return confirm_(); }
+      await bot('Введите город рождения. Лучше добавить страну, например: Москва, Россия.'); if (id !== run) return; ask(3, 'Город, страна', 'Москва, Россия');
+    } else if (s === 3) {
+      me(v); lock(); D.city = v; D.editing = false; stage = 4; mark(4);
+      await bot('Ищу место и определяю часовой пояс…');
+      if (id !== run) return; D.place = /моск/i.test(v) ? 'Москва, Россия' : v; D.tz = /моск/i.test(v) ? 'Europe/Moscow' : 'определён по координатам';
+      confirm_();
+    }
+  };
+  function confirm_(){
+    return bot('<b>Проверьте данные</b>\n\nИмя: ' + esc(D.name) + '\nДата рождения: ' + D.date + '\nВремя рождения: ' + D.time + '\nНайденное место: ' + esc(D.place) + '\nЧасовой пояс: ' + esc(D.tz),
+      [[['✅ Всё верно — выбрать разбор', menu]], [['Изменить имя', edit(0, D.name)], ['Изменить дату', edit(1, D.date)]], [['Изменить время', edit(2, D.time)], ['Изменить город', edit(3, D.city)]]]);
+  }
+  function edit(s, def){ return function(){ var ph = ['Имя', 'ДД.ММ.ГГГГ', 'ЧЧ:ММ', 'Город, страна'][s]; D.editing = true; bot('Введите новое значение.').then(function(){ ask(s, ph, def); }); }; }
+  async function menu(){
+    stage = 5; mark(5);
+    await bot('<b>Начнём с бесплатного мини-разбора</b>\n\nВы получите натальную карту и персональное резюме. После этого можно открыть полный разбор из пяти карточек за ' + PRICE + ' ⭐.',
+      [[['🎁 Получить бесплатный мини-разбор', free]], [['← Проверить данные', function(){ confirm_(); }]]]);
+  }
+  async function free(){
+    var id = run;
+    await bot('Рассчитываю положения планет и рисую карту…');
+    if (id !== run) return;
+    await photo('./img/chart.webp', '<b>Натальная карта</b>\n' + esc(D.name) + ', ' + D.date + ', ' + D.time + ', ' + esc(D.place));
+    if (id !== run) return;
+    await bot('<b>Мини-разбор</b>\n\n☀️ Солнце в Раке: чувствительность, забота о близких, потребность в безопасном «доме».\n🌙 Луна в Стрельце: любознательность, тяга к свободе и новому опыту.\n⬆️ Асцендент в Деве: внимательность к деталям, сдержанная подача себя.\n\n<i>Символическая модель для саморефлексии, не прогноз.</i>',
+      [[['📚 Купить полный разбор — ' + PRICE + ' ⭐', pay]]]);
+    stage = 6; mark(6);
+  }
+  async function pay(){
+    var id = run;
+    await bot('Счёт на ' + PRICE + ' ⭐ готов. Нажмите «Оплатить» под счётом.',
+      [[['⭐ Оплатить ' + PRICE + ' ⭐ (тест)', async function(){
+        sys('Тестовая оплата, звёзды не списываются');
+        await bot('Оплата получена. Готовлю полный разбор…');
+        for (var i = 1; i <= 5; i++) { if (id !== run) return; await photo('./img/card' + i + '.webp', i === 1 ? '<b>Персональный разбор</b>' : ''); }
+        if (id !== run) return;
+        await bot('<i>Разбор построен по рассчитанным фактам карты и носит символический характер.</i>\n\nСохранённый разбор можно открыть позже командой /mychart.');
+        mark(7);
+      }]]]);
+  }
+  $('again').onclick = init;
+  function init(){ run++; stage = -1; chat.innerHTML = ''; lock(); mark(0); start(); }
+  init();
+  if (/[?&]shot/.test(location.search)) (async function(){
+    await wait(800); var go = async function(v){ inp.value = v; $('form').dispatchEvent(new Event('submit', {cancelable:true})); await wait(1800); };
+    await go('Анна'); await go('05.07.1990'); await go('14:30'); await go('Москва, Россия'); await wait(900);
+    var b = [].slice.call(document.querySelectorAll('.inl button')); b[0].click(); await wait(1800); [].slice.call(document.querySelectorAll('.inl button')).pop().click(); await wait(3500);
+  })();
+})();
+</script>
+</body>
+</html>
