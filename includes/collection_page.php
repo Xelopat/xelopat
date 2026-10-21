@@ -380,6 +380,49 @@ function coll_rich(string $text): string {
     .cs-lb img{ max-height:80vh; }
   }
 
+
+  /* оформление проектов: крупный заголовок, глубина, номера */
+  .pj-hero{ position:relative; align-items:flex-end; padding:28px 0 8px; margin-bottom:34px; }
+  .pj-hero::before{
+    content:""; position:absolute; z-index:-1; left:-8%; right:-8%; top:-90px; height:420px; pointer-events:none;
+    background:radial-gradient(50% 100% at 18% 0, rgba(249,201,64,.16), transparent 72%), radial-gradient(40% 80% at 85% 10%, rgba(120,110,255,.08), transparent 70%);
+  }
+  .pj-hero .page-label{ margin-bottom:14px; }
+  .pj-hero .page-title{ font-size:clamp(46px, 7.4vw, 88px); line-height:.98; letter-spacing:-.035em; margin-bottom:18px; }
+  .pj-hero .page-sub{ max-width:600px; font-size:clamp(16px, 1.5vw, 19px); line-height:1.6; }
+  .pj-stats{ display:flex; gap:36px; margin-top:26px; }
+  .pj-stats div{ display:flex; flex-direction:column; gap:2px; }
+  .pj-stats b{ font-family:var(--mono); font-size:30px; line-height:1; font-weight:700; color:var(--accent); }
+  .pj-stats span{ font-size:13px; color:var(--muted); }
+  .pj-list{ counter-reset:pj; gap:24px; }
+  .pj{
+    counter-increment:pj;
+    background:linear-gradient(180deg, #20202a 0%, #17171d 100%);
+    border-color:#2c2c38;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 24px 48px -28px rgba(0,0,0,.8);
+    transition:border-color .22s ease, transform .22s ease, box-shadow .22s ease;
+  }
+  .pj:hover{ border-color:rgba(249,201,64,.55); transform:translateY(-4px); box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 30px 60px -28px rgba(0,0,0,.9), 0 0 0 1px rgba(249,201,64,.12), 0 18px 50px -24px rgba(249,201,64,.35); }
+  .pj-img::after{ content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg, transparent 55%, rgba(10,10,14,.45)); }
+  .pj-meta{ gap:12px; }
+  .pj-meta::before{ content:counter(pj, decimal-leading-zero); color:var(--accent); font-weight:700; padding-right:12px; border-right:1px solid var(--line); }
+  .pj-title{ font-size:25px; letter-spacing:-.015em; }
+  .pj--wide .pj-title{ font-size:clamp(30px, 3.4vw, 42px); line-height:1.1; }
+  .pj--wide .pj-desc{ font-size:16px; }
+  .pj-stack li{ border-radius:999px; padding:4px 11px; background:rgba(255,255,255,.04); border-color:#33333f; }
+  .pj-actions .btn{ border-radius:10px; }
+  .cs-hero{ position:relative; }
+  .cs-hero::before{ content:""; position:absolute; z-index:-1; left:-10%; top:-80px; width:80%; height:340px; pointer-events:none; background:radial-gradient(50% 100% at 20% 0, rgba(249,201,64,.14), transparent 72%); }
+  .cs-title{ font-size:clamp(36px, 6vw, 64px); letter-spacing:-.03em; line-height:1.02; }
+  .cs-cover{ border:1px solid #2c2c38; box-shadow:0 40px 90px -40px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.03); }
+  @media (max-width: 560px){
+    .pj-hero{ padding-top:12px; margin-bottom:24px; }
+    .pj-stats{ gap:28px; margin-top:20px; }
+    .pj-stats b{ font-size:26px; }
+    .pj-list{ gap:18px; }
+    .pj-title, .pj--wide .pj-title{ font-size:22px; }
+  }
+
   .co-empty{ padding:40px 0; text-align:center; color:var(--muted); }
 
   /* модалки */
@@ -574,11 +617,17 @@ function coll_rich(string $text): string {
       <div class="cs-lb-n" id="csLbN"></div>
     </div>
     <?php else: ?>
-    <div class="co-head">
+    <div class="co-head<?= $coll_cases ? ' pj-hero' : '' ?>">
       <div>
         <div class="page-label"><?= coll_h($coll['label']) ?></div>
         <h1 class="page-title"><?= coll_h($coll['title']) ?></h1>
         <?php if (!empty($coll['lead'])): ?><p class="page-sub" style="margin-bottom:0"><?= coll_h($coll['lead']) ?></p><?php endif; ?>
+        <?php if ($coll_cases && $coll_items): ?>
+          <div class="pj-stats">
+            <div><b><?= count($coll_items) ?></b><span>проектов</span></div>
+            <div><b><?= count(array_filter($coll_items, fn($x) => strpos($x['link'], '/projects/demo/') === 0)) ?></b><span>с живым демо</span></div>
+          </div>
+        <?php endif; ?>
       </div>
       <div class="co-tools">
         <?php if (count($coll_items) > 6): ?>
