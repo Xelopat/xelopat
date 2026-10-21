@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MarketPrinter, демо</title>
+<style>
+  :root{
+    --bg:#15151a; --line:#d8d1c3; --ink:#2a2620; --ink-2:#645b4e; --muted:#7a7166; --accent:#c8841d; --accent-d:#b77512; --gold:#a76b12;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; min-height:100%; }
+  body{
+    background:radial-gradient(70% 60% at 50% 0, #26242a 0, var(--bg) 70%), var(--bg);
+    font:14px/1.4 "Segoe UI", Inter, system-ui, sans-serif; color:var(--ink);
+    display:flex; flex-direction:column; align-items:center; padding:28px 16px 90px;
+  }
+  .intro{ width:min(1180px,100%); margin:0 0 18px; color:#9496a8; font-size:14px; line-height:1.55; }
+  .intro b{ color:#efeff1; font-weight:600; }
+  .intro kbd{ padding:1px 6px; border:1px solid #333340; border-radius:4px; font:12px ui-monospace,monospace; color:#efeff1; }
+
+  .win{ width:min(1180px,100%); background:#f3efe6; border-radius:10px; overflow:hidden; box-shadow:0 40px 90px -30px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.07); }
+  .titlebar{ display:flex; align-items:center; height:34px; background:#fff; border-bottom:1px solid #e3ddd0; font-size:12px; color:#333; user-select:none; }
+  .titlebar .ico{ width:16px; height:16px; margin:0 8px 0 12px; border-radius:3px; background:linear-gradient(135deg,#e8a33a,#b6791b); display:grid; place-items:center; color:#fff; font-size:10px; font-weight:800; }
+  .titlebar .tt{ flex:1; }
+  .lang{ margin-right:10px; padding:3px 9px; border:1px solid #d8d1c3; border-radius:5px; background:#faf7f0; color:#645b4e; font:600 11px "Segoe UI",sans-serif; cursor:pointer; }
+  .lang:hover{ border-color:#b89a67; }
+  .wc{ display:flex; height:100%; }
+  .wc span{ width:46px; display:grid; place-items:center; font-size:12px; color:#444; }
+  .wc span:last-child:hover{ background:#e81123; color:#fff; }
+
+  .body{ display:grid; grid-template-columns:minmax(330px,40%) minmax(0,1fr); gap:20px; padding:22px; min-height:640px; }
+  .left,.right{ border:1px solid var(--line); }
+  .left{ background:#fcfaf5; padding:20px; display:flex; flex-direction:column; gap:10px; min-width:0; }
+  .right{ background:#fffdf8; padding:22px 24px; display:flex; flex-direction:column; align-items:stretch; min-width:0; }
+  h1{ margin:0 0 6px; font-size:30px; font-weight:700; color:#1f1a14; }
+  .cap{ margin:8px 0 0; font-size:12px; font-weight:700; color:var(--muted); }
+  select{
+    width:100%; min-height:46px; padding:8px 34px 8px 12px; border:1px solid #cfc6b7; background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23645b4e' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 12px center;
+    color:#241f19; font:14px "Segoe UI",sans-serif; appearance:none; border-radius:0; cursor:pointer;
+  }
+  select:focus{ outline:2px solid #e7d8b8; }
+  .count{ color:var(--gold); font-size:18px; font-weight:700; }
+  .list{ flex:1; min-height:240px; max-height:340px; overflow:auto; border:1px solid var(--line); background:#fff; padding:8px; display:flex; flex-direction:column; gap:8px; }
+  .opt{
+    position:relative; min-height:50px; padding:10px 14px 10px 40px; border:1px solid #ded6c9; background:#fcfbf8; color:var(--ink);
+    font:500 15px "Segoe UI",sans-serif; text-align:left; cursor:pointer; display:flex; align-items:center;
+  }
+  .opt::before{ content:""; position:absolute; left:13px; top:50%; width:12px; height:12px; margin-top:-8px; border:2px solid #918474; border-radius:50%; background:#fff; }
+  .opt:hover{ border-color:#b89a67; background:#f8f2e7; }
+  .opt.on{ border-color:#b6791b; background:#fbf3e2; }
+  .opt.on::before{ border-color:#b6791b; background:#b6791b; box-shadow:inset 0 0 0 2px #fff; }
+  .datebox{ border:1px solid var(--line); background:#fcfaf5; padding:12px 14px; }
+  .datebox .cap{ margin:0 0 4px; }
+  .datebox .val{ color:var(--gold); font-size:18px; font-weight:700; }
+  .print{
+    min-height:50px; border:1px solid var(--accent); background:var(--accent); color:#fff; font:800 15px "Segoe UI",sans-serif; letter-spacing:.02em; cursor:pointer;
+    transition:background .15s;
+  }
+  .print:hover{ background:var(--accent-d); }
+  .print:active{ transform:translateY(1px); }
+
+  .ptitle{ margin:0 0 6px; font-size:20px; font-weight:700; color:#1f1a14; }
+  .pdet{ margin:0 0 16px; font-size:13px; color:#5f5446; white-space:pre-line; }
+  .stage{ flex:1; display:grid; place-items:center; padding:6px 0 10px; min-height:0; }
+  .slot{ position:relative; width:min(380px,100%); }
+  .label{
+    position:relative; width:100%; aspect-ratio:360 / 520; background:#fffdf8; border:1px solid #d9d0c1; padding:20px 22px; color:#17120d;
+    box-shadow:0 14px 34px -18px rgba(60,40,10,.45); display:flex; flex-direction:column;
+  }
+  .label.printing{ animation:out .9s cubic-bezier(.5,0,.2,1); }
+  @keyframes out{ 0%{ transform:translateY(0); } 45%{ transform:translateY(38px) rotate(.6deg); opacity:.2; } 55%{ transform:translateY(-30px); opacity:0; } 100%{ transform:translateY(0); opacity:1; } }
+  .lk{ font-size:12px; color:#8b7c65; }
+  .lp{ font-size:clamp(24px,3.2vw,34px); line-height:1.12; font-weight:700; margin:2px 0 12px; word-break:break-word; }
+  .row{ border-top:1px solid #d9d0c1; padding:10px 0 6px; }
+  .row .v{ font-size:15px; font-weight:700; color:#241f19; margin-top:3px; }
+  .bar{ margin-top:auto; border-top:1px solid #d9d0c1; padding-top:14px; }
+  .bars{ display:flex; align-items:flex-end; height:28px; gap:1px; overflow:hidden; }
+  .bars i{ display:block; height:100%; background:#17120d; }
+  .bars i.s{ background:transparent; }
+  .lid{ margin-top:10px; font-size:12px; color:#8b7c65; letter-spacing:.04em; }
+  .hint{ margin:6px 0 0; font-size:13px; color:var(--muted); text-align:center; }
+
+  .dlg{ position:fixed; inset:0; background:rgba(20,16,10,.45); display:none; place-items:center; z-index:50; }
+  .dlg.on{ display:grid; }
+  .box{ width:min(380px,92vw); background:#f0f0f0; border:1px solid #888; box-shadow:0 16px 40px rgba(0,0,0,.5); font-family:"Segoe UI",sans-serif; color:#000; }
+  .box .t{ padding:8px 12px; background:#fff; font-size:12px; }
+  .box .m{ padding:22px 20px; background:#fff; display:flex; gap:14px; align-items:center; font-size:14px; }
+  .box .m .i{ flex:none; width:32px; height:32px; border-radius:50%; background:#2e8b57; color:#fff; display:grid; place-items:center; font-weight:700; }
+  .box .f{ padding:12px; background:#f0f0f0; text-align:right; }
+  .box button{ min-width:84px; padding:5px 14px; border:1px solid #0078d7; background:#e5f1fb; font:13px "Segoe UI",sans-serif; cursor:pointer; }
+
+  @media (max-width:860px){
+    body{ padding:14px 10px 90px; }
+    .body{ grid-template-columns:1fr; padding:12px; gap:12px; }
+    .list{ max-height:260px; }
+    .titlebar .tt{ font-size:11px; }
+    .wc span{ width:34px; }
+  }
+</style>
+</head>
+<body>
+<p class="intro"><b>Демо настольной программы для печати ценников.</b> Выберите категорию и товар: на наклейке сразу считается срок годности по категории, а в предпросмотре видно, что будет напечатано. Язык меняется кнопкой или клавишами <kbd>Ctrl</kbd>+<kbd>L</kbd>. Принтера здесь нет, печать показана анимацией.</p>
+
+<div class="win" role="application" aria-label="MarketPrinter">
+  <div class="titlebar">
+    <span class="ico">M</span><span class="tt">MarketPrinter</span>
+    <button class="lang" id="lang" type="button" title="Ctrl+L">RU / EN</button>
+    <div class="wc"><span>&#8211;</span><span>&#9633;</span><span>&#10005;</span></div>
+  </div>
+  <div class="body">
+    <section class="left">
+      <h1>MarketPrinter</h1>
+      <div class="cap" id="tPrinter">Принтер</div>
+      <select id="printer"><option>XPrinter XP-365B</option><option>Microsoft Print to PDF</option></select>
+      <div class="cap" id="tCategory">Категория</div>
+      <select id="category"></select>
+      <div class="cap" id="tPositions">Позиции</div>
+      <div class="count" id="count">8 позиций</div>
+      <div class="list" id="list"></div>
+      <div class="datebox"><div class="cap" id="tNow">Текущие дата и время</div><div class="val" id="now"></div></div>
+      <button class="print" id="print" type="button">ПЕЧАТЬ ЭТИКЕТКИ</button>
+    </section>
+    <section class="right">
+      <h2 class="ptitle" id="ptitle">Предпросмотр наклейки</h2>
+      <p class="pdet" id="pdet"></p>
+      <div class="stage"><div class="slot"><div class="label" id="label"></div></div></div>
+      <p class="hint" id="hint"></p>
+    </section>
+  </div>
+</div>
+
+<div class="dlg" id="dlg"><div class="box"><div class="t" id="dT">Успех</div><div class="m"><span class="i">&#10003;</span><span id="dM"></span></div><div class="f"><button id="dOk" type="button">OK</button></div></div></div>
+
+<script>window.__DEMO_BAR=/[?&]shot/.test(location.search)?null:{title:"демо MarketPrinter",links:[{label:"Все проекты",href:"/projects",current:false}]};</script>
+<script src="./_demo/demo-bar.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  var CATS = {
+    fresh:{days:1,name:{ru:'Fresh | 24 часа',en:'Fresh | 24 hours'},desc:{ru:'Быстро реализуемые позиции: готовая еда, десерты, охлажденные наборы.',en:'Fast-turnover items: ready meals, desserts, and chilled sets.'},
+      items:[['Сэндвич с курицей','Chicken Sandwich'],['Салат Цезарь','Caesar Salad'],['Паста болоньезе','Pasta Bolognese'],['Ролл с лососем','Salmon Roll'],['Тирамису','Tiramisu'],['Чизкейк Нью-Йорк','New York Cheesecake'],['Суп томатный','Tomato Soup'],['Киш с овощами','Vegetable Quiche']]},
+    cold:{days:3,name:{ru:'Cold | 72 часа',en:'Cold | 72 hours'},desc:{ru:'Охлажденная гастрономия и полуфабрикаты для витрины и быстрой отгрузки.',en:'Chilled deli and semi-finished products for display and quick dispatch.'},
+      items:[['Куриное филе','Chicken Fillet'],['Индейка маринованная','Marinated Turkey'],['Форель охлаждённая','Chilled Trout'],['Котлеты домашние','Homestyle Cutlets'],['Сырники','Cottage Cheese Pancakes'],['Хумус классический','Classic Hummus'],['Тесто слоёное','Puff Pastry Dough'],['Пельмени ручной лепки','Handmade Dumplings']]},
+    market:{days:5,name:{ru:'Market | 5 дней',en:'Market | 5 days'},desc:{ru:'Овощи, фрукты и фермерские позиции со средней оборачиваемостью.',en:'Vegetables, fruits, and farm goods with medium turnover.'},
+      items:[['Огурец','Cucumber'],['Помидор','Tomato'],['Морковь','Carrot'],['Яблоко','Apple'],['Банан','Banana'],['Апельсин','Orange'],['Груша','Pear'],['Шампиньоны','Champignons']]},
+    dairy:{days:10,name:{ru:'Dairy | 10 дней',en:'Dairy | 10 days'},desc:{ru:'Молочная полка и фасованные продукты с предсказуемым сроком хранения.',en:'Dairy shelf and packaged products with predictable shelf life.'},
+      items:[['Молоко','Milk'],['Сыр','Cheese'],['Йогурт','Yogurt'],['Сметана','Sour Cream'],['Творог','Cottage Cheese'],['Кефир','Kefir'],['Моцарелла','Mozzarella'],['Масло сливочное','Butter']]},
+    bakery:{days:14,name:{ru:'Bakery | 14 дней',en:'Bakery | 14 days'},desc:{ru:'Выпечка, снеки и сухие изделия для кассовой зоны и кофейных точек.',en:'Bakery, snacks, and dry goods for checkout and coffee points.'},
+      items:[['Круассан','Croissant'],['Бриошь','Brioche'],['Гранола','Granola'],['Печенье овсяное','Oatmeal Cookies'],['Хлеб цельнозерновой','Wholegrain Bread'],['Багет','Baguette'],['Маффин шоколадный','Chocolate Muffin'],['Сухарики чесночные','Garlic Croutons']]}
+  };
+  var T = {
+    ru:{printer:'Принтер',category:'Категория',positions:'Позиции',now:'Текущие дата и время',print:'ПЕЧАТЬ ЭТИКЕТКИ',item:'ТОВАР',printed:'ДАТА ПЕЧАТИ',expiry:'ГОДЕН ДО',shelf:'СРОК',days:'дн.',fallback:'Предпросмотр наклейки',none:'Не выбрано',
+      hint:'Проверьте даты и название товара перед печатью. Выбранный принтер: {p}.',det:'{c}  |  срок хранения {d} дн.\n{x}',cnt:'{n} позиций',ok:'Успех',okText:'Наклейка «{p}» напечатана.'},
+    en:{printer:'Printer',category:'Category',positions:'Items',now:'Current date and time',print:'PRINT LABEL',item:'ITEM',printed:'PRINTED AT',expiry:'USE BY',shelf:'SHELF LIFE',days:'days',fallback:'Label preview',none:'Not selected',
+      hint:'Check dates and item name before printing. Selected printer: {p}.',det:'{c}  |  shelf life {d} days\n{x}',cnt:'{n} items',ok:'Success',okText:'Label "{p}" has been printed.'}
+  };
+  var lang = 'ru', catId = 'fresh', sel = 0;
+  var $ = function(id){ return document.getElementById(id); };
+  var pad = function(n){ return (n < 10 ? '0' : '') + n; };
+  function fmt(d){ return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function dishId(cat, name){ var s = ''; (cat + '|' + name).split('').forEach(function(c){ s += ('000' + c.charCodeAt(0)).slice(-3); }); return s.slice(0, 12); }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function renderCats(){
+    var s = $('category'); s.innerHTML = '';
+    Object.keys(CATS).forEach(function(k){ var o = document.createElement('option'); o.value = k; o.textContent = CATS[k].name[lang]; if (k === catId) o.selected = true; s.appendChild(o); });
+  }
+  function renderList(){
+    var c = CATS[catId], l = $('list'); l.innerHTML = '';
+    c.items.forEach(function(it, i){
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'opt' + (i === sel ? ' on' : ''); b.textContent = it[lang === 'ru' ? 0 : 1];
+      b.onclick = function(){ sel = i; renderList(); preview(); };
+      l.appendChild(b);
+    });
+  }
+  function preview(){
+    var t = T[lang], c = CATS[catId], now = new Date(), exp = new Date(now.getTime() + c.days * 864e5);
+    var name = sel >= 0 ? c.items[sel][lang === 'ru' ? 0 : 1] : t.none;
+    $('count').textContent = t.cnt.replace('{n}', c.items.length);
+    $('ptitle').textContent = sel >= 0 ? name : t.fallback;
+    $('pdet').textContent = t.det.replace('{c}', c.name[lang]).replace('{d}', c.days).replace('{x}', c.desc[lang]);
+    $('hint').textContent = t.hint.replace('{p}', $('printer').value);
+    $('now').textContent = fmt(now);
+    var bars = '', pat = [3,1,2,1,4,2,1,3,2,1,4,1,2,3,1,2,4,1];
+    for (var r = 0; r < 3; r++) pat.forEach(function(w, i){ bars += '<i class="' + (i % 2 ? 's' : '') + '" style="width:' + w + 'px"></i>'; });
+    $('label').innerHTML =
+      '<div class="lk">' + t.item + '</div><div class="lp">' + esc(name) + '</div>' +
+      '<div class="row"><div class="lk">' + t.printed + '</div><div class="v">' + fmt(now) + '</div></div>' +
+      '<div class="row"><div class="lk">' + t.expiry + '</div><div class="v">' + fmt(exp) + '</div></div>' +
+      '<div class="row"><div class="lk">' + t.shelf + '</div><div class="v">' + c.days + ' ' + t.days + '</div></div>' +
+      '<div class="bar"><div class="bars">' + bars + '</div><div class="lid">ID-' + dishId(c.name[lang], name) + '</div></div>';
+  }
+  function texts(){
+    var t = T[lang];
+    $('tPrinter').textContent = t.printer; $('tCategory').textContent = t.category; $('tPositions').textContent = t.positions; $('tNow').textContent = t.now; $('print').textContent = t.print;
+  }
+  function all(){ texts(); renderCats(); renderList(); preview(); }
+
+  $('category').onchange = function(){ catId = this.value; sel = 0; renderList(); preview(); };
+  $('printer').onchange = preview;
+  $('lang').onclick = function(){ lang = lang === 'ru' ? 'en' : 'ru'; all(); };
+  document.addEventListener('keydown', function(e){ if (e.ctrlKey && (e.key === 'l' || e.key === 'L' || e.key === 'д' || e.key === 'Д')) { e.preventDefault(); $('lang').click(); } if (e.key === 'Escape') $('dlg').classList.remove('on'); });
+  $('print').onclick = function(){
+    var l = $('label'); l.classList.remove('printing'); void l.offsetWidth; l.classList.add('printing');
+    var t = T[lang], name = CATS[catId].items[sel][lang === 'ru' ? 0 : 1];
+    setTimeout(function(){ $('dT').textContent = t.ok; $('dM').textContent = t.okText.replace('{p}', name); $('dlg').classList.add('on'); }, 800);
+  };
+  $('dOk').onclick = function(){ $('dlg').classList.remove('on'); };
+  setInterval(preview, 30000);
+  all();
+})();
+</script>
+</body>
+</html>
