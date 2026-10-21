@@ -384,8 +384,8 @@ function coll_rich(string $text): string {
   /* оформление проектов: крупный заголовок, глубина, номера */
   .pj-hero{ position:relative; align-items:flex-end; padding:28px 0 8px; margin-bottom:34px; }
   .pj-hero::before{
-    content:""; position:absolute; z-index:-1; left:-12%; width:80%; top:0; height:380px; pointer-events:none;
-    background:radial-gradient(ellipse farthest-side at 50% 0, rgba(249,201,64,.15), transparent);
+    content:""; position:absolute; z-index:-1; left:-12%; width:80%; top:-140px; height:480px; pointer-events:none;
+    background:radial-gradient(ellipse closest-side at 50% 50%, rgba(249,201,64,.15), transparent);
   }
   .pj-hero .page-label{ margin-bottom:14px; }
   .pj-hero .page-title{ font-size:clamp(46px, 7.4vw, 88px); line-height:.98; letter-spacing:-.035em; margin-bottom:18px; }
@@ -412,7 +412,7 @@ function coll_rich(string $text): string {
   .pj-stack li{ border-radius:999px; padding:4px 11px; background:rgba(255,255,255,.04); border-color:#33333f; }
   .pj-actions .btn{ border-radius:10px; }
   .cs-hero{ position:relative; }
-  .cs-hero::before{ content:""; position:absolute; z-index:-1; left:-14%; width:90%; top:-20px; height:340px; pointer-events:none; background:radial-gradient(ellipse farthest-side at 50% 0, rgba(249,201,64,.13), transparent); }
+  .cs-hero::before{ content:""; position:absolute; z-index:-1; left:-14%; width:90%; top:-150px; height:440px; pointer-events:none; background:radial-gradient(ellipse closest-side at 50% 50%, rgba(249,201,64,.13), transparent); }
   .cs-title{ font-size:clamp(36px, 6vw, 64px); letter-spacing:-.03em; line-height:1.02; }
   .cs-cover{ border:1px solid #2c2c38; box-shadow:0 40px 90px -40px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.03); }
   @media (max-width: 560px){
