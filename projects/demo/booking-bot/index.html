@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Бот записи на услуги, демо</title>
+<link rel="stylesheet" href="../_shared/tg.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="label">// telegram bot</div>
+  <h1>Конструктор бота для записи</h1>
+  <p class="lead">Один бот для записи на занятия, консультации, мероприятия и услуги. Администратор создаёт запись прямо в чате, клиенты записываются, оплачивают и получают ссылку с деталями. Переключайтесь между ролями справа: созданная администратором запись сразу видна клиенту.</p>
+
+  <div class="grid">
+    <div class="phone"><div class="screen">
+      <div class="top"><div class="ava">&#128197;</div><div class="nm"><b>Запись онлайн</b><span id="role">бот, режим клиента</span></div></div>
+      <div class="chat" id="chat"></div>
+      <div class="kb" id="kb"></div>
+      <form class="in" id="form" autocomplete="off"><input id="inp" placeholder="Сообщение" disabled><button id="send" type="submit" disabled aria-label="Отправить">&#10148;</button></form>
+    </div></div>
+
+    <div class="side">
+      <div class="card">
+        <h2>Кто сейчас пользуется ботом</h2>
+        <div class="seg" id="seg"><button type="button" class="on" data-r="client">Клиент</button><button type="button" data-r="admin">Администратор</button></div>
+        <p style="margin-top:12px">Клиенту доступны записи, оплата и «Мои записи». Администратору создание записей, список участников и настройки оплаты.</p>
+      </div>
+      <div class="card">
+        <h2>Записи в базе</h2>
+        <div class="term" id="term" style="height:210px"></div>
+      </div>
+      <div class="card">
+        <h2>Что умеет в рабочей версии</h2>
+        <ul>
+          <li>Лимит мест и учёт записавшихся.</li>
+          <li>Подключение онлайн-оплаты: администратор вводит данные магазина, секретный ключ хранится зашифрованным.</li>
+          <li>Редактирование и копирование записей, удаление, экспорт участников в CSV.</li>
+          <li>Один код запускает несколько ботов с отдельными базами.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>window.__DEMO_BAR=/[?&]shot/.test(location.search)?null:{title:"демо Бот записи",links:[{label:"Все проекты",href:"/projects",current:false}]};</script>
+<script src="./_demo/demo-bar.js" defer></script>
+<script src="../_shared/tg.js"></script>
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var tg = TG($('chat')), role = 'client', S;
+  var NAMES = ['Мария К.','Олег П.','Анна С.','Игорь Т.','Елена В.','Денис Л.'];
+
+  function seed(){
+    return { nextId: 4, mine: [], events: [
+      {id:1,title:'Йога для начинающих',type:'class',date:'2026-11-05',time:'19:00',place:'Студия «Лотос», ул. Лесная, 12',desc:'Лёгкое занятие, коврики выдаём.',cost:500,cap:8,people:NAMES.slice(0,5),link:'',chat:'https://t.me/+demo-yoga'},
+      {id:2,title:'Консультация по налогам',type:'consultation',date:'2026-11-12',time:'',place:'Онлайн',desc:'Разбор вопросов по УСН и отчётности, 40 минут.',cost:0,cap:0,people:NAMES.slice(0,2),link:'',chat:'https://t.me/+demo-tax'},
+      {id:3,title:'Мастер-класс по керамике',type:'event',date:'2026-11-20',time:'12:00',place:'Мастерская «Глина»',desc:'Лепим кружку, обжиг включён.',cost:1500,cap:6,people:NAMES.slice(0,6),link:'',chat:'https://t.me/+demo-clay'}
+    ]};
+  }
+  function t(ev){ return ev.time || 'не указано'; }
+  function free(ev){ return ev.cap === 0 ? 'без лимита' : ev.people.length + '/' + ev.cap; }
+  function log(cls, text){ var d = document.createElement('div'); d.innerHTML = '<span class="t">' + tg.tm() + '</span> <span class="' + cls + '">' + text + '</span>'; $('term').appendChild(d); $('term').scrollTop = 1e6; }
+  function base(){ $('term').innerHTML = ''; S.events.forEach(function(e){ log('b', '#' + e.id + ' ' + e.title + ', ' + e.date + ', записано ' + free(e)); }); }
+  function details(ev, mineIt){
+    var p = ['<b>' + tg.esc(ev.title) + '</b>', 'Тип: ' + ev.type, 'Дата: ' + ev.date, 'Время: ' + t(ev), 'Стоимость: ' + ev.cost, 'Места: ' + free(ev), 'Место: ' + tg.esc(ev.place || 'не указано'), 'Описание: ' + tg.esc(ev.desc || 'не указано')];
+    if (mineIt && ev.chat) p.push('Детали для клиента: ' + ev.chat);
+    return p.join('\n');
+  }
+
+  /* ---------- меню ---------- */
+  function menu(){
+    var kb = $('kb'); kb.innerHTML = '';
+    var items = role === 'client' ? [['Записи', events], ['Мои записи', mineList], ['О боте', about]] : [['Создать запись', create], ['Участники', members], ['Оплата', pay]];
+    items.forEach(function(it){ var b = document.createElement('button'); b.type = 'button'; b.textContent = it[0]; b.onclick = function(){ if (flow) return; tg.me(it[0]); it[1](); }; kb.appendChild(b); });
+  }
+  async function start(){
+    menu();
+    await tg.bot(role === 'client' ? 'Здравствуйте! Здесь можно записаться на занятия и консультации. Нажмите «Записи».' : 'Вы вошли как администратор. Можно создавать записи и смотреть участников.');
+  }
+
+  /* ---------- клиент ---------- */
+  async function events(){
+    var rows = S.events.map(function(e){ return [[e.title + ', ' + e.date, function(){ show(e.id); }]]; });
+    await tg.bot('Доступные записи:', rows);
+  }
+  async function show(id){
+    var ev = S.events.filter(function(e){ return e.id === id; })[0], mineIt = S.mine.indexOf(id) > -1;
+    var rows = [[['Назад', function(){ events(); }]]];
+    if (!mineIt) rows[0].push(['Записаться', function(){ signup(ev); }]);
+    await tg.bot(details(ev, mineIt), rows);
+  }
+  async function signup(ev){
+    if (ev.cap && ev.people.length >= ev.cap) { await tg.bot('К сожалению, свободных мест не осталось.'); return; }
+    if (ev.cost > 0) {
+      log('c', 'создан платёж на ' + ev.cost + ' для записи #' + ev.id);
+      await tg.bot('К оплате: ' + ev.cost + ' ₽\nПосле оплаты нажмите «Оплатил».', [[['Отмена', function(){ log('d', 'платёж отменён'); tg.bot('Оплата отменена.'); }], ['Оплатил', function(){ finish(ev); }]]]);
+    } else finish(ev);
+  }
+  async function finish(ev){
+    ev.people.push('Вы'); S.mine.push(ev.id);
+    log('a', 'запись #' + ev.id + ': подтверждена, участников ' + free(ev));
+    await tg.bot('Вы записаны: ' + tg.esc(ev.title) + '\nДетали для клиента: ' + ev.chat);
+  }
+  async function mineList(){
+    var mine = S.events.filter(function(e){ return S.mine.indexOf(e.id) > -1; });
+    if (!mine.length) { await tg.bot('У вас пока нет записей.'); return; }
+    await tg.bot('Ваши записи:\n\n' + mine.map(function(e){ return '<b>' + tg.esc(e.title) + '</b>\nТип: ' + e.type + '\nДата: ' + e.date + '\nВремя: ' + t(e); }).join('\n\n'));
+  }
+  async function about(){ await tg.bot('Бот для записи на услуги, мероприятия, занятия и консультации.'); }
+
+  /* ---------- администратор ---------- */
+  var flow = null, inp = $('inp'), send = $('send');
+  function ask(ph, def){ inp.disabled = false; send.disabled = false; inp.placeholder = ph; inp.value = def; inp.focus(); inp.select(); }
+  function lock(){ inp.disabled = true; send.disabled = true; inp.value = ''; inp.placeholder = 'Сообщение'; }
+  var STEPS = [
+    {k:'title',q:'Введите название записи:',def:'Экскурсия по старому городу',ph:'Название'},
+    {k:'type',q:'Выберите тип или отправьте свой вариант:\nevent - событие\nservice - услуга\nappointment - запись ко времени\nclass - занятие\nconsultation - консультация',def:'event',ph:'Тип'},
+    {k:'cost',q:'Введите стоимость участия. Если бесплатно, отправьте 0:',def:'800',ph:'Стоимость',int:'Стоимость не может быть отрицательной.'},
+    {k:'cap',q:'Введите лимит мест. Если лимита нет, отправьте 0:',def:'10',ph:'Лимит',int:'Лимит не может быть отрицательным.'},
+    {k:'date',q:'Введите дату в формате ГГГГ-ММ-ДД:',def:'2026-12-12',ph:'ГГГГ-ММ-ДД',date:1},
+    {k:'time',q:'Введите время в формате ЧЧ:ММ или отправьте \'-\' если время не нужно:',def:'11:00',ph:'ЧЧ:ММ',time:1},
+    {k:'place',q:'Введите место проведения:',def:'Сбор у фонтана на площади',ph:'Место'},
+    {k:'desc',q:'Введите описание:',def:'Прогулка на два часа с гидом.',ph:'Описание'}
+  ];
+  async function create(){
+    flow = {i:0,d:{}}; menu(); $('kb').classList.add('off');
+    await tg.bot(STEPS[0].q); ask(STEPS[0].ph, STEPS[0].def);
+  }
+  $('form').onsubmit = async function(e){
+    e.preventDefault(); if (inp.disabled || !flow) return;
+    var v = inp.value.trim(); if (!v) return; var st = STEPS[flow.i]; lock(); tg.me(v);
+    if (v === 'Отмена') { flow = null; $('kb').classList.remove('off'); await tg.bot('Отмена'); return; }
+    var bad = null;
+    if (st.int) { if (!/^-?\d+$/.test(v)) bad = 'Неверный формат, должно быть целое число.'; else if (+v < 0) bad = st.int; }
+    if (st.date) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v), d = m && new Date(+m[1], +m[2] - 1, +m[3]); if (!m || d.getMonth() !== +m[2] - 1 || d.getDate() !== +m[3]) bad = 'Неверный формат даты. Пример: 2026-07-15.'; }
+    if (st.time && v !== '-') { var tt = /^(\d{2}):(\d{2})$/.exec(v); if (!tt || +tt[1] > 23 || +tt[2] > 59) bad = 'Неверный формат времени. Пример: 19:30 или \'-\'.'; }
+    if (bad) { await tg.bot(bad); ask(st.ph, v); return; }
+    flow.d[st.k] = v; flow.i++;
+    if (flow.i < STEPS.length) { var n = STEPS[flow.i]; await tg.bot(n.q); ask(n.ph, n.def); return; }
+    var d2 = flow.d, ev = {id:S.nextId++, title:d2.title, type:d2.type, date:d2.date, time:d2.time === '-' ? '' : d2.time, place:d2.place, desc:d2.desc, cost:+d2.cost, cap:+d2.cap, people:[], link:'', chat:'https://t.me/+demo-new'};
+    S.events.push(ev); flow = null; $('kb').classList.remove('off');
+    log('a', 'создана запись #' + ev.id + ' ' + ev.title);
+    await tg.bot('Запись создана!\n\nНазвание: ' + tg.esc(ev.title) + '\nТип: ' + ev.type + '\nДата: ' + ev.date + '\nВремя: ' + t(ev) + '\nМесто: ' + tg.esc(ev.place) + '\nСтоимость: ' + ev.cost + '\nЛимит мест: ' + (ev.cap ? ev.cap : 'без лимита'));
+  };
+  async function members(){
+    await tg.bot('Выберите запись:', S.events.map(function(e){ return [[e.title + ' (' + free(e) + ')', async function(){
+      if (!e.people.length) { await tg.bot('На эту запись пока никого нет.'); return; }
+      await tg.bot('<b>' + tg.esc(e.title) + '</b>\nЗаписано: ' + e.people.length + '\n\n' + e.people.map(function(n, i){ return (i + 1) + '. ' + n; }).join('\n'));
+    }]]; }));
+  }
+  async function pay(){
+    await tg.bot('Онлайн-оплата: подключите магазин, чтобы принимать платежи. Введите идентификатор магазина и секретный ключ, ключ сохранится в зашифрованном виде. В демо подключение не выполняется.');
+  }
+
+  /* ---------- роли и старт ---------- */
+  [].forEach.call(document.querySelectorAll('#seg button'), function(b){
+    b.onclick = function(){
+      if (b.dataset.r === role) return; role = b.dataset.r; flow = null; lock(); $('kb').classList.remove('off');
+      [].forEach.call(document.querySelectorAll('#seg button'), function(x){ x.classList.toggle('on', x === b); });
+      $('role').textContent = role === 'client' ? 'бот, режим клиента' : 'бот, режим администратора';
+      tg.reset(); start();
+    };
+  });
+  S = seed(); base();
+  start();
+  if (/[?&]shot/.test(location.search)) (async function(){
+    var w = tg.wait; await w(900); var k = $('kb').querySelectorAll('button'); k[0].click(); await w(1300);
+    [].slice.call(document.querySelectorAll('.inl button'))[0].click(); await w(1300);
+    [].slice.call(document.querySelectorAll('.inl button')).pop().click(); await w(1500);
+  })();
+})();
+</script>
+</body>
+</html>

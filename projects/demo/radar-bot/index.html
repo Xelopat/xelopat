@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Бот-радар заказов, демо</title>
+<link rel="stylesheet" href="../_shared/tg.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="label">// telegram bot</div>
+  <h1>Радар фриланс-заказов</h1>
+  <p class="lead">Бот следит за лентами заказов и присылает только то, что подходит под ваши темы, бюджет и стек. Настройте фильтры справа и нажмите /check: в телефоне появятся карточки, а в журнале видно, почему остальные отброшены. Заказы в демо придуманные.</p>
+
+  <div class="grid">
+    <div class="phone"><div class="screen">
+      <div class="top"><div class="ava">&#128225;</div><div class="nm"><b>Freelance Radar</b><span>бот</span></div></div>
+      <div class="chat" id="chat"></div>
+      <div class="kb" id="kb"><button id="check" type="button">/check, проверить сейчас</button></div>
+    </div></div>
+
+    <div class="side">
+      <div class="card">
+        <h2>Ваши фильтры</h2>
+        <div style="font-size:13px;color:var(--muted)">Нужные темы (/include)</div>
+        <div class="chips" id="inc"></div>
+        <div style="font-size:13px;color:var(--muted);margin-top:8px">Исключения (/exclude)</div>
+        <div class="chips" id="exc"></div>
+        <div class="ctl"><span>Минимальная релевантность (/minscore)</span><b id="vScore">3</b><input id="score" type="range" min="0" max="10" value="3"></div>
+        <div class="ctl"><span>Минимальный бюджет, ₽ (/minbudget)</span><b id="vBud">10 000</b><input id="bud" type="range" min="0" max="100000" step="5000" value="10000"></div>
+        <div style="font-size:13px;color:var(--muted)">Источники (/sources)</div>
+        <div class="chips" id="src"></div>
+        <div style="margin-top:10px"><label class="chip" id="aiLabel" style="display:inline-block">ИИ-отбор: выключен</label></div>
+      </div>
+      <div class="card">
+        <h2>Журнал отбора</h2>
+        <div class="term" id="term" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>window.__DEMO_BAR=/[?&]shot/.test(location.search)?null:{title:"демо Радар",links:[{label:"Все проекты",href:"/projects",current:false}]};</script>
+<script src="./_demo/demo-bar.js" defer></script>
+<script src="../_shared/tg.js"></script>
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var tg = TG($('chat')), term = $('term'), busy = false;
+  var INC = {'python':1,'telegram':1,'aiogram':1,'fastapi':1,'парсинг':1,'сайт':1,'react':0,'django':0};
+  var EXC = {'копирайтинг':1,'логотип':1,'вёрстка psd':0};
+  var SRC = {'FL.ru':1,'Kwork':1,'RSS':1};
+  var AI = false;
+  var JOBS = [
+    {t:'Telegram-бот для записи клиентов в барбершоп',s:'Kwork',b:15000,bt:'15 000 ₽',c:'Барбершоп «Борода»',d:'Нужен бот на Python (aiogram): выбор мастера и времени, напоминания, оплата онлайн.',ai:{sk:9,v:7,r:'low',task:'Бот записи с оплатой',sum:'Типовая задача с понятным ТЗ, подходит под ваш стек.'}},
+    {t:'Парсер объявлений в Google Таблицу',s:'FL.ru',b:8000,bt:'8 000 ₽',d:'Python-скрипт: собирать объявления по запросу и складывать в таблицу раз в час. Парсинг без капчи.',ai:{sk:8,v:4,r:'low',task:'Скрипт-парсер',sum:'Простая работа, но бюджет невысокий.'}},
+    {t:'Сайт-визитка для стоматологии',s:'Kwork',b:25000,bt:'25 000 ₽',d:'Сайт из 5 страниц, форма заявки, адаптив. Дизайн есть, нужна вёрстка и запуск.',ai:{sk:6,v:6,r:'low',task:'Верстка сайта по макету',sum:'Работа по готовому макету, средняя выгода.'}},
+    {t:'Написать 20 статей для блога',s:'FL.ru',b:5000,bt:'5 000 ₽',d:'Копирайтинг на тему строительства, по 3000 знаков.',ai:{sk:1,v:2,r:'low',task:'Тексты',sum:'Не ваше направление.'}},
+    {t:'Доработка FastAPI-бэкенда и интеграция с 1С',s:'RSS',b:120000,bt:'до 120 000 ₽',c:'Удалённая компания',d:'Backend на Python FastAPI, обмен заказами с 1С по HTTP, тесты, документация API.',ai:{sk:8,v:9,r:'medium',task:'Интеграция с 1С',sum:'Серьёзная работа с хорошим бюджетом.',rr:['интеграция зависит от версии 1С']}},
+    {t:'Логотип для кофейни',s:'FL.ru',b:3000,bt:'3 000 ₽',d:'Нужен логотип и два варианта визитки.',ai:{sk:1,v:1,r:'low',task:'Дизайн',sum:'Не ваше направление.'}},
+    {t:'Нужен бот, бюджет не указан',s:'FL.ru',b:null,bt:'',d:'Сделать телеграм бот, подробности в личке. Telegram, как у конкурентов, срочно.',ai:{sk:4,v:3,r:'high',task:'Бот по неясному ТЗ',sum:'Описание размытое, оценить объём нельзя.',rr:['нет технического задания','срочность без бюджета']}},
+    {t:'Админка на React для интернет-магазина',s:'Kwork',b:60000,bt:'60 000 ₽',d:'Панель заказов и товаров на React, API на Django уже есть.',ai:{sk:6,v:8,r:'low',task:'Фронтенд админки',sum:'Хороший бюджет, нужен React.'}},
+    {t:'Скрипт выгрузки данных из CRM в Excel',s:'FL.ru',b:12000,bt:'12 000 ₽',d:'Python-скрипт: ночная выгрузка сделок из CRM в Excel, отправка отчёта на почту.',ai:{sk:7,v:6,r:'low',task:'Выгрузка в Excel',sum:'Небольшая понятная задача.'}},
+    {t:'Мобильное приложение на Flutter',s:'FL.ru',b:90000,bt:'90 000 ₽',d:'Приложение для фитнес-клуба: расписание, запись, push-уведомления.',ai:{sk:3,v:6,r:'low',task:'Мобильное приложение',sum:'Другой стек.'}},
+    {t:'ИИ-чат для поддержки клиентов в Telegram',s:'RSS',b:70000,bt:'70 000 ₽',c:'Интернет-магазин техники',d:'Telegram-бот на Python, ответы по базе знаний через языковую модель, передача оператору.',ai:{sk:9,v:9,r:'low',task:'Бот поддержки с ИИ',sum:'Почти точное попадание в ваш профиль.'}},
+    {t:'Mini App для магазина в Telegram',s:'Kwork',b:45000,bt:'45 000 ₽',d:'Telegram Mini App: каталог, корзина, оплата. Бэкенд на FastAPI, сайт-витрина.',ai:{sk:8,v:8,r:'low',task:'Mini App с каталогом',sum:'Подходит и по стеку, и по бюджету.'}}
+  ];
+  var sent = {};
+
+  function fmt(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+  function log(cls, text){ var d = document.createElement('div'); d.innerHTML = '<span class="t">' + tg.tm() + '</span> <span class="' + cls + '">' + text + '</span>'; term.appendChild(d); term.scrollTop = 1e6; }
+  function chips(el, map, cb){
+    el.innerHTML = '';
+    Object.keys(map).forEach(function(k){ var c = document.createElement('span'); c.className = 'chip' + (map[k] ? ' on' : ''); c.textContent = k; c.onclick = function(){ map[k] = map[k] ? 0 : 1; c.classList.toggle('on'); if (cb) cb(); }; el.appendChild(c); });
+  }
+  chips($('inc'), INC); chips($('exc'), EXC); chips($('src'), SRC);
+  $('score').oninput = function(){ $('vScore').textContent = this.value; };
+  $('bud').oninput = function(){ $('vBud').textContent = fmt(this.value); };
+  $('aiLabel').onclick = function(){ AI = !AI; this.classList.toggle('on', AI); this.textContent = 'ИИ-отбор: ' + (AI ? 'включён' : 'выключен'); };
+
+  function evaluate(j){
+    var text = (j.t + ' ' + j.d).toLowerCase(), matched = [];
+    for (var k in EXC) if (EXC[k] && text.indexOf(k) > -1) return {skip:'исключено словом «' + k + '»'};
+    for (var w in INC) if (INC[w] && text.indexOf(w) > -1) matched.push(w);
+    var score = matched.length * 2;
+    if (!SRC[j.s]) return {skip:'источник отключён'};
+    var minB = +$('bud').value;
+    if (j.b !== null && j.b < minB) return {skip:'бюджет ' + fmt(j.b) + ' ниже ' + fmt(minB)};
+    if (score < +$('score').value) return {skip:'релевантность ' + score + ' ниже порога ' + $('score').value};
+    if (AI && (j.ai.sk < 5 || j.ai.v < 4)) return {skip:'ИИ: навыки ' + j.ai.sk + '/10, выгода ' + j.ai.v + '/10, пропуск'};
+    return {score:score, matched:matched};
+  }
+  function card(j, r){
+    var p = ['<b>' + tg.esc(j.t) + '</b>', 'Источник: ' + j.s + ' | релевантность ' + r.score];
+    if (j.c) p.push('Заказчик: ' + tg.esc(j.c));
+    if (j.bt) p.push('Бюджет: ' + j.bt);
+    if (r.matched.length) p.push('Совпало: ' + r.matched.join(', '));
+    if (AI) {
+      var a = j.ai, ic = {low:'🟢',medium:'🟡',high:'🔴'}[a.r];
+      p.push('AI: навыки ' + a.sk + '/10, выгода ' + a.v + '/10, риск ' + ic + ' ' + a.r);
+      p.push('📋 Задача: ' + a.task); p.push(a.sum);
+      if (a.rr) p.push('Риски: ' + a.rr.join('; '));
+    } else p.push(tg.esc(j.d));
+    return p.join('\n');
+  }
+  function feedback(j){
+    return [[['✅ Подходит', function(){ tg.sys('Запомнил: такие заказы подходят'); log('a', 'фидбэк: «' + j.t + '» подходит, веса тем усилены'); }], ['👎 Не подходит', function(l, w){
+      tg.buttons([[['Мало денег', why], ['Не мой стек', why]], [['Мутное ТЗ', why], ['Неинтересно', why]]]);
+      function why(label){ tg.sys('Учту причину: ' + label.toLowerCase()); log('d', 'фидбэк: «' + j.t + '» не подходит, причина: ' + label.toLowerCase()); }
+    }]]];
+  }
+  async function check(){
+    if (busy) return; busy = true; $('check').disabled = true; var id = tg.run;
+    tg.me('/check'); term.innerHTML = '';
+    log('b', 'проверка источников: ' + Object.keys(SRC).filter(function(k){ return SRC[k]; }).join(', '));
+    var shown = 0, skipped = 0;
+    for (var i = 0; i < JOBS.length; i++) {
+      var j = JOBS[i], r = evaluate(j);
+      if (r.skip) { skipped++; log('c', '[' + j.s + '] «' + j.t.slice(0, 40) + (j.t.length > 40 ? '…' : '') + '»: пропущено, ' + r.skip); continue; }
+      log('a', '[' + j.s + '] «' + j.t.slice(0, 40) + (j.t.length > 40 ? '…' : '') + '»: релевантность ' + r.score + ', отправлено');
+      var ok = await tg.bot(card(j, r), feedback(j), 500); if (!ok || id !== tg.run) return;
+      shown++; await tg.wait(250);
+    }
+    log('b', 'итог: отправлено ' + shown + ', отброшено ' + skipped);
+    if (!shown) await tg.bot('Новых подходящих заказов нет. Попробуйте смягчить фильтры.');
+    busy = false; $('check').disabled = false;
+  }
+  $('check').onclick = check;
+  tg.bot('Привет! Я слежу за лентами заказов и присылаю только подходящие. Настройте фильтры справа, потом отправьте /check. Команда /settings покажет текущие настройки.');
+  if (/[?&]shot/.test(location.search)) setTimeout(function(){ $('aiLabel').click(); $('check').click(); }, 1200);
+})();
+</script>
+</body>
+</html>

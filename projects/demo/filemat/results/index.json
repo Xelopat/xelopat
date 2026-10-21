@@ -1,0 +1,72 @@
+{
+ "szhat-pdf": {
+  "items": [
+   {
+    "name": "sample-compressed.pdf",
+    "format": "PDF",
+    "size": "4 КБ",
+    "file": "szhat-pdf.pdf"
+   }
+  ]
+ },
+ "szhat-foto": {
+  "items": [
+   {
+    "name": "sample-compressed.webp",
+    "format": "WEBP",
+    "size": "88 КБ",
+    "file": "szhat-foto.webp"
+   }
+  ]
+ },
+ "jpg-v-pdf": {
+  "items": [
+   {
+    "name": "sample.pdf",
+    "format": "PDF",
+    "size": "230 КБ",
+    "file": "jpg-v-pdf.pdf"
+   }
+  ]
+ },
+ "skleit-pdf": {
+  "items": [
+   {
+    "name": "sample-merged.pdf",
+    "format": "PDF",
+    "size": "5 КБ",
+    "file": "skleit-pdf.pdf"
+   }
+  ]
+ },
+ "razdelit-pdf": {
+  "items": [
+   {
+    "name": "sample-split.pdf",
+    "format": "PDF",
+    "size": "2 КБ",
+    "file": "razdelit-pdf.pdf"
+   }
+  ]
+ },
+ "txt-v-pdf": {
+  "items": [
+   {
+    "name": "sample.pdf",
+    "format": "PDF",
+    "size": "20 КБ",
+    "file": "txt-v-pdf.pdf"
+   }
+  ]
+ },
+ "jpg-v-avif": {
+  "items": [
+   {
+    "name": "sample.avif",
+    "format": "AVIF",
+    "size": "217 КБ",
+    "file": "jpg-v-avif.avif"
+   }
+  ]
+ }
+}

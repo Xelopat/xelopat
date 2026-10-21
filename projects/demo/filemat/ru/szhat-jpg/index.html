@@ -1,0 +1,579 @@
+
+<!doctype html>
+<html lang="ru">
+<head>
+<meta name="robots" content="noindex">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Сжать JPG онлайн бесплатно | Файломат</title>
+  <meta name="description" content="Сожмите JPG онлайн и скачайте уменьшенное изображение.">
+  
+  
+  <meta property="og:title" content="Сжать JPG онлайн бесплатно">
+  <meta property="og:description" content="Сожмите JPG онлайн и скачайте уменьшенное изображение.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://localhost:8000/ru/szhat-jpg/">
+  <meta property="og:site_name" content="Файломат">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:image" content="https://localhost:8000/static/site_app/icons/apple-touch-icon.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Сжать JPG онлайн бесплатно">
+  <meta name="twitter:description" content="Сожмите JPG онлайн и скачайте уменьшенное изображение.">
+  <meta name="twitter:image" content="https://localhost:8000/static/site_app/icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/projects/demo/filemat/static/site_app/icons/favicon-32.png?v=1792589917">
+  <link rel="icon" type="image/png" sizes="16x16" href="/projects/demo/filemat/static/site_app/icons/favicon-16.png?v=1792589917">
+  <link rel="apple-touch-icon" href="/projects/demo/filemat/static/site_app/icons/apple-touch-icon.png?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/base.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/animations.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/header-footer.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/buttons.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/cards.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/upload-form.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/flow-steps.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/home.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/tool-page.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/result-status.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/responsive.css?v=1792589917">
+  
+  
+  
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Файломат", "item": "https://localhost:8000/ru/"}, {"@type": "ListItem", "position": 2, "name": "Сжать JPG", "item": "https://localhost:8000/ru/szhat-jpg/"}]}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Какие форматы можно сжать?", "acceptedAnswer": {"@type": "Answer", "text": "Принимаются JPG, PNG, WEBP, AVIF, HEIC, HEIF, TIFF и другие. Результат сохраняется в JPG. HEIC-фото с iPhone поддерживаются без дополнительных программ."}}, {"@type": "Question", "name": "Изменится ли разрешение фото?", "acceptedAnswer": {"@type": "Answer", "text": "Нет, количество пикселей сохраняется. Размер файла уменьшается за счёт более эффективного сжатия данных."}}, {"@type": "Question", "name": "Можно ли сжать несколько фото сразу?", "acceptedAnswer": {"@type": "Answer", "text": "Да, загрузите несколько файлов за один раз - каждый будет обработан, результаты придут списком."}}, {"@type": "Question", "name": "Безопасно ли загружать файлы?", "acceptedAnswer": {"@type": "Answer", "text": "Да. Файл передаётся по HTTPS, доступен только по приватной ссылке и удаляется автоматически: для гостей - в течение часа после обработки."}}, {"@type": "Question", "name": "Сколько стоит конвертация?", "acceptedAnswer": {"@type": "Answer", "text": "Бесплатно: до 10 конвертаций в день без регистрации, размер файла - до 100 МБ. Ограничения защищают сервис от перегрузки."}}]}</script>
+
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"WebApplication","name":"Файломат","applicationCategory":"FileConverter","operatingSystem":"Web"}
+  </script>
+  
+  <script>
+    function filematCookie(name) {
+      var value = "; " + document.cookie;
+      var parts = value.split("; " + name + "=");
+      if (parts.length === 2) return parts.pop().split(";").shift();
+      return "";
+    }
+    window.filematAnalytics = function(eventName, payload) {
+      
+        if (window.console) console.debug("[analytics]", eventName, payload || {});
+      
+      
+    };
+    document.addEventListener("DOMContentLoaded", function() {
+      document.querySelectorAll("[data-upload-field]").forEach(function(field) {
+        var zone = field.querySelector("[data-file-dropzone]");
+        var input = field.querySelector("[data-file-input]");
+        var panel = field.querySelector("[data-selected-files-panel]");
+        var list = field.querySelector("[data-selected-files-list]");
+        var count = field.querySelector("[data-selected-count]");
+        if (!input) return;
+        var fileStore = [];
+        var selectedIndex = 0;
+
+        function syncInputFiles() {
+          if (typeof DataTransfer === "undefined") return;
+          var transfer = new DataTransfer();
+          fileStore.forEach(function(file) { transfer.items.add(file); });
+          input.files = transfer.files;
+        }
+
+        function renderSelected() {
+          if (!panel || !list) return;
+          var hasFiles = fileStore.length > 0;
+          if (selectedIndex >= fileStore.length) selectedIndex = Math.max(0, fileStore.length - 1);
+          panel.hidden = !hasFiles;
+          if (zone) zone.hidden = hasFiles;
+          field.classList.toggle("has-files", hasFiles);
+          list.innerHTML = "";
+          if (count) {
+            count.textContent = fileStore.length === 1 ? "Выбран 1 файл" : "Выбрано файлов: " + fileStore.length;
+          }
+          fileStore.forEach(function(file, index) {
+            var item = document.createElement("li");
+            item.className = "selected-file-row";
+            item.classList.toggle("is-active", index === selectedIndex);
+            item.tabIndex = 0;
+            item.setAttribute("role", "button");
+            item.setAttribute("aria-selected", index === selectedIndex ? "true" : "false");
+            item.setAttribute("aria-label", "Показать предпросмотр " + file.name);
+            item.setAttribute("data-file-index", String(index));
+            var ext = (file.name.split(".").pop() || "file").slice(0, 4).toUpperCase();
+            var icon = document.createElement("span");
+            var meta = document.createElement("span");
+            var name = document.createElement("strong");
+            var details = document.createElement("small");
+            var remove = document.createElement("button");
+            icon.className = "selected-file-icon";
+            icon.setAttribute("aria-hidden", "true");
+            icon.textContent = ext;
+            meta.className = "selected-file-meta";
+            name.textContent = file.name;
+            details.setAttribute("data-file-size", "");
+            details.textContent = formatBytes(file.size);
+            remove.className = "selected-file-remove";
+            remove.type = "button";
+            remove.setAttribute("aria-label", "Убрать файл");
+            remove.textContent = "×";
+            meta.appendChild(name);
+            meta.appendChild(details);
+            item.appendChild(icon);
+            item.appendChild(meta);
+            item.appendChild(remove);
+            function selectFile() {
+              selectedIndex = index;
+              renderSelected();
+            }
+            item.addEventListener("click", function(event) {
+              if (event.target === remove) return;
+              selectFile();
+            });
+            item.addEventListener("keydown", function(event) {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              selectFile();
+            });
+            remove.addEventListener("click", function() {
+              fileStore.splice(index, 1);
+              if (index < selectedIndex) selectedIndex -= 1;
+              if (index === selectedIndex) selectedIndex = Math.min(index, fileStore.length - 1);
+              selectedIndex = Math.max(0, selectedIndex);
+              syncInputFiles();
+              renderSelected();
+              window.filematAnalytics && window.filematAnalytics("file_removed", {count: fileStore.length});
+            });
+            list.appendChild(item);
+          });
+          field.dispatchEvent(new CustomEvent("filemat:files-updated", {
+            bubbles: true,
+            detail: {
+              files: fileStore.slice(),
+              selectedIndex: selectedIndex,
+              selectedFile: fileStore[selectedIndex] || null
+            }
+          }));
+        }
+
+        function addFiles(files, append) {
+          var incoming = Array.prototype.slice.call(files || []);
+          var hadFiles = fileStore.length > 0;
+          fileStore = append && input.multiple ? fileStore.concat(incoming) : incoming;
+          selectedIndex = append && hadFiles ? selectedIndex : 0;
+          syncInputFiles();
+          renderSelected();
+          window.filematAnalytics && window.filematAnalytics("file_selected", {count: fileStore.length});
+        }
+
+        if (!zone) return;
+
+        ["dragenter", "dragover"].forEach(function(eventName) {
+          zone.addEventListener(eventName, function(event) {
+            event.preventDefault();
+            zone.classList.add("is-dragover");
+          });
+        });
+        ["dragleave", "drop"].forEach(function(eventName) {
+          zone.addEventListener(eventName, function(event) {
+            event.preventDefault();
+            zone.classList.remove("is-dragover");
+          });
+        });
+        zone.addEventListener("drop", function(event) {
+          if (!event.dataTransfer || !event.dataTransfer.files.length) return;
+          addFiles(event.dataTransfer.files, fileStore.length > 0);
+        });
+        input.addEventListener("change", function() {
+          addFiles(input.files, fileStore.length > 0);
+        });
+      });
+      function formatBytes(bytes) {
+        if (!bytes) return "—";
+        if (bytes >= 1024 * 1024) {
+          return (bytes / 1024 / 1024).toFixed(1).replace(".0", "") + " МБ";
+        }
+        if (bytes < 1024) {
+          return Math.max(1, Math.round(bytes)) + " байт";
+        }
+        return Math.max(1, Math.round(bytes / 1024)) + " КБ";
+      }
+      function estimateCompressedSize(totalBytes, compressionPercent, resizePercent, isPhoto) {
+        if (!totalBytes) return 0;
+        var compressionFactor = 1 - (Math.min(Math.max(compressionPercent, 0), 100) * 0.008);
+        var resizeFactor = isPhoto ? Math.pow(Math.min(Math.max(resizePercent, 10), 100) / 100, 2) : 1;
+        var floorFactor = isPhoto ? 0.04 : 0.08;
+        return Math.max(1, Math.round(totalBytes * Math.max(floorFactor, compressionFactor * resizeFactor)));
+      }
+      document.querySelectorAll("[data-compression-panel]").forEach(function(panel) {
+        var form = panel.closest("form");
+        var fileInput = form ? form.querySelector("[data-file-input]") : null;
+        var compressionInput = panel.querySelector("[data-compression-percent]");
+        var resizeInput = panel.querySelector("[data-resize-percent]");
+        var compressionValue = panel.querySelector("[data-compression-value]");
+        var resizeValue = panel.querySelector("[data-resize-value]");
+        var previewMedia = panel.querySelector("[data-compression-preview-media]");
+        var outputFormat = panel.querySelector('select[name="output_format"]');
+        var isPhoto = panel.getAttribute("data-photo-panel") === "true";
+        var currentFiles = [];
+        var currentIndex = 0;
+        var previewRenderId = 0;
+
+        function selectedFiles() {
+          return currentFiles.length ? currentFiles.slice() : Array.prototype.slice.call((fileInput && fileInput.files) || []);
+        }
+
+        function activeFile(files) {
+          if (!files.length) return null;
+          return files[currentIndex] || files[0];
+        }
+
+        function outputMimeType() {
+          var format = outputFormat ? outputFormat.value : "webp";
+          if (format === "jpg") return "image/jpeg";
+          if (format === "png") return "image/png";
+          if (format === "avif") return "image/avif";
+          return "image/webp";
+        }
+
+        function previewQuality(compressionPercent) {
+          return Math.max(0.12, Math.min(0.95, 1 - (Math.min(Math.max(compressionPercent, 0), 100) * 0.008)));
+        }
+
+        function renderImagePreview(files, compressionPercent, resizePercent) {
+          if (!isPhoto || !previewMedia) return;
+          var renderId = ++previewRenderId;
+          previewMedia.innerHTML = "";
+          var imageFile = activeFile(files);
+          if (imageFile && !/^image\//.test(imageFile.type)) {
+            imageFile = files.find(function(file) { return /^image\//.test(file.type); });
+          }
+          if (!imageFile) {
+            var empty = document.createElement("span");
+            empty.textContent = "Предпросмотр появится после выбора изображения";
+            previewMedia.appendChild(empty);
+            return;
+          }
+          var loading = document.createElement("span");
+          loading.textContent = "Готовим предпросмотр";
+          previewMedia.appendChild(loading);
+          var sourceUrl = URL.createObjectURL(imageFile);
+          var sourceImage = new Image();
+          sourceImage.onload = function() {
+            if (renderId !== previewRenderId) {
+              URL.revokeObjectURL(sourceUrl);
+              return;
+            }
+            var resizeRatio = Math.min(Math.max(resizePercent, 10), 100) / 100;
+            var targetWidth = Math.max(1, Math.round(sourceImage.naturalWidth * resizeRatio));
+            var targetHeight = Math.max(1, Math.round(sourceImage.naturalHeight * resizeRatio));
+            var longestSide = Math.max(targetWidth, targetHeight);
+            var previewScale = longestSide > 1600 ? 1600 / longestSide : 1;
+            var canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round(targetWidth * previewScale));
+            canvas.height = Math.max(1, Math.round(targetHeight * previewScale));
+            var context = canvas.getContext("2d");
+            context.imageSmoothingEnabled = true;
+            context.imageSmoothingQuality = "high";
+            context.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
+            var mime = outputMimeType();
+            var previewMime = mime === "image/avif" ? "image/webp" : mime;
+            var dataUrl = canvas.toDataURL(previewMime, previewQuality(compressionPercent));
+            var img = document.createElement("img");
+            img.src = dataUrl;
+            img.alt = "Предпросмотр после сжатия";
+            previewMedia.innerHTML = "";
+            previewMedia.appendChild(img);
+            URL.revokeObjectURL(sourceUrl);
+          };
+          sourceImage.onerror = function() {
+            if (renderId !== previewRenderId) return;
+            previewMedia.innerHTML = "";
+            var error = document.createElement("span");
+            error.textContent = "Предпросмотр недоступен для этого файла";
+            previewMedia.appendChild(error);
+            URL.revokeObjectURL(sourceUrl);
+          };
+          sourceImage.src = sourceUrl;
+        }
+
+        function refreshFileSizes(files, compressionPercent, resizePercent) {
+          if (!form) return;
+          var rows = form.querySelectorAll("[data-selected-files-list] .selected-file-row");
+          rows.forEach(function(row) {
+            var index = parseInt(row.getAttribute("data-file-index"), 10) || 0;
+            var file = files[index];
+            var sizeNode = row.querySelector("[data-file-size]");
+            if (!file || !sizeNode) return;
+            var estimated = estimateCompressedSize(file.size, compressionPercent, resizePercent, isPhoto);
+            sizeNode.textContent = formatBytes(file.size) + " → " + formatBytes(estimated);
+          });
+        }
+
+        function updatePreview() {
+          var files = selectedFiles();
+          var compressionPercent = parseInt(compressionInput && compressionInput.value, 10) || 0;
+          var resizePercent = parseInt(resizeInput && resizeInput.value, 10) || 100;
+          if (compressionValue) compressionValue.textContent = compressionPercent;
+          if (resizeValue) resizeValue.textContent = resizePercent;
+          refreshFileSizes(files, compressionPercent, resizePercent);
+          renderImagePreview(files, compressionPercent, resizePercent);
+        }
+
+        if (compressionInput) compressionInput.addEventListener("input", updatePreview);
+        if (resizeInput) resizeInput.addEventListener("input", updatePreview);
+        if (outputFormat) outputFormat.addEventListener("change", updatePreview);
+        if (form) form.addEventListener("filemat:files-updated", function(event) {
+          currentFiles = (event.detail && event.detail.files) || [];
+          currentIndex = (event.detail && typeof event.detail.selectedIndex === "number") ? event.detail.selectedIndex : 0;
+          updatePreview();
+        });
+        updatePreview();
+      });
+      document.querySelectorAll("form.upload-form").forEach(function(form) {
+        form.addEventListener("submit", function() {
+          var button = form.querySelector("[data-submit-button]");
+          if (!button || button.disabled) return;
+          button.disabled = true;
+          button.classList.add("is-submitting");
+          button.dataset.originalText = button.textContent;
+          button.textContent = "";
+          var spinner = document.createElement("span");
+          var label = document.createElement("span");
+          spinner.className = "button-spinner";
+          spinner.setAttribute("aria-hidden", "true");
+          label.textContent = "Конвертируем";
+          button.appendChild(spinner);
+          button.appendChild(label);
+        });
+      });
+    });
+  </script>
+</head>
+<body>
+  
+  <header class="site-header">
+  <a class="brand" href="/projects/demo/filemat/ru/" aria-label="Файломат — на главную">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" role="img"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5"/><path d="M14 3v4a2 2 0 0 0 2 2h3"/><path d="M13 15h8"/><path d="m18 12 3 3-3 3"/></svg>
+    </span>
+    <span>
+      <span class="brand-name">Файломат</span>
+      <span class="brand-subtitle">конвертер файлов онлайн</span>
+    </span>
+  </a>
+  <nav class="site-nav" aria-label="Основная навигация">
+    <a href="/projects/demo/filemat/ru/tools/">Инструменты</a>
+    <a href="/projects/demo/filemat/ru/pricing/">Тарифы</a>
+    <a href="/projects/demo/filemat/ru/limits/">Лимиты</a>
+    <a href="/projects/demo/filemat/ru/contact/">Контакты</a>
+  </nav>
+  <div class="header-actions">
+    <a class="language-switcher" href="/projects/demo/filemat/ru/" aria-label="Выбор языка">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+  <span>Русский</span>
+  <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+</a>
+
+    <a class="button button-small" href="/projects/demo/filemat/ru/tools/">Все инструменты</a>
+  </div>
+</header>
+
+  <main class="container">
+    
+<article class="tool-page">
+  
+<ol class="flow-steps" data-flow-steps data-stage="upload">
+  <li class="flow-step is-current" data-flow-step="1">
+    <span class="flow-step-dot" aria-hidden="true">
+      <svg class="flow-step-check" viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7"/></svg>
+      <span class="flow-step-num">1</span>
+    </span>
+    <span class="flow-step-label">Загрузка</span>
+  </li>
+  <li class="flow-step" data-flow-step="2">
+    <span class="flow-step-dot" aria-hidden="true">
+      <svg class="flow-step-check" viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7"/></svg>
+      <span class="flow-step-num">2</span>
+    </span>
+    <span class="flow-step-label">Обработка</span>
+  </li>
+  <li class="flow-step" data-flow-step="3">
+    <span class="flow-step-dot" aria-hidden="true">
+      <svg class="flow-step-check" viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7"/></svg>
+      <span class="flow-step-num">3</span>
+    </span>
+    <span class="flow-step-label">Готово</span>
+  </li>
+</ol>
+
+  <section class="tool-hero">
+    <div class="tool-copy">
+      <h1>Сжать JPG</h1>
+      <p>Сжать JPG онлайн: загрузите изображение - JPG, PNG, WEBP, AVIF, HEIC, HEIF, TIFF и другие - и получите файл JPG меньшего размера. Качество подбирается автоматически, можно задать целевой размер в МБ. Разрешение сохраняется, сжатие выполняется за счёт оптимизации кодирования. Бесплатно и без установки приложений, поддерживается пакетная загрузка.</p>
+      
+    </div>
+    <div class="tool-form-wrap">
+      
+        
+
+<form class="upload-form" method="post" enctype="multipart/form-data" action="/projects/demo/filemat/ru/szhat-jpg/convert/" onsubmit="window.filematAnalytics && window.filematAnalytics('upload_started', {operation: 'compress-jpg'});">
+  <input type="hidden" name="csrfmiddlewaretoken" value="H2r6pZ5ysjorJgcH3xu6cNC5ixpNDiRFW2PrP6UD5riULHSz27Kf6GJPUJLK09B3">
+  <div class="field full">
+    <div class="upload-control" data-upload-field>
+      <input class="file-input-native" type="file" name="files" id="id_files" multiple accept=".jpg,.jpeg,.png,.webp,.avif,.heic,.heif,.tiff,.tif,.bmp,.gif" required data-file-input>
+      <label class="file-dropzone tool-dropzone" for="id_files" data-file-dropzone>
+        <span class="dropzone-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 13v8"/><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="m8 17 4-4 4 4"/></svg>
+        </span>
+        <span class="dropzone-title">Перетащите файлы сюда</span>
+        <span class="dropzone-subtitle">или выберите на устройстве</span>
+        <span class="dropzone-action" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>
+          Выбрать файл
+        </span>
+        <span class="dropzone-limit">Поддерживаемые форматы: jpg, jpeg</span>
+      </label>
+      <div class="selected-files-panel" data-selected-files-panel hidden>
+        <div class="selected-files-head">
+          <div>
+            <strong data-selected-count>Файлы выбраны</strong>
+            <span>Проверьте список перед запуском</span>
+          </div>
+          <label class="button button-secondary add-files-button" for="id_files">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            Добавить ещё
+          </label>
+        </div>
+        <ul class="selected-files-list" data-selected-files-list></ul>
+        <span class="dropzone-limit">Поддерживаемые форматы: jpg, jpeg</span>
+      </div>
+    </div>
+    
+  </div>
+
+  
+    <input type="hidden" name="compression" value="custom">
+    <input type="hidden" name="target_size_mb" value="">
+    <section class="compression-panel" data-compression-panel data-photo-panel="false">
+      
+      <div class="compression-controls">
+        <div class="field compression-range">
+          <label class="field-label-with-help" for="id_compression_percent">
+            <span class="label-title">Сжатие <span class="help-tooltip" tabindex="0" data-tooltip="Чем выше значение, тем меньше итоговый файл и заметнее потери качества">?</span></span>
+            <span><strong data-compression-value>65</strong>%</span>
+          </label>
+          <input type="range" name="compression_percent" id="id_compression_percent" value="65" min="0" max="100" step="1" data-compression-percent>
+          
+        </div>
+        
+      </div>
+    </section>
+  
+
+  <div class="form-actions">
+    <button class="button" type="submit" data-submit-button>Конвертировать</button>
+  </div>
+</form>
+
+      
+      <p class="privacy-hint">
+        Файлы временно обрабатываются, доступны только по приватной ссылке и удаляются автоматически.
+      </p>
+    </div>
+  </section>
+
+  
+    <section class="content-block tool-instructions">
+      <h2>Как пользоваться</h2>
+      <ol class="steps">
+        <li>Загрузите один или несколько файлов - до 100 МБ каждый.</li><li>При необходимости укажите целевой размер в МБ.</li><li>Нажмите «Конвертировать» и дождитесь окончания обработки.</li><li>Скачайте результат по приватной ссылке - файл удаляется автоматически.</li>
+      </ol>
+    </section>
+  
+
+  <section class="content-block">
+    <h2>Частые вопросы</h2>
+    
+      <details>
+        <summary>Какие форматы можно сжать?</summary>
+        <p>Принимаются JPG, PNG, WEBP, AVIF, HEIC, HEIF, TIFF и другие. Результат сохраняется в JPG. HEIC-фото с iPhone поддерживаются без дополнительных программ.</p>
+      </details>
+    
+      <details>
+        <summary>Изменится ли разрешение фото?</summary>
+        <p>Нет, количество пикселей сохраняется. Размер файла уменьшается за счёт более эффективного сжатия данных.</p>
+      </details>
+    
+      <details>
+        <summary>Можно ли сжать несколько фото сразу?</summary>
+        <p>Да, загрузите несколько файлов за один раз - каждый будет обработан, результаты придут списком.</p>
+      </details>
+    
+      <details>
+        <summary>Безопасно ли загружать файлы?</summary>
+        <p>Да. Файл передаётся по HTTPS, доступен только по приватной ссылке и удаляется автоматически: для гостей - в течение часа после обработки.</p>
+      </details>
+    
+      <details>
+        <summary>Сколько стоит конвертация?</summary>
+        <p>Бесплатно: до 10 конвертаций в день без регистрации, размер файла - до 100 МБ. Ограничения защищают сервис от перегрузки.</p>
+      </details>
+    
+  </section>
+
+  
+    <section class="content-block related-tools">
+      <h2>Похожие инструменты</h2>
+      <div class="tool-grid compact">
+        
+          <a class="tool-card" href="/projects/demo/filemat/ru/szhat-pdf/" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'szhat-pdf'});">
+            <strong>Сжать PDF</strong>
+            <span>Сожмите PDF онлайн без установки программ.</span>
+          </a>
+        
+          <a class="tool-card" href="/projects/demo/filemat/ru/szhat-foto/" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'szhat-foto'});">
+            <strong>Сжать фото</strong>
+            <span>Уменьшите размер фото онлайн: JPG, PNG, WEBP, HEIC, AVIF, TIFF, BMP или GIF.</span>
+          </a>
+        
+          <a class="tool-card" href="/projects/demo/filemat/ru/szhat-png/" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'szhat-png'});">
+            <strong>Сжать PNG</strong>
+            <span>Оптимизируйте PNG онлайн и уменьшите размер файла.</span>
+          </a>
+        
+          <a class="tool-card" href="/projects/demo/filemat/ru/szhat-webp/" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'szhat-webp'});">
+            <strong>Сжать WEBP</strong>
+            <span>Уменьшите размер WEBP изображения онлайн.</span>
+          </a>
+        
+          <a class="tool-card" href="/projects/demo/filemat/ru/szhat-video/" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'szhat-video'});">
+            <strong>Сжать видео</strong>
+            <span>Уменьшите размер видео онлайн и скачайте MP4 результат.</span>
+          </a>
+        
+          <a class="tool-card" href="/projects/demo/filemat/ru/szhat-mp4/" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'szhat-mp4'});">
+            <strong>Сжать MP4</strong>
+            <span>Сожмите MP4 видео онлайн для отправки или публикации.</span>
+          </a>
+        
+      </div>
+    </section>
+  
+</article>
+<script>
+  window.filematAnalytics && window.filematAnalytics("tool_page_view", {slug: "szhat-jpg", operation: "compress-jpg"});
+</script>
+
+  </main>
+  <footer class="footer">
+  <a href="/projects/demo/filemat/ru/tools/">Инструменты</a>
+  <a href="/projects/demo/filemat/ru/pricing/">Тарифы</a>
+  <a href="/projects/demo/filemat/ru/limits/">Лимиты</a>
+  <a href="/projects/demo/filemat/ru/contact/">Контакты</a>
+  <a href="/projects/demo/filemat/ru/privacy/">Политика конфиденциальности</a>
+  <a href="/projects/demo/filemat/ru/terms/">Условия использования</a>
+  <a href="/projects/demo/filemat/ru/telegram-bot/">Telegram-бот</a>
+</footer>
+
+<link rel="stylesheet" href="/projects/demo/filemat/_demo/demo.css">
+<script>window.__DEMO_BAR=/[?&]shot/.test(location.search)?null:{title:"демо Файломат",links:[{label:"Главная",href:"/projects/demo/filemat/ru/",current:false},{label:"Все проекты",href:"/projects",current:false}]};</script>
+<script src="/projects/demo/filemat/_demo/demo-bar.js" defer></script>
+<script src="/projects/demo/filemat/_demo/demo.js" defer></script>
+</body>
+</html>

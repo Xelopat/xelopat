@@ -1,0 +1,824 @@
+
+<!doctype html>
+<html lang="ru">
+<head>
+<meta name="robots" content="noindex">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Файломат — конвертер файлов и PDF-утилиты онлайн</title>
+  <meta name="description" content="Конвертируйте PDF, изображения и документы онлайн. Сжимайте PDF, объединяйте файлы, переводите JPG, PNG, HEIC, TXT и другие форматы.">
+  
+  
+  <meta property="og:title" content="Файломат — конвертер файлов и PDF-утилиты онлайн">
+  <meta property="og:description" content="Конвертируйте PDF, изображения и документы онлайн. Сжимайте PDF, объединяйте файлы, переводите JPG, PNG, HEIC, TXT и другие форматы.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://localhost:8000/ru/">
+  <meta property="og:site_name" content="Файломат">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:image" content="https://localhost:8000/static/site_app/icons/apple-touch-icon.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Файломат — конвертер файлов и PDF-утилиты онлайн">
+  <meta name="twitter:description" content="Конвертируйте PDF, изображения и документы онлайн. Сжимайте PDF, объединяйте файлы, переводите JPG, PNG, HEIC, TXT и другие форматы.">
+  <meta name="twitter:image" content="https://localhost:8000/static/site_app/icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/projects/demo/filemat/static/site_app/icons/favicon-32.png?v=1792589917">
+  <link rel="icon" type="image/png" sizes="16x16" href="/projects/demo/filemat/static/site_app/icons/favicon-16.png?v=1792589917">
+  <link rel="apple-touch-icon" href="/projects/demo/filemat/static/site_app/icons/apple-touch-icon.png?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/base.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/animations.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/header-footer.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/buttons.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/cards.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/upload-form.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/flow-steps.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/home.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/tool-page.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/result-status.css?v=1792589917">
+  <link rel="stylesheet" href="/projects/demo/filemat/static/site_app/css/responsive.css?v=1792589917">
+  
+  
+  
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"WebApplication","name":"Файломат","applicationCategory":"FileConverter","operatingSystem":"Web"}
+  </script>
+  
+  <script>
+    function filematCookie(name) {
+      var value = "; " + document.cookie;
+      var parts = value.split("; " + name + "=");
+      if (parts.length === 2) return parts.pop().split(";").shift();
+      return "";
+    }
+    window.filematAnalytics = function(eventName, payload) {
+      
+        if (window.console) console.debug("[analytics]", eventName, payload || {});
+      
+      
+    };
+    document.addEventListener("DOMContentLoaded", function() {
+      document.querySelectorAll("[data-upload-field]").forEach(function(field) {
+        var zone = field.querySelector("[data-file-dropzone]");
+        var input = field.querySelector("[data-file-input]");
+        var panel = field.querySelector("[data-selected-files-panel]");
+        var list = field.querySelector("[data-selected-files-list]");
+        var count = field.querySelector("[data-selected-count]");
+        if (!input) return;
+        var fileStore = [];
+        var selectedIndex = 0;
+
+        function syncInputFiles() {
+          if (typeof DataTransfer === "undefined") return;
+          var transfer = new DataTransfer();
+          fileStore.forEach(function(file) { transfer.items.add(file); });
+          input.files = transfer.files;
+        }
+
+        function renderSelected() {
+          if (!panel || !list) return;
+          var hasFiles = fileStore.length > 0;
+          if (selectedIndex >= fileStore.length) selectedIndex = Math.max(0, fileStore.length - 1);
+          panel.hidden = !hasFiles;
+          if (zone) zone.hidden = hasFiles;
+          field.classList.toggle("has-files", hasFiles);
+          list.innerHTML = "";
+          if (count) {
+            count.textContent = fileStore.length === 1 ? "Выбран 1 файл" : "Выбрано файлов: " + fileStore.length;
+          }
+          fileStore.forEach(function(file, index) {
+            var item = document.createElement("li");
+            item.className = "selected-file-row";
+            item.classList.toggle("is-active", index === selectedIndex);
+            item.tabIndex = 0;
+            item.setAttribute("role", "button");
+            item.setAttribute("aria-selected", index === selectedIndex ? "true" : "false");
+            item.setAttribute("aria-label", "Показать предпросмотр " + file.name);
+            item.setAttribute("data-file-index", String(index));
+            var ext = (file.name.split(".").pop() || "file").slice(0, 4).toUpperCase();
+            var icon = document.createElement("span");
+            var meta = document.createElement("span");
+            var name = document.createElement("strong");
+            var details = document.createElement("small");
+            var remove = document.createElement("button");
+            icon.className = "selected-file-icon";
+            icon.setAttribute("aria-hidden", "true");
+            icon.textContent = ext;
+            meta.className = "selected-file-meta";
+            name.textContent = file.name;
+            details.setAttribute("data-file-size", "");
+            details.textContent = formatBytes(file.size);
+            remove.className = "selected-file-remove";
+            remove.type = "button";
+            remove.setAttribute("aria-label", "Убрать файл");
+            remove.textContent = "×";
+            meta.appendChild(name);
+            meta.appendChild(details);
+            item.appendChild(icon);
+            item.appendChild(meta);
+            item.appendChild(remove);
+            function selectFile() {
+              selectedIndex = index;
+              renderSelected();
+            }
+            item.addEventListener("click", function(event) {
+              if (event.target === remove) return;
+              selectFile();
+            });
+            item.addEventListener("keydown", function(event) {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              selectFile();
+            });
+            remove.addEventListener("click", function() {
+              fileStore.splice(index, 1);
+              if (index < selectedIndex) selectedIndex -= 1;
+              if (index === selectedIndex) selectedIndex = Math.min(index, fileStore.length - 1);
+              selectedIndex = Math.max(0, selectedIndex);
+              syncInputFiles();
+              renderSelected();
+              window.filematAnalytics && window.filematAnalytics("file_removed", {count: fileStore.length});
+            });
+            list.appendChild(item);
+          });
+          field.dispatchEvent(new CustomEvent("filemat:files-updated", {
+            bubbles: true,
+            detail: {
+              files: fileStore.slice(),
+              selectedIndex: selectedIndex,
+              selectedFile: fileStore[selectedIndex] || null
+            }
+          }));
+        }
+
+        function addFiles(files, append) {
+          var incoming = Array.prototype.slice.call(files || []);
+          var hadFiles = fileStore.length > 0;
+          fileStore = append && input.multiple ? fileStore.concat(incoming) : incoming;
+          selectedIndex = append && hadFiles ? selectedIndex : 0;
+          syncInputFiles();
+          renderSelected();
+          window.filematAnalytics && window.filematAnalytics("file_selected", {count: fileStore.length});
+        }
+
+        if (!zone) return;
+
+        ["dragenter", "dragover"].forEach(function(eventName) {
+          zone.addEventListener(eventName, function(event) {
+            event.preventDefault();
+            zone.classList.add("is-dragover");
+          });
+        });
+        ["dragleave", "drop"].forEach(function(eventName) {
+          zone.addEventListener(eventName, function(event) {
+            event.preventDefault();
+            zone.classList.remove("is-dragover");
+          });
+        });
+        zone.addEventListener("drop", function(event) {
+          if (!event.dataTransfer || !event.dataTransfer.files.length) return;
+          addFiles(event.dataTransfer.files, fileStore.length > 0);
+        });
+        input.addEventListener("change", function() {
+          addFiles(input.files, fileStore.length > 0);
+        });
+      });
+      function formatBytes(bytes) {
+        if (!bytes) return "—";
+        if (bytes >= 1024 * 1024) {
+          return (bytes / 1024 / 1024).toFixed(1).replace(".0", "") + " МБ";
+        }
+        if (bytes < 1024) {
+          return Math.max(1, Math.round(bytes)) + " байт";
+        }
+        return Math.max(1, Math.round(bytes / 1024)) + " КБ";
+      }
+      function estimateCompressedSize(totalBytes, compressionPercent, resizePercent, isPhoto) {
+        if (!totalBytes) return 0;
+        var compressionFactor = 1 - (Math.min(Math.max(compressionPercent, 0), 100) * 0.008);
+        var resizeFactor = isPhoto ? Math.pow(Math.min(Math.max(resizePercent, 10), 100) / 100, 2) : 1;
+        var floorFactor = isPhoto ? 0.04 : 0.08;
+        return Math.max(1, Math.round(totalBytes * Math.max(floorFactor, compressionFactor * resizeFactor)));
+      }
+      document.querySelectorAll("[data-compression-panel]").forEach(function(panel) {
+        var form = panel.closest("form");
+        var fileInput = form ? form.querySelector("[data-file-input]") : null;
+        var compressionInput = panel.querySelector("[data-compression-percent]");
+        var resizeInput = panel.querySelector("[data-resize-percent]");
+        var compressionValue = panel.querySelector("[data-compression-value]");
+        var resizeValue = panel.querySelector("[data-resize-value]");
+        var previewMedia = panel.querySelector("[data-compression-preview-media]");
+        var outputFormat = panel.querySelector('select[name="output_format"]');
+        var isPhoto = panel.getAttribute("data-photo-panel") === "true";
+        var currentFiles = [];
+        var currentIndex = 0;
+        var previewRenderId = 0;
+
+        function selectedFiles() {
+          return currentFiles.length ? currentFiles.slice() : Array.prototype.slice.call((fileInput && fileInput.files) || []);
+        }
+
+        function activeFile(files) {
+          if (!files.length) return null;
+          return files[currentIndex] || files[0];
+        }
+
+        function outputMimeType() {
+          var format = outputFormat ? outputFormat.value : "webp";
+          if (format === "jpg") return "image/jpeg";
+          if (format === "png") return "image/png";
+          if (format === "avif") return "image/avif";
+          return "image/webp";
+        }
+
+        function previewQuality(compressionPercent) {
+          return Math.max(0.12, Math.min(0.95, 1 - (Math.min(Math.max(compressionPercent, 0), 100) * 0.008)));
+        }
+
+        function renderImagePreview(files, compressionPercent, resizePercent) {
+          if (!isPhoto || !previewMedia) return;
+          var renderId = ++previewRenderId;
+          previewMedia.innerHTML = "";
+          var imageFile = activeFile(files);
+          if (imageFile && !/^image\//.test(imageFile.type)) {
+            imageFile = files.find(function(file) { return /^image\//.test(file.type); });
+          }
+          if (!imageFile) {
+            var empty = document.createElement("span");
+            empty.textContent = "Предпросмотр появится после выбора изображения";
+            previewMedia.appendChild(empty);
+            return;
+          }
+          var loading = document.createElement("span");
+          loading.textContent = "Готовим предпросмотр";
+          previewMedia.appendChild(loading);
+          var sourceUrl = URL.createObjectURL(imageFile);
+          var sourceImage = new Image();
+          sourceImage.onload = function() {
+            if (renderId !== previewRenderId) {
+              URL.revokeObjectURL(sourceUrl);
+              return;
+            }
+            var resizeRatio = Math.min(Math.max(resizePercent, 10), 100) / 100;
+            var targetWidth = Math.max(1, Math.round(sourceImage.naturalWidth * resizeRatio));
+            var targetHeight = Math.max(1, Math.round(sourceImage.naturalHeight * resizeRatio));
+            var longestSide = Math.max(targetWidth, targetHeight);
+            var previewScale = longestSide > 1600 ? 1600 / longestSide : 1;
+            var canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round(targetWidth * previewScale));
+            canvas.height = Math.max(1, Math.round(targetHeight * previewScale));
+            var context = canvas.getContext("2d");
+            context.imageSmoothingEnabled = true;
+            context.imageSmoothingQuality = "high";
+            context.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
+            var mime = outputMimeType();
+            var previewMime = mime === "image/avif" ? "image/webp" : mime;
+            var dataUrl = canvas.toDataURL(previewMime, previewQuality(compressionPercent));
+            var img = document.createElement("img");
+            img.src = dataUrl;
+            img.alt = "Предпросмотр после сжатия";
+            previewMedia.innerHTML = "";
+            previewMedia.appendChild(img);
+            URL.revokeObjectURL(sourceUrl);
+          };
+          sourceImage.onerror = function() {
+            if (renderId !== previewRenderId) return;
+            previewMedia.innerHTML = "";
+            var error = document.createElement("span");
+            error.textContent = "Предпросмотр недоступен для этого файла";
+            previewMedia.appendChild(error);
+            URL.revokeObjectURL(sourceUrl);
+          };
+          sourceImage.src = sourceUrl;
+        }
+
+        function refreshFileSizes(files, compressionPercent, resizePercent) {
+          if (!form) return;
+          var rows = form.querySelectorAll("[data-selected-files-list] .selected-file-row");
+          rows.forEach(function(row) {
+            var index = parseInt(row.getAttribute("data-file-index"), 10) || 0;
+            var file = files[index];
+            var sizeNode = row.querySelector("[data-file-size]");
+            if (!file || !sizeNode) return;
+            var estimated = estimateCompressedSize(file.size, compressionPercent, resizePercent, isPhoto);
+            sizeNode.textContent = formatBytes(file.size) + " → " + formatBytes(estimated);
+          });
+        }
+
+        function updatePreview() {
+          var files = selectedFiles();
+          var compressionPercent = parseInt(compressionInput && compressionInput.value, 10) || 0;
+          var resizePercent = parseInt(resizeInput && resizeInput.value, 10) || 100;
+          if (compressionValue) compressionValue.textContent = compressionPercent;
+          if (resizeValue) resizeValue.textContent = resizePercent;
+          refreshFileSizes(files, compressionPercent, resizePercent);
+          renderImagePreview(files, compressionPercent, resizePercent);
+        }
+
+        if (compressionInput) compressionInput.addEventListener("input", updatePreview);
+        if (resizeInput) resizeInput.addEventListener("input", updatePreview);
+        if (outputFormat) outputFormat.addEventListener("change", updatePreview);
+        if (form) form.addEventListener("filemat:files-updated", function(event) {
+          currentFiles = (event.detail && event.detail.files) || [];
+          currentIndex = (event.detail && typeof event.detail.selectedIndex === "number") ? event.detail.selectedIndex : 0;
+          updatePreview();
+        });
+        updatePreview();
+      });
+      document.querySelectorAll("form.upload-form").forEach(function(form) {
+        form.addEventListener("submit", function() {
+          var button = form.querySelector("[data-submit-button]");
+          if (!button || button.disabled) return;
+          button.disabled = true;
+          button.classList.add("is-submitting");
+          button.dataset.originalText = button.textContent;
+          button.textContent = "";
+          var spinner = document.createElement("span");
+          var label = document.createElement("span");
+          spinner.className = "button-spinner";
+          spinner.setAttribute("aria-hidden", "true");
+          label.textContent = "Конвертируем";
+          button.appendChild(spinner);
+          button.appendChild(label);
+        });
+      });
+    });
+  </script>
+</head>
+<body>
+  
+  <header class="site-header">
+  <a class="brand" href="/projects/demo/filemat/ru/" aria-label="Файломат — на главную">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" role="img"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5"/><path d="M14 3v4a2 2 0 0 0 2 2h3"/><path d="M13 15h8"/><path d="m18 12 3 3-3 3"/></svg>
+    </span>
+    <span>
+      <span class="brand-name">Файломат</span>
+      <span class="brand-subtitle">конвертер файлов онлайн</span>
+    </span>
+  </a>
+  <nav class="site-nav" aria-label="Основная навигация">
+    <a href="/projects/demo/filemat/ru/tools/">Инструменты</a>
+    <a href="/projects/demo/filemat/ru/pricing/">Тарифы</a>
+    <a href="/projects/demo/filemat/ru/limits/">Лимиты</a>
+    <a href="/projects/demo/filemat/ru/contact/">Контакты</a>
+  </nav>
+  <div class="header-actions">
+    <a class="language-switcher" href="/projects/demo/filemat/ru/" aria-label="Выбор языка">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+  <span>Русский</span>
+  <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+</a>
+
+    <a class="button button-small" href="/projects/demo/filemat/ru/tools/">Все инструменты</a>
+  </div>
+</header>
+
+  <main class="container">
+    
+<section class="home-hero">
+  <div class="home-hero-copy">
+    <h1><span>Конвертер файлов онлайн:</span><span>PDF, фото, видео и аудио</span></h1>
+    <p>Бесплатные онлайн-конвертеры и PDF-инструменты: сжатие PDF и фото, объединение и разделение PDF, конвертация HEIC в JPG, DOCX в PDF, видео в MP4 и MP3 - без установки программ и водяных знаков.</p>
+    <div class="home-proof" aria-label="Преимущества сервиса">
+      <span class="home-proof-item home-proof-secure">
+        <span class="home-proof-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        </span>
+        <span class="home-proof-copy"><strong>Безопасно</strong><small>Файлы удаляются автоматически</small></span>
+      </span>
+      <span class="home-proof-item home-proof-fast">
+        <span class="home-proof-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+        </span>
+        <span class="home-proof-copy"><strong>Быстро</strong><small>Обработка в облаке за секунды</small></span>
+      </span>
+      <span class="home-proof-item home-proof-free">
+        <span class="home-proof-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>
+        </span>
+        <span class="home-proof-copy"><strong>Бесплатно</strong><small>Базовые инструменты без регистрации</small></span>
+      </span>
+    </div>
+  </div>
+  <aside class="home-hero-media home-hero-catalog" aria-labelledby="home-catalog-title">
+    <div class="home-hero-catalog-head">
+      <span class="catalog-eyebrow">Каталог инструментов</span>
+      <h2 id="home-catalog-title">Популярные задачи</h2>
+      <p>Выберите точный сценарий, чтобы сразу попасть на страницу с подходящими форматами.</p>
+    </div>
+    <div class="home-hero-catalog-grid">
+      
+        <a class="home-tool-card" href="/projects/demo/filemat/ru/szhat-pdf/" aria-label="Сжать PDF" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'szhat-pdf', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-red" aria-hidden="true">
+    <span class="tool-file-badge">PDF</span>
+    
+      <svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>Сжать PDF</strong>
+    <small>Уменьшите размер PDF файла онлайн</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+      
+        <a class="home-tool-card" href="/projects/demo/filemat/ru/szhat-foto/" aria-label="Сжать фото" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'szhat-foto', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-cyan" aria-hidden="true">
+    <span class="tool-file-badge">IMG</span>
+    
+      <svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>Сжать фото</strong>
+    <small>JPG, PNG, WEBP, HEIC, AVIF, TIFF, BMP и GIF</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+      
+        <a class="home-tool-card" href="/projects/demo/filemat/ru/szhat-video/" aria-label="Сжать видео" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'szhat-video', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-violet" aria-hidden="true">
+    <span class="tool-file-badge">MP4</span>
+    
+      <svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>Сжать видео</strong>
+    <small>Уменьшите размер видео и получите MP4</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+      
+        <a class="home-tool-card" href="/projects/demo/filemat/ru/jpg-v-pdf/" aria-label="JPG в PDF" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'jpg-v-pdf', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-orange" aria-hidden="true">
+    <span class="tool-file-badge">JPG</span>
+    
+      <svg viewBox="0 0 24 24"><path d="M18 22H4a2 2 0 0 1-2-2V6"/><path d="m22 13-1.296-1.296a2.41 2.41 0 0 0-3.408 0L11 18"/><circle cx="12" cy="8" r="2"/><rect width="16" height="16" x="6" y="2" rx="2"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>JPG в PDF</strong>
+    <small>Конвертируйте изображения в PDF</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+      
+    </div>
+    <a class="button button-secondary home-catalog-all" href="/projects/demo/filemat/ru/tools/">Открыть все инструменты</a>
+  </aside>
+</section>
+
+
+
+
+  
+  <aside class="ad-slot ad-slot-home_after_hero" data-ad-slot="home_after_hero" aria-label="Рекламный блок">
+    
+      <span>Реклама</span>
+      <strong>home_after_hero</strong>
+    
+  </aside>
+  <script>
+    window.filematAnalytics && window.filematAnalytics("ad_slot_rendered", {slot: "home_after_hero"});
+  </script>
+  
+
+
+
+<section class="home-tools" aria-labelledby="popular-tools-title">
+  <div class="section-heading">
+    <h2 id="popular-tools-title">Популярные инструменты</h2>
+    <a class="section-link" href="/projects/demo/filemat/ru/tools/">Все инструменты
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+    </a>
+  </div>
+  <div class="home-tools-grid">
+    
+      <a class="home-tool-card" href="/projects/demo/filemat/ru/szhat-pdf/" aria-label="Сжать PDF" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'szhat-pdf', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-red" aria-hidden="true">
+    <span class="tool-file-badge">PDF</span>
+    
+      <svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>Сжать PDF</strong>
+    <small>Уменьшите размер PDF файла онлайн</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+    
+      <a class="home-tool-card" href="/projects/demo/filemat/ru/szhat-foto/" aria-label="Сжать фото" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'szhat-foto', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-cyan" aria-hidden="true">
+    <span class="tool-file-badge">IMG</span>
+    
+      <svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>Сжать фото</strong>
+    <small>JPG, PNG, WEBP, HEIC, AVIF, TIFF, BMP и GIF</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+    
+      <a class="home-tool-card" href="/projects/demo/filemat/ru/szhat-video/" aria-label="Сжать видео" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'szhat-video', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-violet" aria-hidden="true">
+    <span class="tool-file-badge">MP4</span>
+    
+      <svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>Сжать видео</strong>
+    <small>Уменьшите размер видео и получите MP4</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+    
+      <a class="home-tool-card" href="/projects/demo/filemat/ru/jpg-v-pdf/" aria-label="JPG в PDF" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'jpg-v-pdf', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-orange" aria-hidden="true">
+    <span class="tool-file-badge">JPG</span>
+    
+      <svg viewBox="0 0 24 24"><path d="M18 22H4a2 2 0 0 1-2-2V6"/><path d="m22 13-1.296-1.296a2.41 2.41 0 0 0-3.408 0L11 18"/><circle cx="12" cy="8" r="2"/><rect width="16" height="16" x="6" y="2" rx="2"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>JPG в PDF</strong>
+    <small>Конвертируйте изображения в PDF</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+    
+      <a class="home-tool-card" href="/projects/demo/filemat/ru/skleit-pdf/" aria-label="Объединить PDF" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'skleit-pdf', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-cyan" aria-hidden="true">
+    <span class="tool-file-badge">PDF</span>
+    
+      <svg viewBox="0 0 24 24"><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>Объединить PDF</strong>
+    <small>Склейте несколько PDF файлов в один</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+    
+      <a class="home-tool-card" href="/projects/demo/filemat/ru/razdelit-pdf/" aria-label="Разделить PDF" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'razdelit-pdf', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-violet" aria-hidden="true">
+    <span class="tool-file-badge">PDF</span>
+    
+      <svg viewBox="0 0 24 24"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>Разделить PDF</strong>
+    <small>Разделите PDF на отдельные страницы</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+    
+      <a class="home-tool-card" href="/projects/demo/filemat/ru/docx-v-pdf/" aria-label="DOCX в PDF" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'docx-v-pdf', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-blue" aria-hidden="true">
+    <span class="tool-file-badge">DOCX</span>
+    
+      <svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>DOCX в PDF</strong>
+    <small>Конвертируйте документы Word в PDF</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+    
+      <a class="home-tool-card" href="/projects/demo/filemat/ru/heic-v-jpg/" aria-label="HEIC в JPG" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'heic-v-jpg', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-yellow" aria-hidden="true">
+    <span class="tool-file-badge">JPG</span>
+    
+      <svg viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>HEIC в JPG</strong>
+    <small>Конвертируйте фото с iPhone в JPG</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+    
+      <a class="home-tool-card" href="/projects/demo/filemat/ru/txt-v-pdf/" aria-label="TXT в PDF" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'txt-v-pdf', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-green" aria-hidden="true">
+    <span class="tool-file-badge">TXT</span>
+    
+      <svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>TXT в PDF</strong>
+    <small>Конвертируйте текстовые файлы в PDF</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+    
+      <a class="home-tool-card" href="/projects/demo/filemat/ru/xlsx-v-pdf/" aria-label="XLSX в PDF" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'xlsx-v-pdf', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-pink" aria-hidden="true">
+    <span class="tool-file-badge">XLSX</span>
+    
+      <svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>XLSX в PDF</strong>
+    <small>Сохраняйте таблицы Excel как PDF</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+    
+      <a class="home-tool-card" href="/projects/demo/filemat/ru/jpg-v-avif/" aria-label="JPG в AVIF" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'jpg-v-avif', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-blue" aria-hidden="true">
+    <span class="tool-file-badge">AVIF</span>
+    
+      <svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>JPG в AVIF</strong>
+    <small>Сожмите изображение в новый формат</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+    
+      <a class="home-tool-card" href="/projects/demo/filemat/ru/mp4-v-gif/" aria-label="MP4 в GIF" onclick="window.filematAnalytics && window.filematAnalytics('related_tool_clicked', {slug: 'mp4-v-gif', surface: 'home'});">
+  <span class="tool-icon-tile tool-icon-violet" aria-hidden="true">
+    <span class="tool-file-badge">GIF</span>
+    
+      <svg viewBox="0 0 24 24"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+    
+  </span>
+  <span class="home-tool-card-copy">
+    <strong>MP4 в GIF</strong>
+    <small>Создайте GIF из видео</small>
+  </span>
+  <span class="card-arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </span>
+</a>
+
+    
+  </div>
+</section>
+
+
+
+
+  
+  <aside class="ad-slot ad-slot-home_after_tools" data-ad-slot="home_after_tools" aria-label="Рекламный блок">
+    
+      <span>Реклама</span>
+      <strong>home_after_tools</strong>
+    
+  </aside>
+  <script>
+    window.filematAnalytics && window.filematAnalytics("ad_slot_rendered", {slot: "home_after_tools"});
+  </script>
+  
+
+
+
+<section class="home-cta-grid" aria-label="Дополнительные способы использовать Файломат">
+  <a class="home-cta home-cta-telegram" href="/projects/demo/filemat/ru/telegram-bot/" onclick="window.filematAnalytics && window.filematAnalytics('telegram_cta_clicked', {surface: 'home'});">
+  <span class="home-cta-icon" aria-hidden="true">
+    
+      <svg viewBox="0 0 100 100" class="telegram-brand-icon"><path fill="currentColor" d="M88.723,12.142C76.419,17.238,23.661,39.091,9.084,45.047c-9.776,3.815-4.053,7.392-4.053,7.392s8.345,2.861,15.499,5.007c7.153,2.146,10.968-0.238,10.968-0.238l33.62-22.652c11.922-8.107,9.061-1.431,6.199,1.431c-6.199,6.2-16.452,15.975-25.036,23.844c-3.815,3.338-1.908,6.199-0.238,7.63c6.199,5.246,23.129,15.976,24.082,16.691c5.037,3.566,14.945,8.699,16.452-2.146c0,0,5.961-37.435,5.961-37.435c1.908-12.637,3.815-24.321,4.053-27.659C97.307,8.804,88.723,12.142,88.723,12.142z"/></svg>
+    
+  </span>
+  <span class="home-cta-copy">
+    <strong>Telegram-бот</strong>
+    <small>Конвертируйте файлы прямо в Telegram.</small>
+  </span>
+  <span class="button button-secondary">Открыть бота</span>
+</a>
+
+</section>
+
+<section class="home-how" aria-labelledby="how-title">
+  <div class="home-how-main">
+    <h2 id="how-title">Как конвертировать файл онлайн</h2>
+    <div class="how-grid">
+      <div class="how-step">
+  <span class="how-icon" aria-hidden="true">
+    
+      <svg viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>
+    
+  </span>
+  <span>
+    <strong>1. Выберите инструмент</strong>
+    <small>Откройте нужный конвертер в каталоге</small>
+  </span>
+</div>
+
+      <div class="how-step">
+  <span class="how-icon" aria-hidden="true">
+    
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+    
+  </span>
+  <span>
+    <strong>2. Загрузите файл</strong>
+    <small>Перетащите файл или выберите на устройстве</small>
+  </span>
+</div>
+
+      <div class="how-step">
+  <span class="how-icon" aria-hidden="true">
+    
+      <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+    
+  </span>
+  <span>
+    <strong>3. Дождитесь обработки</strong>
+    <small>Конвертация занимает от нескольких секунд</small>
+  </span>
+</div>
+
+      <div class="how-step">
+  <span class="how-icon" aria-hidden="true">
+    
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+    
+  </span>
+  <span>
+    <strong>4. Скачайте результат</strong>
+    <small>Файл доступен по приватной ссылке и удаляется автоматически</small>
+  </span>
+</div>
+
+    </div>
+  </div>
+</section>
+
+<script>
+  window.filematAnalytics && window.filematAnalytics("tool_page_view", {surface: "home"});
+</script>
+
+  </main>
+  <footer class="footer">
+  <a href="/projects/demo/filemat/ru/tools/">Инструменты</a>
+  <a href="/projects/demo/filemat/ru/pricing/">Тарифы</a>
+  <a href="/projects/demo/filemat/ru/limits/">Лимиты</a>
+  <a href="/projects/demo/filemat/ru/contact/">Контакты</a>
+  <a href="/projects/demo/filemat/ru/privacy/">Политика конфиденциальности</a>
+  <a href="/projects/demo/filemat/ru/terms/">Условия использования</a>
+  <a href="/projects/demo/filemat/ru/telegram-bot/">Telegram-бот</a>
+</footer>
+
+<link rel="stylesheet" href="/projects/demo/filemat/_demo/demo.css">
+<script>window.__DEMO_BAR=/[?&]shot/.test(location.search)?null:{title:"демо Файломат",links:[{label:"Главная",href:"/projects/demo/filemat/ru/",current:false},{label:"Все проекты",href:"/projects",current:false}]};</script>
+<script src="/projects/demo/filemat/_demo/demo-bar.js" defer></script>
+<script src="/projects/demo/filemat/_demo/demo.js" defer></script>
+</body>
+</html>
