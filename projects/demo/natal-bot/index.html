@@ -50,6 +50,8 @@
 
   .lb{ position:fixed; inset:0; z-index:100; display:none; place-items:center; background:rgba(8,8,12,.92); cursor:zoom-out; }
   .lb.on{ display:grid; } .lb img{ max-width:94vw; max-height:92vh; border-radius:10px; }
+  .lbn{ position:absolute; top:50%; width:48px; height:48px; margin-top:-24px; border:1px solid #333340; border-radius:50%; background:rgba(30,30,38,.85); color:#fff; font-size:28px; line-height:1; cursor:pointer; }
+  .lbn.p{ left:16px; } .lbn.n{ right:16px; } .lbn[hidden]{ display:none; }
 
   .side{ display:flex; flex-direction:column; gap:18px; min-width:0; }
   .card{ border:1px solid var(--line); border-radius:16px; background:linear-gradient(180deg,#20202a,#17171d); padding:20px 22px; min-width:0; box-shadow:inset 0 1px 0 rgba(255,255,255,.05); }
@@ -65,12 +67,13 @@
 
   @media (max-width:900px){ .grid{ grid-template-columns:1fr; justify-items:center; gap:26px; } .side{ width:100%; } .phone{ width:min(380px,100%); } }
 </style>
+<link rel="stylesheet" href="../_shared/tg-real.css">
 </head>
 <body>
 <div class="wrap">
   <div class="label">// telegram bot</div>
   <h1>Бот натальной карты</h1>
-  <p class="lead">Бот спрашивает имя, дату, время и город рождения, строит карту по астрономическим расчётам и присылает картинку с коротким разбором. Полный разбор из пяти карточек открывается после оплаты. Пройдите диалог сами: в поле ввода уже стоят тестовые данные, их можно заменить.</p>
+  <p class="lead">Бот спрашивает имя, дату, время и город рождения, строит карту по астрономическим расчётам и присылает картинку с коротким разбором. Полный разбор из пяти карточек открывается после оплаты. Пройдите диалог сами: в поле ввода уже стоят тестовые данные. Карта и тексты посчитаны настоящим кодом бота для 05.07.1990, 12:00, Москва, поэтому в демо результат всегда для этих данных.</p>
 
   <div class="grid">
     <div class="phone"><div class="screen">
@@ -97,7 +100,7 @@
     </div>
   </div>
 </div>
-<div class="lb" id="lb"><img id="lbImg" alt=""></div>
+<div class="lb" id="lb"><img id="lbImg" alt=""><button class="lbn p" type="button" aria-label="Назад">&#8249;</button><button class="lbn n" type="button" aria-label="Вперёд">&#8250;</button></div>
 
 <script>window.__DEMO_BAR=(/[?&]shot/.test(location.search)||window.top!==window)?null:{title:"демо Натальный бот",titleHref:"/projects/demo/bots/",links:[{label:"Все боты",href:"/projects/demo/bots/",current:false},{label:"Все проекты",href:"/projects",current:false}]};</script>
 <script src="./_demo/demo-bar.js" defer></script>
@@ -107,6 +110,12 @@
   var $ = function(id){ return document.getElementById(id); };
   var chat = $('chat'), inp = $('inp'), send = $('send'), run = 0, stage = -1, D = {};
   var PRICE = 99;
+  var REPORT = { short: [{"title": "Ваш астрологический портрет", "paragraphs": ["Солнце в Раке и в 10-м доме описывает центральный способ проявлять волю: бережно, эмоционально и с вниманием к близким. Главная сцена — призвание, репутация, цели и общественная реализация.", "Луна в Стрельце и в 3-м доме связывает эмоциональные потребности с темами: обучение, общение, ближайшее окружение и повседневные связи. Реакции чаще проявляются масштабно, открыто и с ориентацией на смысл.", "Асцендент в Деве задаёт первое впечатление и привычный способ входить в новые ситуации — аналитично, аккуратно и через конкретную пользу."]}, {"title": "О расчёте", "paragraphs": ["Расчёт: тропический зодиак, дома — Плацидус, источник положений — Swiss Ephemeris.", "Версия методики: western-tropical-v1; версия текстов: ru-v1."]}], detailed: [{"title": "Основа карты", "paragraphs": ["Солнце в Раке и в 10-м доме описывает центральный способ проявлять волю: бережно, эмоционально и с вниманием к близким. Главная сцена — призвание, репутация, цели и общественная реализация.", "Луна в Стрельце и в 3-м доме связывает эмоциональные потребности с темами: обучение, общение, ближайшее окружение и повседневные связи. Реакции чаще проявляются масштабно, открыто и с ориентацией на смысл.", "Асцендент в Деве задаёт первое впечатление и привычный способ входить в новые ситуации — аналитично, аккуратно и через конкретную пользу.", "Середина неба в Близнецах показывает стиль движения к заметным целям и профессиональной роли: гибко, любознательно и через обмен информацией."]}, {"title": "Планеты в знаках и домах", "paragraphs": ["Солнце — Рак, 13.05°, 10-й дом. Темы «самоидентичность, воля и способ проявлять себя» проявляются бережно, эмоционально и с вниманием к близким; жизненная область — призвание, репутация, цели и общественная реализация.", "Луна — Стрелец, 12.62°, 3-й дом. Темы «эмоциональные реакции, потребность в безопасности и привычки» проявляются масштабно, открыто и с ориентацией на смысл; жизненная область — обучение, общение, ближайшее окружение и повседневные связи.", "Меркурий — Рак, 16.21°, 10-й дом. Темы «мышление, речь и способ усваивать информацию» проявляются бережно, эмоционально и с вниманием к близким; жизненная область — призвание, репутация, цели и общественная реализация.", "Венера — Близнецы, 12.26°, 9-й дом. Темы «ценности, симпатии, отношения и чувство гармонии» проявляются гибко, любознательно и через обмен информацией; жизненная область — мировоззрение, дальние поездки, высшее знание и поиск смысла.", "Марс — Овен, 25.03°, 8-й дом. Темы «инициатива, напор, границы и способ действовать» проявляются прямо, быстро и инициативно; жизненная область — доверие, общие ресурсы, кризисы и глубокие перемены.", "Юпитер — Рак, 20.27°, 10-й дом. Темы «расширение горизонтов, вера в возможности и обучение» проявляются бережно, эмоционально и с вниманием к близким; жизненная область — призвание, репутация, цели и общественная реализация.", "Сатурн — Козерог, 22.71°, 4-й дом. Темы «ответственность, ограничения, дисциплина и взросление» проявляются собранно, стратегично и с расчётом на долгий результат; жизненная область — дом, семья, корни и внутренняя опора. Планета ретроградна: её темы чаще требуют внутренней переработки и повторного осмысления.", "Уран — Козерог, 7.37°, 4-й дом. Темы «независимость, обновление и потребность идти своим путём» проявляются собранно, стратегично и с расчётом на долгий результат; жизненная область — дом, семья, корни и внутренняя опора. Планета ретроградна: её темы чаще требуют внутренней переработки и повторного осмысления.", "Нептун — Козерог, 13.19°, 4-й дом. Темы «воображение, эмпатия, идеалы и чувствительность к атмосфере» проявляются собранно, стратегично и с расчётом на долгий результат; жизненная область — дом, семья, корни и внутренняя опора. Планета ретроградна: её темы чаще требуют внутренней переработки и повторного осмысления.", "Плутон — Скорпион, 15.09°, 2-й дом. Темы «глубокая перестройка, сила, кризисы и внутреннее обновление» проявляются интенсивно, глубоко и с готовностью к трансформации; жизненная область — деньги, личные ресурсы, самоценность и устойчивость. Планета ретроградна: её темы чаще требуют внутренней переработки и повторного осмысления."]}, {"title": "Ключевые аспекты", "paragraphs": ["Солнце — оппозиция — Нептун (орб 0.14°, почти точный): темы Солнца и Нептуна тянут в разные стороны и требуют баланса между двумя полюсами.", "Луна — оппозиция — Венера (орб 0.36°, почти точный): темы Луны и Венеры тянут в разные стороны и требуют баланса между двумя полюсами.", "Меркурий — трин — Плутон (орб 1.12°, расходящийся): темы Меркурия и Плутона естественно поддерживают друг друга и часто воспринимаются как ресурс.", "Солнце — трин — Плутон (орб 2.03°, сходящийся): темы Солнца и Плутона естественно поддерживают друг друга и часто воспринимаются как ресурс.", "Юпитер — оппозиция — Сатурн (орб 2.44°, сходящийся): темы Юпитера и Сатурна тянут в разные стороны и требуют баланса между двумя полюсами.", "Солнце — соединение — Меркурий (орб 3.16°, расходящийся): темы Солнца и Меркурия действуют слитно и заметно усиливают друг друга.", "Меркурий — оппозиция — Нептун (орб 3.02°, расходящийся): темы Меркурия и Нептуна тянут в разные стороны и требуют баланса между двумя полюсами.", "Марс — квадрат — Сатурн (орб 2.32°, расходящийся): темы Марса и Сатурна создают внутреннее напряжение, которое требует навыка и действия."]}, {"title": "Лунные узлы", "paragraphs": ["Северный узел в Водолее, в 5-м доме: символический вектор развития связан с умением действовать независимо, нестандартно и с интересом к новому и осваивать темы «творчество, удовольствие, романтика и самовыражение».", "Южный узел в Льве, в 11-м доме: знакомые стратегии могут опираться на стиль «ярко, творчески и с потребностью в признании» и область «друзья, сообщества, долгосрочные планы и коллективные проекты»; их полезно использовать как опору, а не как единственный сценарий."]}, {"title": "О расчёте", "paragraphs": ["Расчёт: тропический зодиак, дома — Плацидус, источник положений — Swiss Ephemeris.", "Версия методики: western-tropical-v1; версия текстов: ru-v1."]}] };
+  // Как в боте: заголовок раздела перед первым абзацем, блоки через пустую строку, длинное режется на сообщения
+  function chunks(sections){
+    var blocks = []; sections.forEach(function(sec){ sec.paragraphs.forEach(function(para, i){ blocks.push((i === 0 ? '<b>' + esc(sec.title) + '</b>\n' : '') + esc(para)); }); });
+    var out = [], cur = ''; blocks.forEach(function(b){ var c = cur ? cur + '\n\n' + b : b; if (c.length <= 3800) { cur = c; return; } if (cur) out.push(cur); cur = b; }); if (cur) out.push(cur); return out;
+  }
   function pad(n){ return (n < 10 ? '0' : '') + n; }
   function tm(){ var d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
   function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
@@ -129,15 +138,27 @@
       w.appendChild(r); });
     chat.appendChild(w); scroll();
   }
+  var lbList = [], lbI = 0;
+  function lbShow(i){ lbI = (i + lbList.length) % lbList.length; $('lbImg').src = lbList[lbI]; var one = lbList.length < 2; [].forEach.call(document.querySelectorAll('.lbn'), function(b){ b.hidden = one; }); }
+  function lbOpen(list, i){ lbList = list; lbShow(i); $('lb').classList.add('on'); }
   async function photo(src, cap){
     if (!(await typing(900))) return;
-    var p = document.createElement('div'); p.className = 'photo'; p.innerHTML = '<img src="' + src + '" alt="">' + (cap ? '<div class="cap">' + cap + '</div>' : '');
-    p.querySelector('img').onclick = function(){ $('lbImg').src = src; $('lb').classList.add('on'); };
+    var p = document.createElement('div'); p.className = 'photo'; p.innerHTML = '<img src="' + src + '" alt="">' + (cap ? '<div class="cap">' + cap + '<span class="tm">' + tm() + '</span></div>' : '');
+    p.querySelector('img').onclick = function(){ lbOpen([src], 0); };
     chat.appendChild(p); scroll();
   }
-  $('lb').onclick = function(){ $('lb').classList.remove('on'); };
-  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') $('lb').classList.remove('on'); });
-
+  async function album(srcs, cap){
+    if (!(await typing(1100))) return;
+    var p = document.createElement('div'); p.className = 'album';
+    p.innerHTML = '<div class="g">' + srcs.map(function(x){ return '<img src="' + x + '" alt="">'; }).join('') + '</div>' + (cap ? '<div class="cap">' + cap + '<span class="tm">' + tm() + '</span></div>' : '');
+    [].forEach.call(p.querySelectorAll('img'), function(im, i){ im.onclick = function(){ lbOpen(srcs, i); }; });
+    chat.appendChild(p); scroll();
+  }
+  $('lb').onclick = function(e){
+    if (e.target.closest('.lbn')) { lbShow(lbI + (e.target.closest('.lbn').classList.contains('p') ? -1 : 1)); return; }
+    $('lb').classList.remove('on');
+  };
+  document.addEventListener('keydown', function(e){ if (!$('lb').classList.contains('on')) return; if (e.key === 'ArrowLeft') lbShow(lbI - 1); if (e.key === 'ArrowRight') lbShow(lbI + 1); });
   function ask(s, ph, def){ stage = s; mark(s); inp.disabled = false; send.disabled = false; inp.placeholder = ph; inp.value = def; inp.focus(); inp.select(); }
   function lock(){ inp.disabled = true; send.disabled = true; inp.value = ''; inp.placeholder = 'Сообщение'; }
 
@@ -162,7 +183,7 @@
       if (!m || d.getFullYear() !== +m[3] || d.getMonth() !== +m[2] - 1 || d.getDate() !== +m[1] || d > new Date()) { await bot('Не удалось разобрать дату. Введите её в формате ДД.ММ.ГГГГ, например 05.07.1990.'); return; }
       lock(); D.date = v;
       if (D.editing) { D.editing = false; return confirm_(); }
-      await bot('Введите точное время рождения в формате ЧЧ:ММ:'); if (id !== run) return; ask(2, 'ЧЧ:ММ', '14:30');
+      await bot('Введите точное время рождения в формате ЧЧ:ММ:'); if (id !== run) return; ask(2, 'ЧЧ:ММ', '12:00');
     } else if (s === 2) {
       var t = /^(\d{1,2}):(\d{2})$/.exec(v); me(v);
       if (!t || +t[1] > 23 || +t[2] > 59) { await bot('Не удалось разобрать время. Введите его в формате ЧЧ:ММ, например 14:30.'); return; }
@@ -192,8 +213,10 @@
     if (id !== run) return;
     await photo('./img/chart.webp', '<b>Натальная карта</b>\n' + esc(D.name) + ', ' + D.date + ', ' + D.time + ', ' + esc(D.place));
     if (id !== run) return;
-    await bot('<b>Мини-разбор</b>\n\n☀️ Солнце в Раке: чувствительность, забота о близких, потребность в безопасном «доме».\n🌙 Луна в Стрельце: любознательность, тяга к свободе и новому опыту.\n⬆️ Асцендент в Деве: внимательность к деталям, сдержанная подача себя.\n\n<i>Символическая модель для саморефлексии, не прогноз.</i>',
-      [[['📚 Купить полный разбор — ' + PRICE + ' ⭐', pay]]]);
+    var same = D.date === '05.07.1990' && D.time === '12:00' && /моск/i.test(D.city);
+    if (!same) sys('В демо показан расчёт для 05.07.1990, 12:00, Москва');
+    var parts = chunks(REPORT.short);
+    for (var k = 0; k < parts.length; k++) { var last = k === parts.length - 1; await bot(parts[k], last ? [[['\uD83D\uDCDA Купить полный разбор — ' + PRICE + ' \u2B50', pay]]] : null); if (id !== run) return; }
     stage = 6; mark(6);
   }
   async function pay(){
@@ -202,9 +225,11 @@
       [[['⭐ Оплатить ' + PRICE + ' ⭐ (тест)', async function(){
         sys('Тестовая оплата, звёзды не списываются');
         await bot('Оплата получена. Готовлю полный разбор…');
-        for (var i = 1; i <= 5; i++) { if (id !== run) return; await photo('./img/card' + i + '.webp', i === 1 ? '<b>Персональный разбор</b>' : ''); }
+        await album([1,2,3,4,5].map(function(i){ return './img/card' + i + '.webp'; }), '<b>Персональный разбор</b>');
         if (id !== run) return;
-        await bot('<i>Разбор построен по рассчитанным фактам карты и носит символический характер.</i>\n\nСохранённый разбор можно открыть позже командой /mychart.');
+        var det = chunks(REPORT.detailed);
+        for (var k = 0; k < det.length; k++) { await bot(det[k]); if (id !== run) return; }
+        await bot('Сохранённый разбор можно открыть позже командой /mychart.');
         mark(7);
       }]]]);
   }
@@ -212,9 +237,11 @@
   function init(){ run++; stage = -1; chat.innerHTML = ''; lock(); mark(0); start(); }
   init();
   if (/[?&]shot/.test(location.search)) (async function(){
-    await wait(800); var go = async function(v){ inp.value = v; $('form').dispatchEvent(new Event('submit', {cancelable:true})); await wait(1800); };
-    await go('Анна'); await go('05.07.1990'); await go('14:30'); await go('Москва, Россия'); await wait(900);
-    var b = [].slice.call(document.querySelectorAll('.inl button')); b[0].click(); await wait(1800); [].slice.call(document.querySelectorAll('.inl button')).pop().click(); await wait(3500);
+    var go = async function(v){ inp.value = v; $('form').dispatchEvent(new Event('submit', {cancelable:true})); await wait(1500); };
+    var btn = async function(t){ var b = [].slice.call(document.querySelectorAll('.inl button')).reverse().filter(function(x){ return x.textContent.indexOf(t) > -1 && !x.disabled; })[0]; if (b) b.click(); await wait(2000); };
+    await wait(1200); await go('Анна'); await go('05.07.1990'); await go('12:00'); await go('Москва, Россия');
+    await btn('Всё верно'); await btn('бесплатный'); await wait(4500); await btn('Купить полный'); await btn('Оплатить'); await wait(7000);
+    chat.style.scrollBehavior = 'auto'; var al = chat.querySelector('.album'); chat.scrollTop = al.offsetTop - 30;
   })();
 })();
 </script>
