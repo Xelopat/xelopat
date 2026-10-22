@@ -1,5 +1,5 @@
 // Страница OWASP Top 10: списки рисков, сквозной поиск по темам и тренажёр.
-// Новый список: файл в owasp/data/ с вызовом OWASP.addList({ id, order, title, full, year, url, intro, items }).
+// Новый список: файл в owasp/lists/ с вызовом OWASP.addList({ id, order, title, full, year, url, intro, items }).
 // Элемент списка: { id, en, ru, tags, short, what, example, defense: [], prev? }. Темы описаны в TAGS.
 (function () {
   const OWASP = (window.OWASP = window.OWASP || { lists: [] });

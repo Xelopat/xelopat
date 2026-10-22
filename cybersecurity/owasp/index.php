@@ -1,11 +1,11 @@
 <?php
 require __DIR__ . '/../includes/layout.php';
 
-// Списки подключаются автоматически: любой owasp/data/*.js. Порядок вкладок задаёт поле order.
+// Списки подключаются автоматически: любой owasp/lists/*.js (не data/: эту папку деплой не трогает). Порядок вкладок задаёт поле order.
 // osi.css даёт общие вкладки (.osi-tabs), owasp.css всё остальное.
 $ow_scripts = ['owasp/owasp.js'];
-foreach (glob(__DIR__ . '/data/*.js') ?: [] as $f) {
-    $ow_scripts[] = 'owasp/data/' . basename($f);
+foreach (glob(__DIR__ . '/lists/*.js') ?: [] as $f) {
+    $ow_scripts[] = 'owasp/lists/' . basename($f);
 }
 
 $head = '<link rel="stylesheet" href="' . cs_h(cs_asset('osi/osi.css')) . '">'
