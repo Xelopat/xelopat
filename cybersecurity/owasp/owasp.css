@@ -1,6 +1,7 @@
 /* Страница OWASP Top 10. Вкладки режимов берутся из osi.css (.osi-tabs) */
 
-.ow-panel{ display:flex; flex-direction:column; gap:14px; animation:osiIn .2s ease both; }
+.ow-panel{ display:flex; flex-direction:column; gap:14px; }
+.ow-panel.is-enter{ animation:osiIn .2s ease both; }
 .ow-lead{ margin:0; color:var(--muted); font-size:14px; line-height:1.6; max-width:760px; }
 .ow-count{ margin:0; font-family:var(--mono); font-size:12px; color:var(--muted); }
 

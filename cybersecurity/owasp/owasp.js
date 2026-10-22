@@ -25,7 +25,7 @@
   }
 
   const st = { mode: 'lists', list: 'web', open: null, tag: 'access', quiz: null, score: { ok: 0, all: 0 }, quizList: 'all' };
-  let root;
+  let root, lastMode = null;
 
   // Адрес страницы хранит выбор: #lists/web/A01, #topics/access, #quiz
   function readHash() {
@@ -146,7 +146,9 @@
       type: 'button', role: 'tab', class: 'osi-tab' + (m === st.mode ? ' active' : ''), 'aria-selected': m === st.mode ? 'true' : 'false',
       onClick: () => { if (st.mode !== m) { st.mode = m; st.open = null; render(); } },
     }, name)));
-    const box = h('div', { class: 'ow-panel' });
+    // Анимация появления только при смене вкладки: при ответах, раскрытии карточек и смене темы она мерцала бы
+    const box = h('div', { class: 'ow-panel' + (st.mode !== lastMode ? ' is-enter' : '') });
+    lastMode = st.mode;
     if (st.mode === 'lists') renderLists(box);
     else if (st.mode === 'topics') renderTopics(box);
     else renderQuiz(box);
