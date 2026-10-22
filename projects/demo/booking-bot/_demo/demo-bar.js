@@ -12,7 +12,8 @@
     bar.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2147483647;display:flex;align-items:center;gap:4px;padding:4px;'
       + 'background:rgba(21,21,24,.92);border:1px solid #333340;border-radius:8px;font:500 12px/1 Inter,system-ui,sans-serif;'
       + 'box-shadow:0 8px 24px rgba(0,0,0,.35);backdrop-filter:blur(6px);';
-    var tag = document.createElement('span');
+    var tag = document.createElement(cfg.titleHref ? 'a' : 'span');
+    if (cfg.titleHref) { tag.href = cfg.titleHref; tag.style.textDecoration = 'none'; }
     tag.textContent = cfg.title || 'Демо';
     tag.style.cssText = 'padding:6px 8px;color:#f9c940;font-family:"Space Mono",ui-monospace,monospace;font-size:11px;';
     bar.appendChild(tag);

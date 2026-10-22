@@ -31,7 +31,11 @@
   .ov{ position:fixed; inset:0; z-index:100; display:none; flex-direction:column; background:#0b0b0e; }
   .ov.on{ display:flex; }
   .ovbar{ flex:none; display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid var(--line); background:#151518; }
-  .ovbar b{ font-size:15px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ovtabs{ flex:1; min-width:0; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; }
+  .ovtabs::-webkit-scrollbar{ display:none; }
+  .ovtabs button{ flex:none; padding:8px 14px; border:1px solid var(--line); border-radius:999px; background:transparent; color:var(--muted); font:600 13px Inter,sans-serif; cursor:pointer; white-space:nowrap; }
+  .ovtabs button:hover{ color:var(--text); }
+  .ovtabs button.on{ background:var(--accent); border-color:var(--accent); color:#1b1606; }
   .ovbar button{ padding:8px 14px; border:1px solid var(--line); border-radius:999px; background:rgba(255,255,255,.05); color:var(--text); font:600 13px Inter,sans-serif; cursor:pointer; }
   .ovbar button:hover{ border-color:var(--accent); color:var(--accent); }
   .ov iframe{ flex:1; width:100%; border:0; background:#000; }
@@ -48,7 +52,7 @@
 </div>
 
 <div class="ov" id="ov" aria-hidden="true">
-  <div class="ovbar"><b id="ovT"></b><button id="ovR" type="button">Начать заново</button><button id="ovX" type="button">Закрыть</button></div>
+  <div class="ovbar"><div class="ovtabs" id="ovTabs"></div><button id="ovR" type="button">Начать заново</button><button id="ovX" type="button">Закрыть</button></div>
   <iframe id="fr" title="Игра" allow="fullscreen; autoplay" allowfullscreen></iframe>
 </div>
 
@@ -71,8 +75,13 @@
   }).join('');
   function open(id){
     cur = GAMES.filter(function(g){ return g.id === id; })[0];
-    $('ovT').textContent = cur.t; $('fr').src = './' + id + '/index.html';
+    tabs(); $('fr').src = './' + id + '/index.html';
     $('ov').classList.add('on'); $('ov').setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden';
+  }
+  function tabs(){
+    $('ovTabs').innerHTML = '';
+    GAMES.forEach(function(g){ var b = document.createElement('button'); b.type = 'button'; b.textContent = g.t; b.className = g.id === cur.id ? 'on' : ''; b.onclick = function(){ open(g.id); }; $('ovTabs').appendChild(b); });
+    var on = $('ovTabs').querySelector('.on'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
   function close(){ $('ov').classList.remove('on'); $('ov').setAttribute('aria-hidden', 'true'); $('fr').src = 'about:blank'; document.body.style.overflow = ''; }
   $('grid').addEventListener('click', function(e){ var b = e.target.closest('.shot'); if (b) open(b.dataset.id); });
