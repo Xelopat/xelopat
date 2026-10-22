@@ -213,31 +213,6 @@
 
 /* ===== Поля ===== */
 
-.psy-field{ margin:0; }
-.psy-field textarea,
-.psy-steps textarea,
-.psy-tri textarea{
-  width:100%;
-  box-sizing:border-box;
-  display:block;
-  background:var(--bg);
-  border:1px solid var(--line);
-  border-radius:var(--radius);
-  padding:10px 12px;
-  color:var(--text);
-  font:inherit;
-  font-size:14px;
-  line-height:1.55;
-  resize:vertical;
-  outline:none;
-  min-height:44px;
-}
-.psy-field textarea:focus,
-.psy-steps textarea:focus,
-.psy-tri textarea:focus{
-  border-color:var(--accent);
-  box-shadow:0 0 0 3px rgba(249,201,64,.15);
-}
 
 /* ===== Выноски ===== */
 
@@ -317,18 +292,6 @@
 .psy-steps__q{ font-size:14px; line-height:1.5; margin-bottom:8px; color:#c5c8d6; }
 .psy-steps__q--lg{ color:var(--text); font-weight:600; padding-top:4px; }
 
-.psy-tri__t{ font-size:14px; font-weight:600; margin-bottom:10px; }
-.psy-tri__g{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; }
-.psy-tri__k{
-  font-family:var(--mono);
-  font-size:11px;
-  letter-spacing:.05em;
-  text-transform:uppercase;
-  margin-bottom:6px;
-  color:var(--green);
-}
-.psy-tri__c--1 .psy-tri__k{ color:var(--accent); }
-.psy-tri__c--2 .psy-tri__k{ color:var(--violet); }
 
 /* ===== Фразы и копирование ===== */
 
@@ -700,7 +663,6 @@
   .psy-nav__n{ display:none; }
   .psy-hero__day strong{ font-size:44px; }
   .psy-deck__txt{ font-size:18px; }
-  .psy-tri__g{ grid-template-columns:minmax(0, 1fr); }
   .psy-cycle__r{ grid-template-columns:minmax(0, 1fr); gap:10px; }
   .psy-cycle__me{ justify-self:start; }
   .psy-setup{ grid-template-columns:minmax(0, 1fr); }

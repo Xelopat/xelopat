@@ -122,32 +122,13 @@
   function reviewedDates() {
     const set = new Set();
     for (const k of Object.keys(S)) {
-      const m = /^d\.(\d{4}-\d{2}-\d{2})\.\d+$/.exec(k);
+      const m = /^[dr]\.(\d{4}-\d{2}-\d{2})\.\d+$/.exec(k);
       if (m) set.add(m[1]);
     }
     return set;
   }
 
   /* ===== Мелкие компоненты ===== */
-
-  function autosize(ta) {
-    ta.style.height = 'auto';
-    ta.style.height = `${Math.min(ta.scrollHeight + 2, 520)}px`;
-  }
-
-  function textarea(key, rows, placeholder) {
-    const ta = h('textarea', { rows: rows || 3, spellcheck: 'true', placeholder: placeholder || '' });
-    ta.value = String(get(key));
-    ta.addEventListener('input', () => { put(key, ta.value); autosize(ta); });
-    requestAnimationFrame(() => autosize(ta));
-    return ta;
-  }
-
-  function fieldBox(key, label, rows) {
-    const ta = textarea(key, rows);
-    ta.id = `psy-${key.replace(/[^\w-]/g, '_')}`;
-    return h('div', { class: 'field psy-field' }, label && h('label', { for: ta.id }, label), ta);
-  }
 
   function stepper(key, max) {
     const out = h('output', { class: 'psy-step__n' });
@@ -212,20 +193,11 @@
     return box;
   };
 
-  R.field = (b) => fieldBox(`f.${b.id}`, b.label, b.rows);
-
   R.steps = (b) => h('ol', { class: 'psy-steps' }, b.items.map((it, i) => h('li', { class: 'psy-steps__i' },
     h('span', { class: 'psy-steps__n' }, i + 1),
     h('div', { class: 'psy-steps__b' },
       h('div', { class: 'psy-steps__k' }, it.k),
-      h('div', { class: 'psy-steps__q' }, it.q),
-      textarea(`${b.id}.${i}`, it.rows || 2)))));
-
-  R.tri = (b) => h('div', { class: 'psy-tri' },
-    b.title && h('div', { class: 'psy-tri__t' }, b.title),
-    h('div', { class: 'psy-tri__g' }, b.cols.map((c, i) => h('div', { class: `psy-tri__c psy-tri__c--${i}` },
-      h('div', { class: 'psy-tri__k' }, c),
-      textarea(`${b.id}.${i}`, 4)))));
+      h('div', { class: 'psy-steps__q' }, it.q)))));
 
   R.table = (b) => h('div', { class: 'psy-tablewrap' },
     h('table', { class: 'data-table psy-table' },
@@ -380,11 +352,12 @@
           h('div', { class: 'psy-datebar__d' }, `${longDate(d)} ${d.getFullYear()}`, h('small', null, revDate === todayIso ? 'сегодня' : WD[d.getDay()])),
           h('button', { type: 'button', class: 'btn psy-datebar__b', 'aria-label': 'Следующий день', onclick: () => shift(1), disabled: revDate >= todayIso }, '→')),
         strip,
-        h('ol', { class: 'psy-steps' }, b.steps.map((q, i) => h('li', { class: 'psy-steps__i' },
-          h('span', { class: 'psy-steps__n' }, i + 1),
-          h('div', { class: 'psy-steps__b' },
-            h('div', { class: 'psy-steps__q psy-steps__q--lg' }, q),
-            textarea(`d.${revDate}.${i}`, 2))))));
+        h('div', { class: 'psy-checks' }, b.steps.map((q, i) => {
+          const k = `r.${revDate}.${i}`;
+          const inp = h('input', { type: 'checkbox', checked: !!get(k) });
+          inp.addEventListener('change', () => { put(k, inp.checked); draw(); });
+          return h('label', { class: 'psy-check' }, inp, h('span', null, q));
+        })));
     };
     draw();
     return box;
@@ -502,11 +475,14 @@
               h('thead', null, h('tr', null, h('th', null, 'день'), b.tracker.map((c) => h('th', null, c)), h('th', null, '1 социальная попытка'))),
               h('tbody', null, rows, totals)))),
         h('section', { class: 'psy-card' },
-          h('h3', { class: 'psy-h' }, 'Итоги недели'),
-          b.summary.map((q, i) => fieldBox(`sum.w${w}.${i}`, q, 2))),
-        h('section', { class: 'psy-card' },
-          h('h3', { class: 'psy-h' }, 'Еженедельный разбор'),
-          b.review.map((q, i) => fieldBox(`wr.w${w}.${i}`, q, 3))));
+          h('h3', { class: 'psy-h' }, 'Итог недели'),
+          h('p', { class: 'psy-p' }, 'Отметь, что было на этой неделе.'),
+          h('div', { class: 'psy-checks' }, b.review.map((q, i) => {
+            const k = `wk.w${w}.${i}`;
+            const inp = h('input', { type: 'checkbox', checked: !!get(k) });
+            inp.addEventListener('change', () => put(k, inp.checked));
+            return h('label', { class: 'psy-check' }, inp, h('span', null, q));
+          }))));
     };
     draw();
     return box;
