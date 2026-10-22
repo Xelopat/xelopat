@@ -1,0 +1,246 @@
+@import url('https://fonts.googleapis.com/css2?family=Tangerine:wght@700&display=swap');
+
+
+a, a:focus, a:active {
+    outline: none;
+	box-shadow: none;
+	-webkit-tap-highlight-color: transparent; 
+}
+input:focus {
+    outline: none;
+	box-shadow: none;
+	-webkit-tap-highlight-color: transparent;
+}
+body {
+    font-family: 'Margarine', cursive;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+    background: #0f0f23; /* Темный фон для контраста */
+    background-attachment: scroll; /* Изменено с fixed на scroll */
+    color: #E2D3F5;
+}
+.header {
+	background-size: cover;
+	color: #E2D3F5; /* Светлый фиолетовый текст */
+	padding: 40px;
+}
+.content {
+	padding: 10px;
+	color: #F5F5DC; /* Бежевый текст для контента */
+}
+.zodiac-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 10px;
+}
+.zodiac-item {
+	text-decoration: none;
+	color: #F8F8FF; /* Светлый цвет текста */
+	transition: transform 0.2s ease-in-out; /* Добавление анимации */
+}
+.zodiac-item:hover {
+	transform: scale(1.05); /* Увеличение при наведении */
+	cursor: pointer;
+}
+.zodiac-item img {
+	width: 100px;
+	height: auto;
+	opacity: 0.95; /* Сделать изображения немного прозрачными */
+	border-radius: 25px;
+}
+.zodiac-item p {
+	margin: 0;
+	font-family: 'Margarine', cursive; /* Курсивный шрифт для названий знаков */
+	font-size: 24px; /* Увеличенный размер шрифта */
+}
+
+.star-field {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    opacity: 0.8;
+}
+
+/* Новые стили для radio input и выравнивания по левому краю с отступами */
+form {
+    text-align: left;
+    display: inline-block;
+    margin: 0 auto;
+    padding-left: 20px; /* Отступ слева для всей формы */
+}
+
+.custom-question {
+    display: block;
+    padding-left: 10px; /* Отступ для вопросов */
+    padding-right: 10px;
+	padding-bottom: 5px;
+}
+
+form input[type="radio"] {
+    display: none; /* Скрываем стандартные радио-кнопки */
+}
+
+/* Стили для кастомных радио-кнопок */
+.custom-radio {
+    position: relative;
+    padding-left: 35px; /* Отступ для кастомных радио-кнопок */
+    cursor: pointer;
+    user-select: none;
+    display: block;
+    margin-bottom: 5px; /* Уменьшение отступа между ответами */
+	-webkit-tap-highlight-color: transparent; 
+}
+
+.custom-radio input[type="radio"]:checked + .radio-label:before {
+    background: url('src/full-moon.png') no-repeat center center;
+    background-size: cover;
+    border: none;
+	outline: none;
+	box-shadow: none;
+	-webkit-tap-highlight-color: transparent; 
+}
+
+.radio-label:before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    background: url('src/empty-moon.png') no-repeat center center;
+    background-size: cover;
+    transition: background 0.2s, border-color 0.2s;
+	margin-left: 30px;
+	-webkit-tap-highlight-color: transparent; 
+}
+
+.radio-label {
+    padding-left: 30px;
+    cursor: pointer;
+    color: #F5F5DC;
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1.4; /* Межстрочный интервал для текстов с переносами */
+    margin-bottom: 5px; /* Уменьшение отступа между ответами */
+	-webkit-tap-highlight-color: transparent; 
+}
+
+/* Стили для кнопок */
+form input[type="submit"],
+form a.button {
+    font-family: 'Margarine', cursive;
+    background-color: #0088cc;
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 20px;
+    margin: 10px;
+    cursor: pointer;
+    border-radius: 10px;
+	outline: none;
+	box-shadow: none;
+	-webkit-tap-highlight-color: transparent; 
+}
+
+form a.button {
+    padding: 12px 25px;
+    display: inline-block;
+    text-decoration: none;
+	outline: none;
+	box-shadow: none;
+}
+
+form a.button:hover,
+form input[type="submit"]:hover {
+    background-color: #005f99;
+	outline: none;
+	box-shadow: none;
+}
+
+/* Новые стили для кнопок "Пройти тест заново" и "Поделиться с друзьями" */
+.action-button {
+    font-family: 'Margarine', cursive;
+    background-color: #0088cc;
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 20px;
+    margin: 10px;
+    cursor: pointer;
+    border-radius: 10px;
+	outline: none;
+	box-shadow: none;
+
+}
+
+.action-button:hover {
+    background-color: #005f99;
+	outline: none;
+	box-shadow: none;
+}
+
+.result {
+    margin: 20px auto; /* Центрирование блока снаружи */
+    margin-left: 20px; /* Центрирование блока снаружи */
+    margin-right: 20px; /* Центрирование блока снаружи */
+    padding: 20px; /* Отступы внутри блока */
+    border: 1px solid #E2D3F5; /* Граница блока */
+    border-radius: 10px; /* Скругленные углы */
+    background-color: #1f1f3a; /* Темный фон для контраста */
+    max-width: 600px; /* Максимальная ширина блока */
+    text-align: left; /* Выравнивание текста по левому краю */
+}
+
+.result img {
+    display: block;
+    margin: 0 auto 10px; /* Центрирование изображения и отступ снизу */
+    max-width: 100%; /* Масштабирование изображения по ширине контейнера */
+    height: auto; /* Сохранение пропорций изображения */
+}
+
+.result p {
+    margin: 0;
+    font-size: 18px; /* Размер текста */
+    line-height: 1.6; /* Межстрочный интервал */
+    color: #E2D3F5; /* Цвет текста */
+}
+
+
+
+.container {
+	text-align: center;
+}
+.overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.9);
+	color: white;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	flex-direction: column;
+	z-index: 2;
+}
+.hidden {
+	display: none;
+}

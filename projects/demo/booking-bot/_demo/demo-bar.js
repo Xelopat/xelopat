@@ -4,7 +4,7 @@
 (function () {
   'use strict';
   var HUBS = { bots: 'Ко всем ботам', games: 'Ко всем играм' };
-  var MEMBERS = { 'pay-bot': 'bots', 'natal-bot': 'bots', 'radar-bot': 'bots', 'booking-bot': 'bots' };
+  var MEMBERS = { 'pay-bot': 'bots', 'natal-bot': 'bots', 'radar-bot': 'bots', 'booking-bot': 'bots', 'star-quiz': 'bots' };
 
   function back() {
     var p = location.pathname.split('/').filter(Boolean);           // projects, demo, имя, ...

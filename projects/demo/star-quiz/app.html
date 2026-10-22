@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Margarine&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<title>Какой вы знак зодиака?</title>
+<style>
+  html{ scroll-behavior:smooth; }
+  body{ min-height:100vh; position:relative; overflow-x:hidden; }
+  .view{ display:none; position:relative; z-index:1; }
+  .view.on{ display:block; }
+  .overlay{ position:fixed; }
+  .overlay p{ max-width:300px; line-height:1.4; }
+  .toast{ position:fixed; left:50%; bottom:18px; z-index:5; transform:translateX(-50%); max-width:86%; padding:10px 16px; border-radius:12px; background:#1f1f3a; color:#E2D3F5; border:1px solid #E2D3F5; font:15px/1.35 'Margarine',cursive; opacity:0; pointer-events:none; transition:.25s; }
+  .toast.on{ opacity:1; }
+  .result a.action-button{ margin:6px 4px; font-size:17px; padding:12px 20px; }
+  .result p:first-child{ font-size:26px; margin:0 0 6px; text-align:center; }
+  .result p{ text-align:center; }
+  .progress{ position:sticky; top:0; z-index:3; height:5px; background:rgba(226,211,245,.15); }
+  .progress i{ display:block; height:100%; width:0; background:#0088cc; transition:width .25s; }
+  form{ display:block; padding-left:0; max-width:520px; margin:0 auto; }
+  form > div{ padding:0 10px; }
+  .custom-question{ font-size:18px; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="overlay" id="overlay" style="display:none">
+  <p id="ovText">Для прохождения теста нужно подписаться на наш Телеграм канал - там много интересного</p>
+  <button id="subscribeBtn" class="action-button" type="button">Подписаться на канал</button>
+  <button id="checkBtn" class="action-button" type="button">Проверить подписку</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<div class="view on" id="home">
+  <div class="header"><h1>Главная</h1></div>
+  <div class="content"><a class="action-button" href="#" id="start">Пройти тест</a></div>
+</div>
+
+<div class="view" id="select">
+  <div class="header"><h1>Пройдите тест - какой вы знак зодиака</h1></div>
+  <div class="content"><div class="zodiac-grid" id="grid"></div></div>
+</div>
+
+<div class="view" id="quiz">
+  <div class="progress"><i id="bar"></i></div>
+  <div class="header"><h1 id="qTitle"></h1></div>
+  <form id="form" onsubmit="return false"></form>
+</div>
+
+<div class="view" id="resultView">
+  <div class="header"><h1>Результат</h1></div>
+  <div class="result" id="result"></div>
+</div>
+
+<script>window.__noop = 1;</script>
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var SIGNS = [['aries','Овен','m'],['taurus','Телец','m'],['gemini','Близнецы','p'],['cancer','Рак','m'],['leo','Лев','m'],['virgo','Дева','f'],['libra','Весы','p'],['scorpio','Скорпион','m'],['sagittarius','Стрелец','m'],['capricorn','Козерог','m'],['aquarius','Водолей','m'],['pisces','Рыбы','p']];
+  var TRAITS = { E:['Активный','active','Вы всегда в движении и готовы к новым приключениям'], A:['Добрый','kind','Мать Тереза гордилась бы вами'], C:['Организованный','clever','Ваш день расписан по минутам, вы максимально сосредоточены на делах'], N:['Целеустремлённый','feeling','Вы всегда добиваетесь своих целей'], O:['Мечтательный','dreaming','Вы всегда полны идей и вдохновения'] };
+  var QS = [], sign = null;
+
+  function show(id){ [].forEach.call(document.querySelectorAll('.view'), function(v){ v.classList.toggle('on', v.id === id); }); window.scrollTo(0, 0); }
+  function toast(t){ var e = $('toast'); e.textContent = t; e.classList.add('on'); setTimeout(function(){ e.classList.remove('on'); }, 2600); }
+  function withGender(trait, s){
+    var g = s[2], base = g === 'f' ? trait.replace('ый', 'ая').replace('ий', 'ая') : g === 'p' ? trait.replace('ый', 'ые').replace('ий', 'ие') : trait;
+    return base + ' ' + s[1];
+  }
+
+  // проверка подписки на канал, как в мини-приложении
+  var subscribed = false;
+  function gate(){ $('overlay').style.display = subscribed ? 'none' : 'flex'; }
+  $('subscribeBtn').onclick = function(){ toast('В боевой версии открывается канал Telegram'); };
+  $('checkBtn').onclick = function(){ subscribed = true; gate(); toast('Подписка подтверждена'); };
+  gate();
+
+  $('start').onclick = function(e){ e.preventDefault(); show('select'); };
+  $('grid').innerHTML = SIGNS.map(function(s){ return '<a href="#" class="zodiac-item" data-s="' + s[0] + '"><img src="images/' + s[0] + '.webp" alt="' + s[1] + '"><p>' + s[1] + '</p></a>'; }).join('');
+  $('grid').onclick = function(e){ var a = e.target.closest('.zodiac-item'); if (!a) return; e.preventDefault(); sign = SIGNS.filter(function(s){ return s[0] === a.dataset.s; })[0]; openQuiz(); };
+
+  function openQuiz(){
+    $('qTitle').textContent = 'Тест на знак зодиака ' + sign[1];
+    var h = '';
+    QS.forEach(function(q, i){
+      h += '<div><label class="custom-question">' + q.q + '</label>';
+      q.a.forEach(function(a, v){ h += '<label class="custom-radio"><input type="radio" name="q' + (i + 1) + '" value="' + (5 - v) + '"><span class="radio-label">' + a + '</span></label>'; });
+      h += '<br></div>';
+    });
+    h += '<div><input type="submit" value="Узнать результат"></div>';
+    $('form').innerHTML = h; $('bar').style.width = '0';
+    show('quiz');
+  }
+  $('form').addEventListener('change', function(){
+    var done = $('form').querySelectorAll('input:checked').length; $('bar').style.width = (done / QS.length * 100) + '%';
+  });
+  $('form').addEventListener('click', function(e){
+    if (e.target.type !== 'submit') return;
+    var fd = new FormData($('form')), cat = { E:0, A:0, C:0, N:0, O:0 }, keys = ['E','A','C','N','O'], answered = 0;
+    for (var i = 0; i < QS.length; i++) { var v = +(fd.get('q' + (i + 1)) || 0); if (v) answered++; cat[keys[Math.floor(i / 4)]] += v; }
+    if (answered < QS.length) { toast('Ответьте на все вопросы: осталось ' + (QS.length - answered)); var first = [].filter.call($('form').querySelectorAll('div'), function(d){ return d.querySelector('.custom-radio') && !d.querySelector('input:checked'); })[0]; if (first) first.scrollIntoView({ behavior:'smooth', block:'center' }); return; }
+    var best = keys[0]; keys.forEach(function(k){ if (cat[k] > cat[best]) best = k; });
+    var t = TRAITS[best], title = withGender(t[0], sign);
+    $('result').innerHTML = '<p>' + title + '</p><p>' + t[2] + '</p><img src="images/' + sign[0] + '/' + t[1] + '.webp" alt="' + title + '">' +
+      '<div style="text-align:center"><a href="#" class="action-button" id="again">Пройти тест заново</a><br><a href="#" class="action-button" id="share">Поделиться с друзьями</a><a href="#" class="action-button" id="chan">Подписаться на канал</a></div>';
+    $('again').onclick = function(e){ e.preventDefault(); show('select'); };
+    $('share').onclick = function(e){ e.preventDefault(); toast('В Telegram откроется выбор чата с готовым текстом: «Я - ' + title + '»'); };
+    $('chan').onclick = function(e){ e.preventDefault(); toast('В боевой версии открывается канал Telegram'); };
+    show('resultView');
+  });
+
+  fetch('questions.json').then(function(r){ return r.json(); }).then(function(d){
+    QS = d;
+    // ?auto: само проходит тест (нужно для обложки проекта)
+    if (/[?&]auto/.test(location.search)) setTimeout(function(){
+      $('checkBtn').click(); $('start').click();
+      sign = SIGNS[4]; openQuiz();
+      var names = [], i = 0; [].forEach.call($('form').querySelectorAll('input[type=radio]'), function(r){ if (names.indexOf(r.name) < 0) names.push(r.name); });
+      names.forEach(function(n, k){ var rs = $('form').querySelectorAll('input[name=' + n + ']'); rs[k < 4 ? 0 : 2 + (k % 2)].checked = true; });
+      $('form').querySelector('input[type=submit]').click();
+    }, 400);
+  });
+})();
+</script>
+<script src="stars.js"></script>
+</body>
+</html>

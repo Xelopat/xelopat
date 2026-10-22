@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telegram-мини-приложение: тест на знак зодиака, демо</title>
+<link rel="stylesheet" href="../_shared/tg.css">
+<link rel="stylesheet" href="../_shared/tg-real.css">
+<style>
+  .mtop{ flex:none; display:flex; align-items:center; gap:10px; padding:8px 12px 9px; background:#17191f; border-bottom:1px solid #000; color:#fff; font:500 15px Roboto,Inter,sans-serif; }
+  .mtop .x{ display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,.1); font-size:14px; }
+  .mtop .nm2{ flex:1; text-align:center; line-height:1.15; }
+  .mtop .nm2 small{ display:block; font-size:11.5px; color:#8a8a8a; font-weight:400; }
+  .mtop .dots{ width:34px; height:34px; display:grid; place-items:center; border-radius:50%; background:rgba(255,255,255,.1); font-size:19px; }
+  .screen iframe{ flex:1; width:100%; border:0; background:#0f0f23; min-height:0; }
+  .screen{ background:#0f0f23; }
+  .screen::before{ background-color:#17191f; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="label">// telegram mini app</div>
+  <h1>Мини-приложение «Какой вы знак зодиака?»</h1>
+  <p class="lead">Веб-приложение внутри Telegram: выбираете свой знак, отвечаете на двадцать вопросов с юмором, и по результатам приложение определяет черту характера и присылает картинку для вашего знака. Результатом можно поделиться с друзьями. Пройдите тест в окне телефона, внутри настоящие стили, вопросы и картинки приложения.</p>
+
+  <div class="grid">
+    <div class="phone"><div class="screen">
+      <div class="mtop"><span class="x">&#10005; Закрыть</span><div class="nm2">Star Chronicle<small>мини-приложение</small></div><span class="dots">&#8942;</span></div>
+      <iframe src="app.html" title="Мини-приложение"></iframe>
+    </div></div>
+
+    <div class="side">
+      <div class="card">
+        <h2>Как это работает</h2>
+        <ul>
+          <li>Приложение открывается кнопкой в боте и работает как сайт внутри Telegram.</li>
+          <li>Перед тестом проверяется подписка на канал: бот спрашивает у Telegram, состоит ли человек в канале.</li>
+          <li>Двадцать вопросов делятся на пять черт характера, побеждает та, где больше баллов. Для каждого знака нарисованы свои картинки.</li>
+          <li>Кнопка «Поделиться» отправляет друзьям готовый текст со ссылкой на приложение.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>Для чего это владельцу канала</h2>
+        <p>Такой тест приводит подписчиков в канал и приносит новых: чтобы начать, нужно подписаться, а результатом делятся. В демо подписка проверяется кнопкой «Проверить подписку», картинки и вопросы настоящие.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>if (/[?&]shot/.test(location.search)) document.querySelector("iframe").src = "app.html?auto";</script>
+<script>window.__DEMO_BAR=/[?&]shot/.test(location.search)?null:{title:"демо Мини-приложение",links:[]};</script>
+<script src="./_demo/demo-bar.js" defer></script>
+</body>
+</html>
