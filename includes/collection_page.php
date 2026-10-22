@@ -203,6 +203,17 @@ if ($coll['layout'] === 'cases' && isset($_GET['item'])) {
     }
 }
 
+// Кнопка «К проекту» в демо: по адресу демо находим карточку и открываем её страницу
+if ($coll['layout'] === 'cases' && isset($_GET['demo'])) {
+    $want = rtrim((string)$_GET['demo'], '/') . '/';
+    $to = $coll['url'];
+    foreach ($coll_items as $it) {
+        if ($it['link'] !== '' && strpos(rtrim($it['link'], '/') . '/', $want) === 0) { $to = coll_item_url($coll_key, $it); break; }
+    }
+    header('Location: ' . $to, true, 302);
+    exit;
+}
+
 $site_page_title = ($coll_case ? $coll_case['title'] : $coll['title']) . ' — xelopat';
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 $coll_csrf = $coll_is_admin ? csrf_token() : '';
@@ -219,6 +230,12 @@ function coll_month_human(string $d): string {
 }
 
 // Подробное описание: абзацы по пустой строке, http-ссылки кликабельные
+// Главная кнопка проекта: «Открыть демо» с иконкой-стрелкой, которая при наведении «пролетает» по диагонали
+function coll_demo_btn(string $href, string $label, string $extra = ''): string {
+    $svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>';
+    return '<a class="demo-btn' . $extra . '" href="' . coll_h($href) . '" target="_blank" rel="noopener"><span>' . coll_h($label) . '</span><i class="demo-ic">' . $svg . $svg . '</i></a>';
+}
+
 function coll_rich(string $text): string {
     $out = '';
     foreach (preg_split('~\R{2,}~', trim($text)) as $para) {
@@ -332,6 +349,27 @@ function coll_rich(string $text): string {
   .pj-mv button:hover{ border-color:var(--accent); color:var(--accent); }
   .pj-mv button:disabled{ opacity:.35; cursor:default; }
 
+
+
+  /* кнопка «Открыть демо» */
+  .demo-btn{
+    display:inline-flex; align-items:center; gap:14px; padding:6px 6px 6px 22px; border-radius:999px; text-decoration:none;
+    background:linear-gradient(180deg,#ffd75a,#f2b92f); color:#1b1606; font-weight:700; font-size:14.5px; line-height:1; white-space:nowrap;
+    box-shadow:0 10px 26px -10px rgba(249,201,64,.75), inset 0 1px 0 rgba(255,255,255,.55);
+    transition:transform .2s ease, box-shadow .2s ease, filter .2s ease;
+  }
+  .demo-btn:hover{ transform:translateY(-2px); box-shadow:0 16px 34px -10px rgba(249,201,64,.9), inset 0 1px 0 rgba(255,255,255,.55); filter:brightness(1.03); color:#1b1606; }
+  .demo-btn:active{ transform:translateY(0); }
+  .demo-btn:focus-visible{ outline:2px solid #fff; outline-offset:3px; }
+  .demo-ic{ position:relative; flex:none; display:block; width:38px; height:38px; border-radius:50%; overflow:hidden; background:#1b1606; color:#f9c940; transition:background .2s ease; }
+  .demo-ic svg{ position:absolute; left:50%; top:50%; width:18px; height:18px; margin:-9px 0 0 -9px; transition:transform .38s cubic-bezier(.5,0,.2,1); }
+  .demo-ic svg + svg{ transform:translate(-26px, 26px); }
+  .demo-btn:hover .demo-ic svg:first-child{ transform:translate(26px, -26px); }
+  .demo-btn:hover .demo-ic svg + svg{ transform:translate(0, 0); }
+  .demo-btn--wide{ display:flex; justify-content:space-between; width:100%; }
+  .pj-actions .demo-btn{ padding-left:18px; font-size:14px; }
+  .pj-actions .demo-ic{ width:34px; height:34px; }
+  @media (max-width:560px){ .pj-actions .demo-btn{ flex:1 1 auto; justify-content:space-between; } .cs-actions .demo-btn{ flex:1 1 auto; justify-content:space-between; } }
 
   /* страница проекта */
   .cs-back{
@@ -596,7 +634,7 @@ function coll_rich(string $text): string {
       <h1 class="cs-title"><?= coll_h($c['title']) ?></h1>
       <?php if ($c['description'] !== ''): ?><p class="cs-lead"><?= coll_h($c['description']) ?></p><?php endif; ?>
       <div class="cs-actions">
-        <?php if ($cu): ?><a class="btn btn--primary" href="<?= coll_h($cu) ?>" target="_blank" rel="noopener"><?= $c_demo ? 'Открыть демо' : 'Открыть' ?> ↗</a><?php endif; ?>
+        <?php if ($cu): ?><?= coll_demo_btn($cu, $c_demo ? 'Открыть демо' : 'Открыть') ?><?php endif; ?>
         <?php if ($coll_is_admin): ?>
           <button class="btn" type="button" id="csEdit">Изменить</button>
           <button class="btn co-del" type="button" id="csDelete">Удалить</button>
@@ -621,7 +659,7 @@ function coll_rich(string $text): string {
         <?php if ($c_demo): ?>
           <div><h3>Демо</h3><p>Работает на тестовых данных, без сервера: можно кликать и пробовать.</p></div>
         <?php endif; ?>
-        <?php if ($cu): ?><a class="btn btn--primary" href="<?= coll_h($cu) ?>" target="_blank" rel="noopener" style="justify-content:center"><?= $c_demo ? 'Открыть демо' : 'Открыть' ?> ↗</a><?php endif; ?>
+        <?php if ($cu): ?><?= coll_demo_btn($cu, $c_demo ? 'Открыть демо' : 'Открыть', ' demo-btn--wide') ?><?php endif; ?>
       </aside>
     </div>
 
@@ -739,7 +777,7 @@ function coll_rich(string $text): string {
               <?php endif; ?>
               <div class="pj-actions">
                 <?php if ($it['link']): ?>
-                  <a class="btn btn--primary pj-open" href="<?= coll_h($it['link']) ?>" target="_blank" rel="noopener"><?= $is_demo ? 'Открыть демо' : 'Открыть' ?> ↗</a>
+                  <?= coll_demo_btn($it['link'], $is_demo ? 'Открыть демо' : 'Открыть', ' pj-open') ?>
                 <?php endif; ?>
                 <a class="btn" href="<?= coll_h($url) ?>">Подробнее</a>
               </div>
@@ -931,7 +969,7 @@ function coll_rich(string $text): string {
     link.hidden = !it.link;
     if (it.link) {
       link.href = it.link;
-      link.textContent = it.link.indexOf('/projects/demo/') === 0 ? 'Открыть демо ↗' : 'Открыть ссылку ↗';
+      link.textContent = it.link.indexOf('/projects/demo/') === 0 ? 'Открыть демо' : 'Открыть ссылку';
     }
 
     const thumbs = $('coThumbs'); thumbs.textContent = '';
