@@ -77,7 +77,7 @@
 
   <div class="grid">
     <div class="phone"><div class="screen">
-      <div class="top"><div class="ava">&#9788;</div><div class="nm"><b>Натальная карта</b><span>бот</span></div></div>
+      <div class="top"><div class="ava" style="background:linear-gradient(180deg,#ff8fb0,#e5568a)">Н</div><div class="nm"><b>Небесный почерк</b><span>бот</span></div></div>
       <div class="chat" id="chat"></div>
       <form class="in" id="form" autocomplete="off"><input id="inp" placeholder="Сообщение" disabled><button id="send" type="submit" disabled aria-label="Отправить">&#10148;</button></form>
     </div></div>
@@ -193,12 +193,12 @@
     } else if (s === 3) {
       me(v); lock(); D.city = v; D.editing = false; stage = 4; mark(4);
       await bot('Ищу место и определяю часовой пояс…');
-      if (id !== run) return; D.place = /моск/i.test(v) ? 'Москва, Россия' : v; D.tz = /моск/i.test(v) ? 'Europe/Moscow' : 'определён по координатам';
+      if (id !== run) return; D.place = /моск/i.test(v) ? 'Москва, Центральный федеральный округ, Россия' : v; D.tz = /моск/i.test(v) ? 'Europe/Moscow' : 'определён по координатам';
       confirm_();
     }
   };
   function confirm_(){
-    return bot('<b>Проверьте данные</b>\n\nИмя: ' + esc(D.name) + '\nДата рождения: ' + D.date + '\nВремя рождения: ' + D.time + '\nНайденное место: ' + esc(D.place) + '\nЧасовой пояс: ' + esc(D.tz),
+    return bot('<b>Проверьте данные перед расчётом</b>\n\nИмя: ' + esc(D.name) + '\nДата рождения: ' + D.date + '\nВремя рождения: ' + D.time + '\nНайденное место: ' + esc(D.place) + '\nЧасовой пояс: ' + esc(D.tz) + '\n\nЕсли всё верно, переходите к выбору формата разбора.',
       [[['✅ Всё верно — выбрать разбор', menu]], [['Изменить имя', edit(0, D.name)], ['Изменить дату', edit(1, D.date)]], [['Изменить время', edit(2, D.time)], ['Изменить город', edit(3, D.city)]]]);
   }
   function edit(s, def){ return function(){ var ph = ['Имя', 'ДД.ММ.ГГГГ', 'ЧЧ:ММ', 'Город, страна'][s]; D.editing = true; bot('Введите новое значение.').then(function(){ ask(s, ph, def); }); }; }
@@ -211,7 +211,7 @@
     var id = run;
     await bot('Рассчитываю положения планет и рисую карту…');
     if (id !== run) return;
-    await photo('./img/chart.webp', '<b>Натальная карта</b>\n' + esc(D.name) + ', ' + D.date + ', ' + D.time + ', ' + esc(D.place));
+    await photo('./img/chart.webp', '<b>Натальная карта: ' + esc(D.name) + '</b>\nМесто: ' + esc(D.city) + '\nЧасовой пояс: Europe/Moscow\n\n' + ["Солнце: Рак 13.05°, дом 10", "Луна: Стрелец 12.62°, дом 3", "Меркурий: Рак 16.21°, дом 10", "Венера: Близнецы 12.26°, дом 9", "Марс: Овен 25.03°, дом 8", "Юпитер: Рак 20.27°, дом 10", "Сатурн: Козерог 22.71°, дом 4 ℞", "Уран: Козерог 7.37°, дом 4 ℞", "Нептун: Козерог 13.19°, дом 4 ℞", "Плутон: Скорпион 15.09°, дом 2 ℞", "Асцендент: Дева, 23.79°", "Северный узел: Водолей 7.45°, дом 5", "Дома: Плацидус, Swiss Ephemeris"].map(esc).join('\n'));
     if (id !== run) return;
     var same = D.date === '05.07.1990' && D.time === '12:00' && /моск/i.test(D.city);
     if (!same) sys('В демо показан расчёт для 05.07.1990, 12:00, Москва');
