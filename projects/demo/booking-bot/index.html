@@ -43,7 +43,7 @@
   </div>
 </div>
 
-<script>window.__DEMO_BAR=/[?&]shot/.test(location.search)?null:{title:"демо Бот записи",links:[{label:"Все проекты",href:"/projects",current:false}]};</script>
+<script>window.__DEMO_BAR=(/[?&]shot/.test(location.search)||window.top!==window)?null:{title:"демо Бот записи",links:[{label:"Все проекты",href:"/projects",current:false}]};</script>
 <script src="./_demo/demo-bar.js" defer></script>
 <script src="../_shared/tg.js"></script>
 <script>

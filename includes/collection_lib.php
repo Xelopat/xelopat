@@ -15,6 +15,8 @@ const COLLECTIONS = [
         'empty' => 'Проектов пока нет.',
         // Готовые карточки демо: админ добавляет недостающие одной кнопкой
         'starter' => '/projects/demo/cards.json',
+        // Порядок задаёт админ стрелками, даты в карточках не показываются
+        'manual' => true,
     ],
     'travel' => [
         'title' => 'Путешествия',
@@ -105,6 +107,7 @@ function coll_normalize_item(array $it): array {
         // Как показывать обложку на карточке: auto — заполнить рамку, width — по ширине, height — по высоте
         'fit' => in_array($it['fit'] ?? '', ['width', 'height'], true) ? $it['fit'] : 'auto',
         'media' => $media,
+        'order' => isset($it['order']) && is_numeric($it['order']) ? (int)$it['order'] : null,
         'created' => (string)($it['created'] ?? date('c')),
         'updated' => (string)($it['updated'] ?? date('c')),
         'legacy_index' => isset($it['legacy_index']) ? (int)$it['legacy_index'] : null,
@@ -191,9 +194,19 @@ function coll_mutate(string $key, callable $fn) {
     }
 }
 
-// Новые сверху; без даты — в конце, по времени создания
-function coll_sorted(array $items): array {
-    usort($items, function ($a, $b) {
+// Ручной порядок: сначала записи с номером по возрастанию, остальные ниже, как при сортировке по дате
+function coll_is_manual(string $key): bool {
+    return !empty(coll_def($key)['manual']);
+}
+
+// Новые сверху; без даты — в конце, по времени создания. В разделах с ручным порядком главнее номер.
+function coll_sorted(array $items, bool $manual = false): array {
+    usort($items, function ($a, $b) use ($manual) {
+        if ($manual && ($a['order'] ?? null) !== ($b['order'] ?? null)) {
+            if (($a['order'] ?? null) === null) return 1;
+            if (($b['order'] ?? null) === null) return -1;
+            return $a['order'] <=> $b['order'];
+        }
         if ($a['date'] !== $b['date']) {
             if ($a['date'] === '') return 1;
             if ($b['date'] === '') return -1;
@@ -211,6 +224,15 @@ function coll_cover(array $item): ?array {
 
 function coll_item_url(string $key, array $item): string {
     return coll_def($key)['url'] . '?item=' . rawurlencode($item['id']);
+}
+
+// Проставляет номера всем записям по текущему порядку показа (нужно перед первой ручной правкой)
+function coll_ensure_order(array &$items, bool $manual): void {
+    $sorted = coll_sorted($items, $manual);
+    $pos = [];
+    foreach ($sorted as $n => $it) $pos[$it['id']] = $n;
+    foreach ($items as &$it) $it['order'] = $pos[$it['id']];
+    unset($it);
 }
 
 // Ссылка на страницу этого же сайта: /path, но не //host

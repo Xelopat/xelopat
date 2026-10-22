@@ -136,8 +136,13 @@ if (isset($_GET['api'])) {
 
     if ($api === 'starter') {
         $added = coll_mutate($coll_key, function (array &$items) use ($coll_key) {
+            $manual = coll_is_manual($coll_key);
+            if ($manual) coll_ensure_order($items, true);
+            $max = -1;
+            foreach ($items as $it) if (($it['order'] ?? null) !== null) $max = max($max, $it['order']);
             $missing = coll_missing_starters($coll_key, $items);
             foreach ($missing as $c) {
+                if ($manual) $c['order'] = ++$max;
                 $items[] = coll_normalize_item($c + ['id' => coll_new_id(), 'created' => date('c'), 'updated' => date('c')]);
             }
             return count($missing);
@@ -145,12 +150,45 @@ if (isset($_GET['api'])) {
         coll_api_out(200, ['ok' => true, 'added' => $added]);
     }
 
+    // Новый порядок карточек: список id сверху вниз
+    if ($api === 'reorder') {
+        $ids = json_decode((string)($_POST['ids'] ?? '[]'), true);
+        if (!is_array($ids) || !$ids) coll_api_out(400, ['error' => 'Нет списка записей.']);
+        coll_mutate($coll_key, function (array &$items) use ($ids) {
+            $pos = array_flip(array_map('strval', $ids));
+            $next = count($ids);
+            foreach ($items as &$it) $it['order'] = $pos[$it['id']] ?? $next++;
+            unset($it);
+        });
+        coll_api_out(200, ['ok' => true]);
+    }
+
+    // Порядок как в образце (cards.json): остальные записи остаются ниже в прежнем порядке
+    if ($api === 'default_order') {
+        $file = (string)(coll_def($coll_key)['starter'] ?? '');
+        $cards = $file !== '' && is_file(coll_root() . $file) ? json_decode((string)file_get_contents(coll_root() . $file), true) : [];
+        $idx = [];
+        foreach ((array)$cards as $i => $c) if (is_array($c)) $idx[rtrim((string)($c['link'] ?? ''), '/')] = $i;
+        coll_mutate($coll_key, function (array &$items) use ($idx) {
+            $pos = [];
+            foreach (coll_sorted($items, true) as $n => $it) $pos[$it['id']] = $n;
+            foreach ($items as &$it) {
+                $k = rtrim($it['link'], '/');
+                $it['order'] = ($k !== '' && isset($idx[$k])) ? $idx[$k] : 1000 + $pos[$it['id']];
+            }
+            unset($it);
+            coll_ensure_order($items, true);
+        });
+        coll_api_out(200, ['ok' => true]);
+    }
+
     coll_api_out(400, ['error' => 'Неизвестное действие']);
 }
 
 /* ---------------- страница ---------------- */
 
-$coll_items = coll_sorted(coll_load($coll_key));
+$coll_manual = coll_is_manual($coll_key);
+$coll_items = coll_sorted(coll_load($coll_key), $coll_manual);
 $coll_js_items = array_map(function ($it) {
     $it['date_human'] = coll_date_human($it['date']);
     unset($it['legacy_index'], $it['created'], $it['updated']);
@@ -288,6 +326,11 @@ function coll_rich(string $text): string {
   .pj--wide .pj-title{ font-size:28px; }
   .pj--wide .pj-actions{ margin-top:10px; }
   .pj-starter{ border-color:var(--accent); color:var(--accent); }
+  .pj{ position:relative; }
+  .pj-mv{ position:absolute; z-index:4; top:12px; left:12px; display:flex; gap:6px; }
+  .pj-mv button{ width:36px; height:36px; border:1px solid rgba(255,255,255,.18); border-radius:50%; background:rgba(15,15,20,.82); color:#fff; font-size:18px; line-height:1; cursor:pointer; backdrop-filter:blur(6px); }
+  .pj-mv button:hover{ border-color:var(--accent); color:var(--accent); }
+  .pj-mv button:disabled{ opacity:.35; cursor:default; }
 
 
   /* страница проекта */
@@ -548,7 +591,6 @@ function coll_rich(string $text): string {
     <a class="cs-back" href="<?= coll_h($coll['url']) ?>">← Все проекты</a>
     <header class="cs-hero">
       <div class="cs-meta">
-        <?php if ($c['date']): ?><span><?= coll_h(coll_month_human($c['date'])) ?></span><?php endif; ?>
         <?php if ($c_demo): ?><span class="pj-live">живое демо</span><?php endif; ?>
       </div>
       <h1 class="cs-title"><?= coll_h($c['title']) ?></h1>
@@ -636,6 +678,9 @@ function coll_rich(string $text): string {
         <?php if ($coll_starters): ?>
           <button class="btn pj-starter" type="button" id="coStarter">+ Демо-проекты (<?= $coll_starters ?>)</button>
         <?php endif; ?>
+        <?php if ($coll_is_admin && $coll_manual): ?>
+          <button class="btn" type="button" id="coDefOrder" title="Расставить карточки как в образце">Порядок по умолчанию</button>
+        <?php endif; ?>
         <?php if ($coll_is_admin): ?>
           <button class="btn co-add" type="button" id="coAdd">+ Добавить</button>
         <?php endif; ?>
@@ -671,6 +716,7 @@ function coll_rich(string $text): string {
             $is_demo = strpos($it['link'], '/projects/demo/') === 0;
           ?>
           <article class="pj<?= $n === 0 ? ' pj--wide' : '' ?>" data-id="<?= coll_h($it['id']) ?>" data-search="<?= coll_h($search) ?>">
+            <?php if ($coll_is_admin): ?><span class="pj-mv"><button type="button" data-mv="-1" title="Выше" aria-label="Выше">&#8593;</button><button type="button" data-mv="1" title="Ниже" aria-label="Ниже">&#8595;</button></span><?php endif; ?>
             <a class="pj-shot" href="<?= coll_h($url) ?>" tabindex="-1" aria-hidden="true">
               <span class="pj-img fit-<?= coll_h($it['fit']) ?>">
                   <?php if ($cover && $cover['type'] === 'image'): ?>
@@ -684,7 +730,6 @@ function coll_rich(string $text): string {
             </a>
             <div class="pj-body">
               <div class="pj-meta">
-                <?php if ($it['date']): ?><span><?= coll_h(coll_month_human($it['date'])) ?></span><?php endif; ?>
                 <?php if ($is_demo): ?><span class="pj-live">живое демо</span><?php endif; ?>
               </div>
               <h2 class="pj-title"><a href="<?= coll_h($url) ?>"><?= coll_h($it['title']) ?></a></h2>
@@ -767,7 +812,7 @@ function coll_rich(string $text): string {
       <h2 id="coFTitle">Добавить</h2>
       <div class="co-row">
         <div class="field"><label for="coTitle">Название</label><input id="coTitle" name="title" required maxlength="200"></div>
-        <div class="field"><label for="coDate">Дата</label><input id="coDate" name="date" type="date"></div>
+        <div class="field"<?= $coll_manual ? ' hidden' : '' ?>><label for="coDate">Дата</label><input id="coDate" name="date" type="date"></div>
       </div>
       <div class="field"><label for="coDescIn">Коротко (видно на карточке)</label><textarea id="coDescIn" name="description" maxlength="600"></textarea></div>
       <div class="field"><label for="coDetailsIn">Подробно</label><textarea id="coDetailsIn" name="details"></textarea></div>
@@ -1007,6 +1052,36 @@ function coll_rich(string $text): string {
       starter.disabled = false;
       alert(err.message);
     }
+  });
+
+  /* ---------- ручной порядок ---------- */
+  async function saveOrder(ids) {
+    const body = new FormData();
+    body.append('csrf', CSRF);
+    body.append('ids', JSON.stringify(ids));
+    const r = await fetch(BASE + '?api=reorder', { method: 'POST', body, credentials: 'same-origin' });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'Не получилось');
+  }
+  if (listEl) listEl.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-mv]');
+    if (!b) return;
+    e.preventDefault();
+    const cards = [...listEl.querySelectorAll('article[data-id]')];
+    const ids = cards.map((c) => c.dataset.id);
+    const i = ids.indexOf(b.closest('article').dataset.id), j = i + Number(b.dataset.mv);
+    if (j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    b.disabled = true;
+    try { await saveOrder(ids); location.reload(); } catch (err) { b.disabled = false; alert(err.message); }
+  });
+  const defOrder = $('coDefOrder');
+  if (defOrder) defOrder.addEventListener('click', async () => {
+    if (!confirm('Расставить карточки как в образце? Ручной порядок будет заменён.')) return;
+    const body = new FormData();
+    body.append('csrf', CSRF);
+    const r = await fetch(BASE + '?api=default_order', { method: 'POST', body, credentials: 'same-origin' });
+    if (r.ok) location.reload(); else alert('Не получилось');
   });
 
   /* ---------- редактирование ---------- */
