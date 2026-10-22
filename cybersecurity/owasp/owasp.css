@@ -1,0 +1,96 @@
+/* Страница OWASP Top 10. Вкладки режимов берутся из osi.css (.osi-tabs) */
+
+.ow-panel{ display:flex; flex-direction:column; gap:14px; animation:osiIn .2s ease both; }
+.ow-lead{ margin:0; color:var(--muted); font-size:14px; line-height:1.6; max-width:760px; }
+.ow-count{ margin:0; font-family:var(--mono); font-size:12px; color:var(--muted); }
+
+/* Переключатели списков и тем */
+.ow-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+.ow-chip{
+  display:inline-flex; align-items:center; gap:7px;
+  border:1px solid var(--line); background:var(--bg); color:var(--text);
+  border-radius:4px; padding:6px 11px; font:inherit; font-size:13px; font-weight:600; cursor:pointer;
+  transition:border-color .16s ease, color .16s ease, background .16s ease;
+}
+.ow-chip:hover{ border-color:var(--accent); color:var(--accent); }
+.ow-chip.active{ background:rgba(249,201,64,.08); border-color:rgba(249,201,64,.4); color:var(--accent); }
+.ow-chip__year{ font-family:var(--mono); font-size:11px; font-weight:400; color:var(--muted); }
+.ow-chip.active .ow-chip__year{ color:inherit; opacity:.8; }
+
+/* Описание списка */
+.ow-intro{ padding:16px 18px; display:flex; flex-direction:column; gap:8px; }
+.ow-intro__head{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.ow-intro h2{ margin:0; font-size:17px; }
+.ow-intro__head a{ font-family:var(--mono); font-size:12px; color:var(--accent); }
+.ow-intro p{ margin:0; font-size:13.5px; line-height:1.6; color:var(--muted); max-width:820px; }
+.ow-intro__prev{ border-left:2px solid var(--line); padding-left:10px; }
+
+/* Карточки рисков */
+.ow-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:10px; align-items:start; }
+.ow-card{
+  background:var(--panel); border:1px solid var(--line); border-radius:6px;
+  display:flex; flex-direction:column; transition:border-color .16s ease;
+}
+.ow-card:hover{ border-color:#45455a; }
+.ow-card.is-open{ grid-column:1 / -1; border-color:rgba(249,201,64,.35); }
+.ow-card__head{
+  display:flex; align-items:flex-start; gap:12px; width:100%; text-align:left;
+  border:none; background:transparent; color:inherit; font:inherit; padding:12px 14px 4px; cursor:pointer;
+}
+.ow-card__id{
+  flex:0 0 auto; min-width:44px; font-family:var(--mono); font-size:12px; font-weight:700; color:var(--accent);
+  padding:3px 6px; border:1px solid rgba(249,201,64,.3); border-radius:4px; text-align:center;
+}
+.ow-card__titles{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.ow-card__titles b{ font-size:14px; line-height:1.35; }
+.ow-card__titles small{ font-family:var(--mono); font-size:11px; color:var(--muted); }
+.ow-card__fold{
+  flex:0 0 auto; width:10px; height:10px; margin-top:6px;
+  border-right:1.6px solid var(--muted); border-bottom:1.6px solid var(--muted);
+  transform:rotate(45deg); transition:transform .16s ease;
+}
+.ow-card.is-open .ow-card__fold{ transform:rotate(-135deg); margin-top:10px; }
+.ow-card__short{ margin:0; padding:0 14px 12px 70px; font-size:13px; line-height:1.55; color:var(--muted); }
+.ow-card__body{ padding:4px 14px 14px 70px; display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px 20px; }
+.ow-sec h4{ margin:0 0 6px; font-family:var(--mono); font-size:11px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.04em; }
+.ow-sec p{ margin:0; font-size:13.5px; line-height:1.6; color:var(--text); }
+.ow-sec ul{ margin:0; padding-left:18px; font-size:13.5px; line-height:1.6; color:var(--text); }
+.ow-sec li + li{ margin-top:4px; }
+.ow-sec--example p{ border-left:2px solid #a87878; padding-left:10px; color:#e5d0d0; }
+.ow-card__foot{ grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.ow-tag{
+  border:1px solid var(--line); background:transparent; color:var(--muted); border-radius:999px;
+  padding:3px 10px; font:inherit; font-size:11.5px; cursor:pointer;
+}
+.ow-tag:hover{ border-color:var(--accent); color:var(--accent); }
+.ow-prev{ margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--muted); }
+
+/* Тренажёр */
+.ow-quiz__top{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.ow-score{ font-family:var(--mono); font-size:12px; color:var(--muted); }
+.ow-quiz{ padding:18px 20px; display:flex; flex-direction:column; gap:12px; max-width:860px; }
+.ow-quiz__label{ font-family:var(--mono); font-size:11px; color:var(--accent); text-transform:uppercase; letter-spacing:.04em; }
+.ow-quiz__q{ margin:0; font-size:15px; line-height:1.6; }
+.ow-quiz__opts{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:8px; }
+.ow-opt{
+  display:flex; align-items:center; gap:10px; text-align:left;
+  border:1px solid var(--line); background:var(--bg); color:var(--text); border-radius:4px;
+  padding:10px 12px; font:inherit; font-size:13.5px; cursor:pointer; transition:border-color .16s ease;
+}
+.ow-opt:hover:not(:disabled){ border-color:var(--accent); }
+.ow-opt:disabled{ cursor:default; }
+.ow-opt__id{ font-family:var(--mono); font-size:11.5px; color:var(--muted); min-width:44px; }
+.ow-opt.is-right{ border-color:var(--green); background:rgba(97,209,173,.08); }
+.ow-opt.is-wrong{ border-color:var(--danger); background:rgba(255,143,143,.06); }
+.ow-opt.is-dim{ opacity:.55; }
+.ow-quiz__answer{ border-left:2px solid var(--line); padding-left:12px; display:flex; flex-direction:column; gap:6px; }
+.ow-quiz__answer.is-ok{ border-color:var(--green); }
+.ow-quiz__answer.is-err{ border-color:var(--danger); }
+.ow-quiz__answer p{ margin:0; font-size:13.5px; line-height:1.6; color:var(--muted); }
+.ow-quiz__next{ display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+
+@media (max-width: 640px){
+  .ow-grid{ grid-template-columns:1fr; }
+  .ow-card__short, .ow-card__body{ padding-left:14px; }
+  .ow-prev{ margin-left:0; }
+}
