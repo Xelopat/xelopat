@@ -155,80 +155,78 @@
   }
   function tp(xn, yn, cat, base, cur, h){ var r = CAT[cat]; var yTop = (r.align === 'bottom' ? base - h : base) + r.off; return [cur + xn * h, yTop + yn * h]; }
 
-  // Варианты глифа: какой конец какого штриха станет входом (слева) и выходом (справа).
-  // Штрихи переставляются так, чтобы перо входило в выбранную точку и выходило из выбранной.
+  // Варианты входа в букву: какой левый конец какого штриха станет началом (штрихи переставляются, чтобы перо вошло именно туда)
   function variants(g){
     if (g._v) return g._v;
-    var S = g.strokes, out = [];
-    if (!S.length) return (g._v = [{ strokes: [], entry: null, exit: null, exitIdx: -1, exitLast: true }]);
-    var eps = [];
-    S.forEach(function(s, si){ eps.push({ si: si, end: 0, p: s[0] }, { si: si, end: 1, p: s[s.length - 1] }); });
-    var E = (g.ji || g.join) ? eps.filter(function(e){ return e.p[0] < 0.42 * g.adv; }) : [];
-    var X = (g.jo || g.join) ? eps.filter(function(e){ return e.p[0] > 0.5 * g.adv; }) : [];
-    function fromStart(s, end){ return end === 0 ? s : s.slice().reverse(); }
-    function toEnd(s, end){ return end === 1 ? s : s.slice().reverse(); }
-    (E.length ? E : [null]).forEach(function(e){
-      (X.length ? X : [null]).forEach(function(x){
-        var sts, exitIdx;
-        if (e && x && e.si === x.si){
-          if (e.end === x.end) return;
-          sts = [fromStart(S[e.si], e.end)].concat(S.filter(function(s, i){ return i !== e.si; })); exitIdx = 0;
-        } else {
-          var mid = S.filter(function(s, i){ return !(e && i === e.si) && !(x && i === x.si); });
-          sts = (e ? [fromStart(S[e.si], e.end)] : []).concat(mid).concat(x ? [toEnd(S[x.si], x.end)] : []);
-          exitIdx = x ? sts.length - 1 : -1;
-        }
-        out.push({ strokes: sts, entry: e ? e.p : null, exit: x ? x.p : null, exitIdx: exitIdx, exitLast: !x || exitIdx === sts.length - 1 });
+    var S = g.strokes, out = [{ strokes: S, entry: null }];
+    if (S.length && (g.ji || g.join)){
+      S.forEach(function(s, si){
+        [0, 1].forEach(function(end){
+          var p = end ? s[s.length - 1] : s[0];
+          if (p[0] >= 0.42 * g.adv) return;
+          var first = end ? s.slice().reverse() : s;
+          out.push({ strokes: [first].concat(S.filter(function(t, i){ return i !== si; })), entry: p });
+        });
       });
-    });
-    if (!out.length) out.push({ strokes: S, entry: null, exit: null, exitIdx: -1, exitLast: true });
+    }
     return (g._v = out);
   }
+  function near(p, q){ return Math.abs(p[0] - q[0]) < 1e-6 && Math.abs(p[1] - q[1]) < 1e-6; }
 
-  // Раскладка текста по клеткам: слова переносятся, у каждой буквы точки входа и выхода выбираются по соседям,
-  // следующая буква ставится так, чтобы вход оказался сразу за выходом предыдущей
+  // Раскладка текста по клеткам. Буквы пишутся целиком, а соединение ведётся от выбранной точки предыдущей буквы:
+  // перо поднимается, переходит к этой точке, опускается и ведёт линию ко входу следующей буквы
   function layout(text){
     var R = rng(seed + text.length * 7), strokes = [], miss = {};
     var usable = (PAGE.w - PAGE.ml - PAGE.mr) / cell();
-    var base = PAGE.firstBase, cur = 0, prevEnd = null, prevTan = null;
+    var base = PAGE.firstBase, cur = 0, prev = null;
     function glyph(ch){ return GLYPHS[ch]; }
     function hOf(cat){ return cat === 'middle' ? 0.8 + R() * 0.1 : 1.8 + R() * 0.3; }
     function widthOf(tok){ var w = 0; for (var i = 0; i < tok.length; i++){ var g = glyph(tok[i]); w += (g ? g.adv * (g.cat === 'middle' ? 0.85 : 2.0) : 1.0) + KERN; } return w; }
     function missing(){ return { cat: 'middle', adv: 1.0, strokes: [[[0.05,0.95],[0.95,0.95],[0.95,0.05],[0.05,0.05],[0.05,0.95]]] }; }
-    function entryYs(g, gh){ if (!g || !(g.ji || g.join)) return null; return variants(g).filter(function(v){ return v.entry; }).map(function(v){ return tp(0, v.entry[1], g.cat, base, 0, gh)[1]; }); }
+    // кандидаты на точку отправления: точки штрихов в правой части предыдущей буквы, с направлением письма в этой точке
+    function sources(pv){
+      var out = [];
+      pv.mapped.forEach(function(pts){
+        for (var i = 1; i < pts.length - 1; i++){
+          if (pts[i][0] < pv.x0 + 0.45 * pv.w) continue;
+          out.push({ p: pts[i], t: unit(pts[i - 1], pts[i + 1]) });
+        }
+        var e = pts[pts.length - 1]; if (e[0] >= pv.x0 + 0.45 * pv.w) out.push({ p: e, t: tanOut(pts) });
+      });
+      return out;
+    }
     text.split('\n').forEach(function(line){
       line.split(/(\s+)/).forEach(function(tok){
         if (!tok) return;
-        if (/^\s+$/.test(tok)){ cur += 0.6 * tok.length; prevEnd = null; return; }
-        if (cur + widthOf(tok) > usable && cur > 0){ base += PAGE.lineStep; cur = 0; prevEnd = null; }
+        if (/^\s+$/.test(tok)){ cur += 0.6 * tok.length; prev = null; return; }
+        if (cur + widthOf(tok) > usable && cur > 0){ base += PAGE.lineStep; cur = 0; prev = null; }
         var hs = []; for (var k = 0; k < tok.length; k++){ var gg = glyph(tok[k]); hs.push(hOf(gg ? gg.cat : 'middle')); }
         for (var i = 0; i < tok.length; i++){
           var ch = tok[i], g = glyph(ch); if (!g){ miss[ch] = 1; g = missing(); }
-          var gh = hs[i], vs = variants(g);
-          var ng = i + 1 < tok.length ? glyph(tok[i + 1]) : null, nys = entryYs(ng, hs[i + 1]);
-          var best = null, bc = 1e9;
-          vs.forEach(function(v){
-            var c = v.exitLast ? 0 : 0.15;
-            if (prevEnd && v.entry) c += Math.abs(tp(0, v.entry[1], g.cat, base, 0, gh)[1] - prevEnd[1]);
-            else if (prevEnd) c += 1.5;
-            if (v.exit && nys && nys.length){ var ey = tp(0, v.exit[1], g.cat, base, 0, gh)[1]; c += 0.7 * Math.min.apply(null, nys.map(function(y){ return Math.abs(y - ey); })); }
-            else if (v.exit && ng) c += 1.0;
-            if (c < bc){ bc = c; best = v; }
-          });
-          var join = prevEnd && best.entry;
-          if (join){
-            var dy = Math.abs(tp(0, best.entry[1], g.cat, base, 0, gh)[1] - prevEnd[1]);
-            var want = prevEnd[0] + Math.max(0.22, 0.45 * dy) - best.entry[0] * gh;
-            cur = Math.min(Math.max(want, cur), cur + 0.5);
+          var gh = hs[i], vs = variants(g), best = vs[0], link = null;
+          if (prev && prev.jo && vs.length > 1){
+            var src = sources(prev), bc = 1e9;
+            vs.forEach(function(v){
+              if (!v.entry) return;
+              var m = v.strokes.map(function(s){ return s.map(function(p){ return tp(p[0], p[1], g.cat, base, cur, gh); }); });
+              var E = m[0][0], tE = tanIn(m[0]);
+              src.forEach(function(sc){
+                var d = dist(sc.p, E); if (d < 0.02 || d > 1.3) return;
+                var c = unit(sc.p, E), ca = sc.t[0] * c[0] + sc.t[1] * c[1], cb = tE[0] * c[0] + tE[1] * c[1];
+                if (E[0] < sc.p[0] - 0.05) return;
+                var cost = d * (1 + 0.9 * (1 - ca) + 0.9 * (1 - cb));
+                if (cost < bc){ bc = cost; best = v; link = { P: sc.p, tP: sc.t, E: E, tE: tE }; }
+              });
+            });
           }
           var mapped = best.strokes.map(function(s){ return s.map(function(p){ return tp(p[0], p[1], g.cat, base, cur, gh); }); });
-          if (join && dist(prevEnd, mapped[0][0]) < 1.4) strokes.push({ pts: connect(prevEnd, mapped[0][0], prevTan, tanIn(mapped[0])), conn: true, up: false, lift: false });
+          if (link) strokes.push({ pts: connect(link.P, link.E, link.tP, link.tE), conn: true, up: true, lift: false });
           mapped.forEach(function(pts, k){ strokes.push({ pts: pts, conn: false, up: true, lift: k < mapped.length - 1 }); });
-          if (best.exit && best.exitIdx >= 0){ prevEnd = tp(best.exit[0], best.exit[1], g.cat, base, cur, gh); prevTan = tanOut(mapped[best.exitIdx]); } else prevEnd = null;
+          prev = { mapped: mapped, x0: cur, w: g.adv * gh, jo: !!(g.jo || g.join) };
           cur += g.adv * gh + KERN;
         }
       });
-      base += PAGE.lineStep; cur = 0; prevEnd = null;
+      base += PAGE.lineStep; cur = 0; prev = null;
     });
     return { strokes: strokes, miss: Object.keys(miss) };
   }
