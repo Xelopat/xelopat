@@ -200,7 +200,7 @@
         if (!tok) return;
         if (/^\s+$/.test(tok)){ cur += 0.6 * tok.length; prev = null; return; }
         if (cur + widthOf(tok) > usable && cur > 0){ base += PAGE.lineStep; cur = 0; prev = null; }
-        var hs = []; for (var k = 0; k < tok.length; k++){ var gg = glyph(tok[k]); hs.push(hOf(gg ? gg.cat : 'middle')); }
+        var hs = [], hm = hOf('middle'), hb = hOf('upper'); for (var k = 0; k < tok.length; k++){ var gg = glyph(tok[k]); hs.push(gg && gg.cat !== 'middle' ? hb : hm); }
         for (var i = 0; i < tok.length; i++){
           var ch = tok[i], g = glyph(ch); if (!g){ miss[ch] = 1; g = missing(); }
           var gh = hs[i], vs = variants(g), best = vs[0], link = null;
