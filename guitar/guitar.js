@@ -62,22 +62,25 @@
   var used = [];
   song.sections.forEach(function (sec) { sec.bars.forEach(function (b) { barChords(b).forEach(function (c) { if (used.indexOf(c) < 0) used.push(c); }); }); });
   $('g-chords').innerHTML = used.map(function (n) {
-    return '<div class="g-ch"><div class="g-ch-n" style="color:' + COL[n] + '">' + n + '</div>' + svg(n) + '<small>' + CHORDS[n].tip + '</small></div>';
+    return '<div class="g-ch"><div class="g-ch-n" style="color:' + COL[n] + '">' + n + '</div>' + svg(n) + '</div>';
   }).join('');
 
   // ---- такты
+  var lineMode = song.sections.some(function (sec) { return sec.bars.some(function (b) { return typeof b !== 'string'; }); });
+  var unit = lineMode ? 'строка' : 'такт';
   var bars = [];
   var secHtml = '';
   song.sections.forEach(function (sec, si) {
     var start = bars.length;
     sec.bars.forEach(function (b) { bars.push({ chords: barChords(b), sec: si }); });
     secHtml += '<div class="g-sec"><div class="g-sec-h"><b>' + sec.name + '</b>' +
-      '<button type="button" class="g-btn g-loop" data-sec="' + si + '">↻ петля</button></div><div class="g-bars">' +
+      '<button type="button" class="g-btn g-loop" data-sec="' + si + '">↻ петля</button></div><div class="g-bars' + (lineMode ? ' lines' : '') + '">' +
       sec.bars.map(function (b, k) {
         var cs = barChords(b), groups = [];
         cs.forEach(function (c, j) { if (j && groups[groups.length - 1].c === c) groups[groups.length - 1].n++; else groups.push({ c: c, n: 1, j: j }); });
-        return '<span class="g-bar" data-i="' + (start + k) + '" style="border-color:' + COL[cs[0]] + '">' +
-          groups.map(function (g) { return '<i data-j="' + g.j + '" data-n="' + g.n + '" style="color:' + COL[g.c] + '">' + g.c + '</i>'; }).join('') + '</span>';
+        return '<span class="g-bar' + (lineMode ? ' g-line' : '') + '" data-i="' + (start + k) + '" style="border-color:' + COL[cs[0]] + '">' +
+          (lineMode ? '<b class="g-ln">' + (k + 1) + '</b>' : '') +
+          groups.map(function (g) { return '<i data-j="' + g.j + '" data-n="' + g.n + '" style="flex:' + g.n + ';color:' + COL[g.c] + '">' + g.c + '</i>'; }).join('') + '</span>';
       }).join('') + '</div></div>';
   });
   $('g-sections').innerHTML = secHtml;
@@ -158,7 +161,19 @@
     name.textContent = c; name.style.color = COL[c];
     var nx = nextDifferent(i, beat);
     nn.textContent = nx || 'конец';
-    $('g-sec-now').textContent = song.sections[bars[i].sec].name;
+    var sec = song.sections[bars[i].sec], first = 0, cnt = 0;
+    bars.forEach(function (b, k) { if (b.sec === bars[i].sec) { if (!cnt) first = k; cnt++; } });
+    $('g-sec-now').textContent = sec.name + (cnt > 1 ? ' · ' + unit + ' ' + (i - first + 1) + ' из ' + cnt : '');
+    var r = range(), ni = i + 1;
+    if (ni > r[1]) ni = loopSec >= 0 ? r[0] : -1;
+    var lineEl = $('g-line-next');
+    if (ni < 0) lineEl.textContent = '';
+    else {
+      var nb = bars[ni], gs = [];
+      nb.chords.forEach(function (c) { if (gs[gs.length - 1] !== c) gs.push(c); });
+      lineEl.innerHTML = 'Следующая ' + unit + (nb.sec !== bars[i].sec ? ' (' + song.sections[nb.sec].name + ')' : '') + ': ' +
+        gs.map(function (c) { return '<b style="color:' + COL[c] + '">' + c + '</b>'; }).join(' · ');
+    }
   }
 
   function step() {
@@ -182,9 +197,9 @@
     timer = setTimeout(step, Math.max(0, nextAt - performance.now()));
   }
 
-  function start() {
+  function start(from) {
     var r = range();
-    barIdx = r[0]; eighth = -slots; running = true;
+    barIdx = from == null ? r[0] : from; eighth = -slots; running = true;
     $('g-play').textContent = '⏸ Стоп';
     nextAt = performance.now();
     if (actx && actx.state === 'suspended') actx.resume();
@@ -195,9 +210,15 @@
     $('g-play').textContent = '▶ Играть';
     [].forEach.call(strumEl.children, function (el) { el.classList.remove('cur'); });
     barEls.forEach(function (el) { el.classList.remove('cur'); [].forEach.call(el.children, function (g) { g.classList.remove('now'); }); });
-    $('g-now').textContent = '—'; $('g-now').style.color = ''; $('g-next').textContent = '—'; $('g-sec-now').textContent = '';
+    $('g-now').textContent = '—'; $('g-now').style.color = ''; $('g-next').textContent = '—'; $('g-sec-now').textContent = ''; $('g-line-next').textContent = '';
   }
   $('g-play').onclick = function () { running ? stop() : start(); };
+  // клик по такту — начать с него (промотка)
+  $('g-sections').addEventListener('click', function (e) {
+    var bar = e.target.closest('.g-bar'); if (!bar) return;
+    if (running) stop();
+    start(+bar.dataset.i);
+  });
 
   // петля по разделу / клик по такту — начать с него
   $('g-sections').onclick = function (e) {
@@ -210,4 +231,68 @@
       return;
     }
   };
+
+  // ---- режим «с песней»: аудио, промотка и смены аккордов по записи
+  var au = $('g-au'), modes = $('g-modes');
+  if (au && song.audio && song.audio.chords) {
+    var cs = song.audio.chords.map(function (c, i, arr) {
+      return { t0: c[0], t1: i + 1 < arr.length ? arr[i + 1][0] : song.audio.duration, ch: c[1] };
+    });
+    var DUR = song.audio.duration;
+    var tlEl = $('g-tl'), phEl = $('g-ph');
+    cs.forEach(function (x) {
+      var d = document.createElement('div');
+      d.className = 'g-seg';
+      d.style.left = x.t0 / DUR * 100 + '%'; d.style.width = (x.t1 - x.t0) / DUR * 100 + '%';
+      d.style.background = COL[x.ch]; d.textContent = (x.t1 - x.t0) > 2.6 ? x.ch : '';
+      tlEl.insertBefore(d, phEl);
+    });
+    var mmss = function (t) { return Math.floor(t / 60) + ':' + ('0' + Math.floor(t % 60)).slice(-2); };
+    var segAt = function (t) { for (var i = cs.length - 1; i >= 0; i--) if (t >= cs[i].t0) return i; return 0; };
+    tlEl.onclick = function (e) { var r = tlEl.getBoundingClientRect(); au.currentTime = (e.clientX - r.left) / r.width * DUR; };
+    $('g-sp').onclick = function () { au.paused ? au.play() : au.pause(); };
+    au.onplay = function () { $('g-sp').textContent = '⏸ Пауза'; };
+    au.onpause = function () { $('g-sp').textContent = '▶ Играть'; };
+    au.onended = au.onpause;
+    $('g-prev').onclick = function () {
+      var i = segAt(au.currentTime);
+      au.currentTime = au.currentTime - cs[i].t0 > 1.5 || i === 0 ? cs[i].t0 : cs[i - 1].t0;
+    };
+    $('g-nextch').onclick = function () { var i = segAt(au.currentTime); if (i + 1 < cs.length) au.currentTime = cs[i + 1].t0; };
+    [].forEach.call(document.querySelectorAll('.g-rate'), function (b) {
+      b.onclick = function () {
+        au.playbackRate = +b.dataset.r; au.preservesPitch = true;
+        [].forEach.call(document.querySelectorAll('.g-rate'), function (x) { x.classList.toggle('on', x === b); });
+      };
+    });
+
+    var mode = 'song', lastI = -1;
+    function songFrame() {
+      if (mode === 'song') {
+        var t = au.currentTime, i = segAt(t), c = cs[i];
+        phEl.style.left = t / DUR * 100 + '%';
+        $('g-time').textContent = mmss(t) + ' / ' + mmss(DUR);
+        if (i !== lastI) {
+          lastI = i;
+          $('g-now').textContent = c.ch; $('g-now').style.color = COL[c.ch];
+          $('g-next').textContent = cs[i + 1] ? cs[i + 1].ch : 'конец';
+          $('g-sec-now').textContent = '';
+        }
+      }
+      requestAnimationFrame(songFrame);
+    }
+    requestAnimationFrame(songFrame);
+
+    function setMode(m) {
+      mode = m;
+      if (m === 'practice') au.pause(); else if (running) stop();
+      lastI = -1;
+      $('g-m-song').hidden = m !== 'song';
+      $('g-m-practice').hidden = m !== 'practice';
+      [].forEach.call(modes.children, function (b) { b.classList.toggle('on', b.dataset.m === m); });
+      if (m === 'song') $('g-line-next').textContent = '';
+      if (m === 'practice') { $('g-now').textContent = '—'; $('g-now').style.color = ''; $('g-next').textContent = '—'; }
+    }
+    modes.onclick = function (e) { var b = e.target.closest('button'); if (b) setMode(b.dataset.m); };
+  }
 })();
