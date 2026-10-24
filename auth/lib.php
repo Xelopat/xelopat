@@ -108,8 +108,11 @@ function remember_use(bool $forceRotate = false): ?string {
     $now = time();
     $hash = hash('sha256', $c['secret']);
     $newSecret = bin2hex(random_bytes(32));
+    // Если вывод уже начат, новый cookie отправить нельзя: менять секрет на сервере тогда нельзя,
+    // иначе старый cookie станет недействительным и пользователя выкинет из аккаунта
+    $canSet = !headers_sent();
 
-    $res = remember_mutate(function (array &$tokens) use ($c, $hash, $now, $newSecret, $forceRotate) {
+    $res = remember_mutate(function (array &$tokens) use ($c, $hash, $now, $newSecret, $forceRotate, $canSet) {
         $t = $tokens[$c['id']] ?? null;
         if (!$t || (int)$t['expires'] < $now) return ['ok' => false];
         $current = hash_equals((string)$t['hash'], $hash);
@@ -117,7 +120,7 @@ function remember_use(bool $forceRotate = false): ?string {
         if (!$current && !$previous) return ['ok' => false];
         if ($previous) return ['ok' => true, 'uid' => $t['uid'], 'rotated' => false];
 
-        if ($forceRotate || $now - (int)$t['refreshed'] >= REMEMBER_ROTATE_AFTER) {
+        if ($canSet && ($forceRotate || $now - (int)$t['refreshed'] >= REMEMBER_ROTATE_AFTER)) {
             $t['prev_hash'] = $t['hash'];
             $t['prev_until'] = $now + REMEMBER_GRACE;
             $t['hash'] = hash('sha256', $newSecret);
