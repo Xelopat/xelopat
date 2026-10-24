@@ -100,7 +100,7 @@ $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
     .g-seg{position:absolute;top:0;bottom:0;border-right:2px solid var(--panel,#1e1e25);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#151518;overflow:hidden}
     .g-ph{position:absolute;top:0;bottom:0;width:3px;background:var(--text,#efeff1);box-shadow:0 0 6px #000;pointer-events:none}
     .g-strum{display:flex;justify-content:center;gap:3px;margin:10px 0 8px}
-    .g-sl{width:8%;max-width:44px;text-align:center;border:1px solid var(--line,#333340);border-radius:8px;padding:6px 0 2px;background:var(--panel-2,#191920);color:var(--muted,#868899)}
+    .g-sl{width:44px;text-align:center;border:1px solid var(--line,#333340);border-radius:8px;padding:6px 0 2px;background:var(--panel-2,#191920);color:var(--muted,#868899)}
     .g-sl .g-a{font-size:26px;line-height:1.1;font-weight:700}
     .g-sl .g-c{font-size:11px}
     .g-sl.hit{color:var(--text,#efeff1)}
@@ -119,11 +119,26 @@ $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
     .g-bar{cursor:pointer;min-width:52px;text-align:center;padding:6px 7px;border-radius:8px;border:2px solid;background:var(--panel-2,#191920);font-weight:700;transition:background .1s,color .1s}
     .g-linenext{min-height:22px;margin-top:4px;font-size:15px;color:var(--muted,#868899)}
     .g-linenext b{font-size:17px}
-    .g-bars.lines{flex-direction:column;gap:6px}
-    .g-bar.g-line{display:flex;align-items:center;gap:6px;width:100%;max-width:440px;text-align:left}
     .g-ln{min-width:1.4em;color:var(--muted,#868899);font-weight:600;font-size:13px}
-    .g-bar.g-line i{text-align:center}
+    .g-lines{display:flex;flex-direction:column;gap:6px}
+    .g-lrow{display:flex;align-items:center;gap:6px;max-width:560px;padding:3px;border-radius:12px;border:2px solid transparent}
+    .g-lrow.cur{border-color:var(--accent,#f9c940)}
+    .g-lrow .g-bar{flex:1;min-width:0;display:flex}
+    .g-bar i{flex:1;text-align:center}
     .g-bar i{font-style:normal;padding:0 3px}
+    .g-order{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 12px}
+    .g-ord{background:var(--panel,#1e1e25);border:1px solid var(--line,#333340);border-radius:99px;padding:3px 12px;font-size:14px}
+    .g-arr{color:var(--muted,#868899)}
+    .g-strum-list{display:flex;flex-direction:column;gap:10px}
+    .g-strmcard{border:2px solid var(--line,#333340);border-radius:12px;padding:8px 10px;cursor:pointer;background:var(--panel-2,#191920)}
+    .g-strmcard.on{border-color:var(--accent,#f9c940)}
+    .g-strm-t{font-size:13px;color:var(--muted,#868899)}
+    .g-strmcard.on .g-strm-t{color:var(--accent,#f9c940)}
+    .g-strmcard .g-strum{justify-content:flex-start;margin:6px 0 0;flex-wrap:wrap}
+    .g-lyr-ta{width:100%;font:15px/1.5 ui-monospace,Menlo,Consolas,monospace;background:var(--panel-2,#191920);color:var(--text,#efeff1);border:1px solid var(--line,#333340);border-radius:10px;padding:10px}
+    .g-lyr{font:15px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow-x:auto}
+    .g-lyr-ch{color:var(--accent,#f9c940);font-weight:700;font-size:17px;margin-top:6px}
+    .g-lyr-tx{color:var(--text,#efeff1)}
     .g-bar i+i{border-left:1px solid var(--line,#333340)}
     .g-bar.cur{border-color:var(--accent,#f9c940)!important}
     .g-bar.cur i.now{background:var(--accent,#f9c940);color:#151518!important;border-radius:5px}
@@ -170,6 +185,24 @@ $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
   </div>
   <p class="g-note"><?= esc($song["note"]) ?></p>
 
+  <h2>Аккорды</h2>
+  <div class="g-card">
+    <div class="g-grid" id="g-chords"></div>
+    <p class="g-note" style="margin-bottom:0">Вертикальные линии — струны (слева самая толстая), цифры — пальцы (1 указательный, 2 средний, 3 безымянный, 4 мизинец), ○ — открытая струна, ✕ — не играть.</p>
+  </div>
+
+  <h2>Бой</h2>
+  <div class="g-card">
+    <div class="g-strum-list" id="g-strum-list"></div>
+    <p class="g-note" style="margin-bottom:0">↓ — удар вниз, ↑ — вверх, ✕ — приглушённый. Подписи — пульсы (цифры) и доли между ними. Выбранный бой подсвечивается в тренировке.</p>
+  </div>
+
+  <h2>Карта песни</h2>
+  <?php if (!empty($song["order"])): ?>
+  <p class="g-order"><?php foreach ($song["order"] as $k => $n): ?><?= $k ? '<span class="g-arr">→</span>' : '' ?><span class="g-ord"><?= esc((string)$n) ?></span><?php endforeach; ?></p>
+  <?php endif; ?>
+  <div class="g-card" id="g-sections"></div>
+
   <h2>Тренажёр</h2>
   <div class="g-card">
     <?php if ($audio_src !== null): ?>
@@ -211,20 +244,17 @@ $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
         <label>Темп <input type="range" id="g-bpm" min="40" max="140" step="2"> <span class="g-bpm-v"><span id="g-bpm-v"></span></span></label>
         <label><input type="checkbox" id="g-click" checked> Метроном</label>
       </div>
-      <div class="g-strums" id="g-strums"></div>
-      <div class="g-strum" id="g-strum"></div>
-      <p class="g-note" style="margin-bottom:0">Сам играет метроном: аккорд на экране меняется в такт, ты подстраиваешься. Начни с медленного темпа. Клик по такту в структуре ниже — начать с него, «↻ петля» — гонять один раздел.</p>
+      <p class="g-note" style="margin-bottom:0">Сам играет метроном: аккорд на экране меняется в такт, ты подстраиваешься. Начни с медленного темпа. Клик по такту в карте песни выше — начать с него, «↻ петля» — гонять один раздел.</p>
     </div>
   </div>
 
-  <h2>Аккорды</h2>
+  <h2>Текст</h2>
   <div class="g-card">
-    <div class="g-grid" id="g-chords"></div>
-    <p class="g-note" style="margin-bottom:0">Вертикальные линии — струны (слева самая толстая), цифры — пальцы (1 указательный, 2 средний, 3 безымянный, 4 мизинец), ○ — открытая струна, ✕ — не играть.</p>
+    <div class="g-ctrl"><button type="button" class="g-btn" id="g-lyr-edit">Вставить / править</button></div>
+    <textarea id="g-lyr-ta" class="g-lyr-ta" rows="14" hidden spellcheck="false" placeholder="Аккорды над словами, как в обычном разборе"></textarea>
+    <div id="g-lyr" class="g-lyr"></div>
+    <p class="g-note" style="margin-bottom:0">Тексты песен я на сайт не добавляю. Вставь сюда свой текст с аккордами над словами: он сохранится только в этом браузере и никуда не отправляется. Строки из одних аккордов подсвечиваются крупно.</p>
   </div>
-
-  <h2>Структура</h2>
-  <div class="g-card" id="g-sections"></div>
 
   <p class="g-note" style="margin-top:20px">Аккорды составлены по любительским разборам и упрощены, поэтому могут отличаться от оригинала. Тексты песен здесь не публикуются.</p>
 

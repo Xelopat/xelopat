@@ -65,46 +65,56 @@
     return '<div class="g-ch"><div class="g-ch-n" style="color:' + COL[n] + '">' + n + '</div>' + svg(n) + '</div>';
   }).join('');
 
-  // ---- такты
-  var lineMode = song.sections.some(function (sec) { return sec.bars.some(function (b) { return typeof b !== 'string'; }); });
-  var unit = lineMode ? 'строка' : 'такт';
-  var bars = [];
+  // ---- такты и строки
+  var hasLines = song.sections.some(function (sec) { return !!sec.lines; });
+  var unit = hasLines ? 'строка' : 'такт';
+  var bars = [], lineOf = [];
   var secHtml = '';
+  function barHtml(b, i) {
+    var cs = barChords(b), groups = [];
+    cs.forEach(function (c, j) { if (j && groups[groups.length - 1].c === c) groups[groups.length - 1].n++; else groups.push({ c: c, n: 1, j: j }); });
+    return '<span class="g-bar" data-i="' + i + '" style="border-color:' + COL[cs[0]] + '">' +
+      groups.map(function (g) { return '<i data-j="' + g.j + '" data-n="' + g.n + '" style="flex:' + g.n + ';color:' + COL[g.c] + '">' + g.c + '</i>'; }).join('') + '</span>';
+  }
   song.sections.forEach(function (sec, si) {
-    var start = bars.length;
+    var start = bars.length, body;
     sec.bars.forEach(function (b) { bars.push({ chords: barChords(b), sec: si }); });
+    if (sec.lines) {
+      var k = 0, rows = '';
+      sec.lines.forEach(function (cnt, li) {
+        var first = start + k, cells = '';
+        for (var q = 0; q < cnt; q++, k++) { cells += barHtml(sec.bars[k], start + k); lineOf[start + k] = { first: first, last: first + cnt - 1, idx: li, total: sec.lines.length }; }
+        rows += '<div class="g-lrow" data-first="' + first + '"><b class="g-ln">' + (li + 1) + '</b>' + cells + '</div>';
+      });
+      body = '<div class="g-lines">' + rows + '</div>';
+    } else {
+      sec.bars.forEach(function (b, k) { lineOf[start + k] = { first: start + k, last: start + k, idx: k, total: sec.bars.length }; });
+      body = '<div class="g-bars">' + sec.bars.map(function (b, k) { return barHtml(b, start + k); }).join('') + '</div>';
+    }
     secHtml += '<div class="g-sec"><div class="g-sec-h"><b>' + sec.name + '</b>' +
-      '<button type="button" class="g-btn g-loop" data-sec="' + si + '">↻ петля</button></div><div class="g-bars' + (lineMode ? ' lines' : '') + '">' +
-      sec.bars.map(function (b, k) {
-        var cs = barChords(b), groups = [];
-        cs.forEach(function (c, j) { if (j && groups[groups.length - 1].c === c) groups[groups.length - 1].n++; else groups.push({ c: c, n: 1, j: j }); });
-        return '<span class="g-bar' + (lineMode ? ' g-line' : '') + '" data-i="' + (start + k) + '" style="border-color:' + COL[cs[0]] + '">' +
-          (lineMode ? '<b class="g-ln">' + (k + 1) + '</b>' : '') +
-          groups.map(function (g) { return '<i data-j="' + g.j + '" data-n="' + g.n + '" style="flex:' + g.n + ';color:' + COL[g.c] + '">' + g.c + '</i>'; }).join('') + '</span>';
-      }).join('') + '</div></div>';
+      '<button type="button" class="g-btn g-loop" data-sec="' + si + '">↻ петля</button></div>' + body + '</div>';
   });
   $('g-sections').innerHTML = secHtml;
   var barEls = [].slice.call(document.querySelectorAll('.g-bar'));
+  var rowEls = [].slice.call(document.querySelectorAll('.g-lrow'));
+  var mode = 'practice', api = {};
 
   // ---- бой
   var avail = Object.keys(STRUMS).filter(function (k) { return STRUMS[k].s.length === slots; });
   var strumKey = avail.indexOf(song.strum) >= 0 ? song.strum : avail[0];
-  var strumEl = $('g-strum');
-  function drawStrum() {
-    strumEl.innerHTML = STRUMS[strumKey].s.map(function (a, i) {
-      var ch = a === 'D' ? '↓' : a === 'U' ? '↑' : a === 'X' ? '✕' : '·';
-      return '<div class="g-sl' + (a ? ' hit' : '') + '"><div class="g-a">' + ch + '</div><div class="g-c">' + SLOT_LBL[i] + '</div></div>';
-    }).join('');
-  }
-  $('g-strums').innerHTML = avail.map(function (k) {
-    return '<button type="button" class="g-btn g-strm' + (k === strumKey ? ' on' : '') + '" data-s="' + k + '">' + STRUMS[k].title + '</button>';
+  var strumList = $('g-strum-list');
+  strumList.innerHTML = avail.map(function (k) {
+    return '<div class="g-strmcard' + (k === strumKey ? ' on' : '') + '" data-s="' + k + '"><div class="g-strm-t">' + STRUMS[k].title + '</div><div class="g-strum">' +
+      STRUMS[k].s.map(function (a, n) {
+        var ch = a === 'D' ? '↓' : a === 'U' ? '↑' : a === 'X' ? '✕' : '·';
+        return '<div class="g-sl' + (a ? ' hit' : '') + '"><div class="g-a">' + ch + '</div><div class="g-c">' + SLOT_LBL[n] + '</div></div>';
+      }).join('') + '</div></div>';
   }).join('');
-  drawStrum();
-  $('g-strums').onclick = function (e) {
-    var b = e.target.closest('.g-strm'); if (!b) return;
-    strumKey = b.dataset.s;
-    [].forEach.call(document.querySelectorAll('.g-strm'), function (x) { x.classList.toggle('on', x === b); });
-    drawStrum();
+  function slotEls() { var c = strumList.querySelector('.g-strmcard.on'); return c ? [].slice.call(c.querySelectorAll('.g-sl')) : []; }
+  strumList.onclick = function (e) {
+    var c = e.target.closest('.g-strmcard'); if (!c) return;
+    strumKey = c.dataset.s;
+    [].forEach.call(strumList.children, function (x) { x.classList.toggle('on', x === c); });
   };
 
   // ---- метроном / проигрывание
@@ -161,24 +171,24 @@
     name.textContent = c; name.style.color = COL[c];
     var nx = nextDifferent(i, beat);
     nn.textContent = nx || 'конец';
-    var sec = song.sections[bars[i].sec], first = 0, cnt = 0;
-    bars.forEach(function (b, k) { if (b.sec === bars[i].sec) { if (!cnt) first = k; cnt++; } });
-    $('g-sec-now').textContent = sec.name + (cnt > 1 ? ' · ' + unit + ' ' + (i - first + 1) + ' из ' + cnt : '');
-    var r = range(), ni = i + 1;
+    var li = lineOf[i], sec = song.sections[bars[i].sec];
+    rowEls.forEach(function (r) { r.classList.toggle('cur', +r.dataset.first === li.first); });
+    $('g-sec-now').textContent = sec.name + (li.total > 1 ? ' · ' + unit + ' ' + (li.idx + 1) + ' из ' + li.total : '');
+    var r = range(), ni = li.last + 1;
     if (ni > r[1]) ni = loopSec >= 0 ? r[0] : -1;
     var lineEl = $('g-line-next');
     if (ni < 0) lineEl.textContent = '';
     else {
-      var nb = bars[ni], gs = [];
-      nb.chords.forEach(function (c) { if (gs[gs.length - 1] !== c) gs.push(c); });
-      lineEl.innerHTML = 'Следующая ' + unit + (nb.sec !== bars[i].sec ? ' (' + song.sections[nb.sec].name + ')' : '') + ': ' +
+      var nl = lineOf[ni], gs = [];
+      for (var q = nl.first; q <= nl.last; q++) bars[q].chords.forEach(function (c) { if (gs[gs.length - 1] !== c) gs.push(c); });
+      lineEl.innerHTML = 'Дальше ' + unit + (bars[ni].sec !== bars[i].sec ? ' (' + song.sections[bars[ni].sec].name + ')' : '') + ': ' +
         gs.map(function (c) { return '<b style="color:' + COL[c] + '">' + c + '</b>'; }).join(' · ');
     }
   }
 
   function step() {
     var slot = ((eighth % slots) + slots) % slots;
-    var stEls = strumEl.children;
+    var stEls = slotEls();
     for (var k = 0; k < stEls.length; k++) stEls[k].classList.toggle('cur', k === slot);
     var onBeat = slot % sub === 0;
     if (eighth < 0) {
@@ -208,7 +218,8 @@
   function stop() {
     running = false; clearTimeout(timer);
     $('g-play').textContent = '▶ Играть';
-    [].forEach.call(strumEl.children, function (el) { el.classList.remove('cur'); });
+    [].forEach.call(strumList.querySelectorAll('.g-sl.cur'), function (el) { el.classList.remove('cur'); });
+    rowEls.forEach(function (r) { r.classList.remove('cur'); });
     barEls.forEach(function (el) { el.classList.remove('cur'); [].forEach.call(el.children, function (g) { g.classList.remove('now'); }); });
     $('g-now').textContent = '—'; $('g-now').style.color = ''; $('g-next').textContent = '—'; $('g-sec-now').textContent = ''; $('g-line-next').textContent = '';
   }
@@ -216,6 +227,7 @@
   // клик по такту — начать с него (промотка)
   $('g-sections').addEventListener('click', function (e) {
     var bar = e.target.closest('.g-bar'); if (!bar) return;
+    if (mode === 'song' && api.setMode) api.setMode('practice');
     if (running) stop();
     start(+bar.dataset.i);
   });
@@ -266,7 +278,7 @@
       };
     });
 
-    var mode = 'song', lastI = -1;
+    mode = 'song'; var lastI = -1;
     function songFrame() {
       if (mode === 'song') {
         var t = au.currentTime, i = segAt(t), c = cs[i];
@@ -293,6 +305,33 @@
       if (m === 'song') $('g-line-next').textContent = '';
       if (m === 'practice') { $('g-now').textContent = '—'; $('g-now').style.color = ''; $('g-next').textContent = '—'; }
     }
+    api.setMode = setMode;
     modes.onclick = function (e) { var b = e.target.closest('button'); if (b) setMode(b.dataset.m); };
+  }
+
+  // ---- «Текст»: свой текст с аккордами, хранится только в этом браузере
+  var lyrTa = $('g-lyr-ta'), lyrBox = $('g-lyr'), lyrEdit = $('g-lyr-edit');
+  if (lyrTa && lyrBox && lyrEdit) {
+    var KEY = 'guitar-text-' + (song.slug || song.title);
+    var TOK = /^(?:[A-G][#b]?(?:m|maj|min|dim|aug|sus\d?|add\d|\d+)*(?:\/[A-G][#b]?)?|[x×]\d+|\|)$/;
+    var esc = function (t) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+    var load = function () { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } };
+    var save = function (v) { try { localStorage.setItem(KEY, v); } catch (e) {} };
+    var render = function () {
+      var t = load();
+      if (!t.trim()) { lyrBox.innerHTML = '<span class="g-note">Пока пусто. Нажми «Вставить / править» и вставь свой текст с аккордами над словами.</span>'; return; }
+      lyrBox.innerHTML = t.split('\n').map(function (ln) {
+        var parts = ln.trim().split(/\s+/);
+        var isChords = ln.trim() !== '' && parts.every(function (x) { return TOK.test(x); });
+        return '<div class="' + (isChords ? 'g-lyr-ch' : 'g-lyr-tx') + '">' + (esc(ln) || '&nbsp;') + '</div>';
+      }).join('');
+    };
+    var editing = false;
+    lyrEdit.onclick = function () {
+      editing = !editing;
+      if (editing) { lyrTa.value = load(); lyrTa.hidden = false; lyrBox.hidden = true; lyrEdit.textContent = 'Готово'; lyrTa.focus(); }
+      else { save(lyrTa.value); lyrTa.hidden = true; lyrBox.hidden = false; lyrEdit.textContent = 'Вставить / править'; render(); }
+    };
+    render();
   }
 })();
