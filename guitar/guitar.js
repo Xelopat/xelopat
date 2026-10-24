@@ -173,6 +173,7 @@
     nn.textContent = nx || 'конец';
     var li = lineOf[i], sec = song.sections[bars[i].sec];
     rowEls.forEach(function (r) { r.classList.toggle('cur', +r.dataset.first === li.first); });
+    if (api.lyrHi) api.lyrHi(sec.name, li.idx);
     $('g-sec-now').textContent = sec.name + (li.total > 1 ? ' · ' + unit + ' ' + (li.idx + 1) + ' из ' + li.total : '');
     var r = range(), ni = li.last + 1;
     if (ni > r[1]) ni = loopSec >= 0 ? r[0] : -1;
@@ -220,6 +221,7 @@
     $('g-play').textContent = '▶ Играть';
     [].forEach.call(strumList.querySelectorAll('.g-sl.cur'), function (el) { el.classList.remove('cur'); });
     rowEls.forEach(function (r) { r.classList.remove('cur'); });
+    if (api.lyrHi) api.lyrHi(null);
     barEls.forEach(function (el) { el.classList.remove('cur'); [].forEach.call(el.children, function (g) { g.classList.remove('now'); }); });
     $('g-now').textContent = '—'; $('g-now').style.color = ''; $('g-next').textContent = '—'; $('g-sec-now').textContent = ''; $('g-line-next').textContent = '';
   }
@@ -313,24 +315,57 @@
   var lyrTa = $('g-lyr-ta'), lyrBox = $('g-lyr'), lyrEdit = $('g-lyr-edit');
   if (lyrTa && lyrBox && lyrEdit) {
     var KEY = 'guitar-text-' + (song.slug || song.title);
-    var TOK = /^(?:[A-G][#b]?(?:m|maj|min|dim|aug|sus\d?|add\d|\d+)*(?:\/[A-G][#b]?)?|[x×]\d+|\|)$/;
+    var TOK = /^(?:[A-G][#b]?(?:m|maj|min|dim|aug|sus\d?|add\d|\d+)*(?:\/[A-G][#b]?)?|[xх×]\d+|\|)$/;
     var esc = function (t) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
     var load = function () { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } };
     var save = function (v) { try { localStorage.setItem(KEY, v); } catch (e) {} };
     var render = function () {
       var t = load();
       if (!t.trim()) { lyrBox.innerHTML = '<span class="g-note">Пока пусто. Нажми «Вставить / править» и вставь свой текст с аккордами над словами.</span>'; return; }
-      lyrBox.innerHTML = t.split('\n').map(function (ln) {
-        var parts = ln.trim().split(/\s+/);
-        var isChords = ln.trim() !== '' && parts.every(function (x) { return TOK.test(x); });
-        return '<div class="' + (isChords ? 'g-lyr-ch' : 'g-lyr-tx') + '">' + (esc(ln) || '&nbsp;') + '</div>';
-      }).join('');
+      var lines = t.split('\n'), out = '', head = '', idx = 0, seen = {};
+      var kind = function (ln) {
+        var tr = ln.trim();
+        if (/^\[.*\]:?$/.test(tr)) return 'h';
+        if (tr !== '' && tr.split(/\s+/).every(function (x) { return TOK.test(x); })) return 'c';
+        return tr === '' ? 'e' : 't';
+      };
+      for (var i = 0; i < lines.length; i++) {
+        var k = kind(lines[i]), ln = lines[i];
+        if (k === 'h') { head = ln.replace(/[\[\]:]/g, '').replace(/\s*\d+\s*$/, '').trim(); idx = 0; out += '<div class="g-lyr-h">' + esc(ln) + '</div>'; }
+        else if (k === 'c' && i + 1 < lines.length && kind(lines[i + 1]) === 't') {
+          // строка песни = строка аккордов + строка слов под ней
+          var key = head + '|' + idx, first = !seen[key]; seen[key] = true; idx++;
+          out += '<div class="g-lyr-pair"' + (first ? ' data-key="' + esc(key) + '"' : '') + '><div class="g-lyr-ch">' + esc(ln) + '</div><div class="g-lyr-tx">' + esc(lines[i + 1]) + '</div></div>';
+          i++;
+        } else out += '<div class="' + (k === 'c' ? 'g-lyr-ch' : 'g-lyr-tx') + '">' + (esc(ln) || '&nbsp;') + '</div>';
+      }
+      lyrBox.innerHTML = out;
+    };
+    // подсветка строки текста, которая соответствует текущей строке тренажёра
+    api.lyrHi = function (name, i) {
+      [].forEach.call(lyrBox.querySelectorAll('.g-lyr-pair'), function (el) {
+        var on = name != null && el.dataset.key === name + '|' + i;
+        el.classList.toggle('cur', on);
+        if (on && !lyrBox.hidden) el.scrollIntoView({ block: 'nearest' });
+      });
     };
     var editing = false;
     lyrEdit.onclick = function () {
       editing = !editing;
       if (editing) { lyrTa.value = load(); lyrTa.hidden = false; lyrBox.hidden = true; lyrEdit.textContent = 'Готово'; lyrTa.focus(); }
       else { save(lyrTa.value); lyrTa.hidden = true; lyrBox.hidden = false; lyrEdit.textContent = 'Вставить / править'; render(); }
+    };
+    $('g-lyr-load').onclick = function () { $('g-lyr-file').click(); };
+    $('g-lyr-file').onchange = function (e) {
+      var f = e.target.files && e.target.files[0]; if (!f) return;
+      var fr = new FileReader();
+      fr.onload = function () {
+        save(String(fr.result).replace(/\r\n?/g, '\n'));
+        if (editing) { editing = false; lyrTa.hidden = true; lyrBox.hidden = false; lyrEdit.textContent = 'Вставить / править'; }
+        render();
+      };
+      fr.readAsText(f, 'utf-8');
+      e.target.value = '';
     };
     render();
   }

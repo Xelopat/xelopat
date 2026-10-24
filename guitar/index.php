@@ -139,6 +139,9 @@ $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
     .g-lyr{font:15px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow-x:auto}
     .g-lyr-ch{color:var(--accent,#f9c940);font-weight:700;font-size:17px;margin-top:6px}
     .g-lyr-tx{color:var(--text,#efeff1)}
+    .g-lyr-h{color:var(--green,#61d1ad);font-weight:700;margin-top:14px}
+    .g-lyr-pair{border-left:3px solid transparent;padding-left:8px;margin-left:-11px;border-radius:4px}
+    .g-lyr-pair.cur{border-left-color:var(--accent,#f9c940);background:rgba(249,201,64,.12)}
     .g-bar i+i{border-left:1px solid var(--line,#333340)}
     .g-bar.cur{border-color:var(--accent,#f9c940)!important}
     .g-bar.cur i.now{background:var(--accent,#f9c940);color:#151518!important;border-radius:5px}
@@ -250,10 +253,14 @@ $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
 
   <h2>Текст</h2>
   <div class="g-card">
-    <div class="g-ctrl"><button type="button" class="g-btn" id="g-lyr-edit">Вставить / править</button></div>
+    <div class="g-ctrl">
+      <button type="button" class="g-btn" id="g-lyr-edit">Вставить / править</button>
+      <button type="button" class="g-btn" id="g-lyr-load">Загрузить .txt</button>
+      <input type="file" id="g-lyr-file" accept=".txt,text/plain" hidden>
+    </div>
     <textarea id="g-lyr-ta" class="g-lyr-ta" rows="14" hidden spellcheck="false" placeholder="Аккорды над словами, как в обычном разборе"></textarea>
     <div id="g-lyr" class="g-lyr"></div>
-    <p class="g-note" style="margin-bottom:0">Тексты песен я на сайт не добавляю. Вставь сюда свой текст с аккордами над словами: он сохранится только в этом браузере и никуда не отправляется. Строки из одних аккордов подсвечиваются крупно.</p>
+    <p class="g-note" style="margin-bottom:0">Тексты песен на сайт не добавлены. Вставь свой текст с аккордами над словами или загрузи .txt-файл: он сохранится только в этом браузере и никуда не отправляется. Строки из одних аккордов подсвечиваются крупно, заголовки частей — отдельно.</p>
   </div>
 
   <p class="g-note" style="margin-top:20px">Аккорды составлены по любительским разборам и упрощены, поэтому могут отличаться от оригинала. Тексты песен здесь не публикуются.</p>
