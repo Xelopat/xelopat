@@ -248,7 +248,8 @@
       [].forEach.call(lyrBox.querySelectorAll('.g-lyr-pair'), function (el) {
         var on = name != null && el.dataset.key === name + '|' + i;
         el.classList.toggle('cur', on);
-        if (on && !lyrBox.hidden) el.scrollIntoView({ block: 'nearest' });
+        // прокручиваем только сам блок текста, но не страницу
+        if (on && !lyrBox.hidden && lyrBox.scrollHeight > lyrBox.clientHeight) lyrBox.scrollTop = Math.max(0, el.offsetTop - lyrBox.clientHeight / 3);
       });
     };
     var editing = false;

@@ -141,7 +141,7 @@ $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
 
     /* текст */
     .g-lyr-ta{width:100%;font:15px/1.5 ui-monospace,Menlo,Consolas,monospace;background:var(--panel-2,#191920);color:var(--text,#efeff1);border:1px solid var(--line,#333340);border-radius:10px;padding:10px}
-    .g-lyr{font:15px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow-x:auto}
+    .g-lyr{font:15px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow:auto;position:relative;max-height:340px}
     .g-lyr-ch{color:var(--accent,#f9c940);font-weight:700;font-size:16px;margin-top:4px}
     .g-lyr-tx{color:var(--text,#efeff1)}
     .g-lyr-h{color:var(--green,#61d1ad);font-weight:700;margin-top:10px}
