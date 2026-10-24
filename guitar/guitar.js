@@ -1,29 +1,8 @@
-// /guitar/guitar.js — схемы аккордов, бой по аккордам и тренажёр с записью
+// /guitar/guitar.js — схемы аккордов, блок «С записью» (шкала и бой по аккордам), свой текст
+// Аккорды и бой приходят из PHP (chords.php, strums.php) в window.GUITAR_SONG.
 (function () {
-  // Струны: 6-я (низкая E) → 1-я; -1 не играть, 0 открытая; f — пальцы (1 указательный … 4 мизинец)
-  var CHORDS = {
-    Am: { fr: [-1, 0, 2, 2, 1, 0], f: [0, 0, 2, 3, 1, 0] },
-    Em: { fr: [0, 2, 2, 0, 0, 0], f: [0, 2, 3, 0, 0, 0] },
-    G:  { fr: [3, 2, 0, 0, 0, 3], f: [2, 1, 0, 0, 0, 3] },
-    D:  { fr: [-1, -1, 0, 2, 3, 2], f: [0, 0, 0, 1, 3, 2] },
-    Dm: { fr: [-1, -1, 0, 2, 3, 1], f: [0, 0, 0, 2, 3, 1] },
-    D7: { fr: [-1, -1, 0, 2, 1, 2], f: [0, 0, 0, 2, 1, 3] },
-    C:  { fr: [-1, 3, 2, 0, 1, 0], f: [0, 3, 2, 0, 1, 0] }
-  };
   var COL = { Am: '#ff8fa3', Em: '#f9c940', G: '#61d1ad', D: '#5ec4ff', Dm: '#9d8ff0', D7: '#7fd8ff', C: '#c3a6ff' };
 
-  // Бой: слоты внутри такта; D — вниз, U — вверх, X — приглушённый удар.
-  // Размер песни: song.meter = {beats, sub} — долей в такте и слотов на долю (по умолчанию 4×2 = 4/4 восьмыми;
-  // 4×3 — это 12/8: четыре «пульса» по три восьмых).
-  var STRUMS = {
-    easy:   { title: 'Простой: ↓ на каждую долю',  s: ['D', '', 'D', '', 'D', '', 'D', ''] },
-    six:    { title: '«Шестёрка»',                 s: ['D', '', 'D', 'U', '', 'U', 'D', 'U'] },
-    eight:  { title: '«Восьмёрка»',                s: ['D', 'U', 'D', 'U', 'D', 'U', 'D', 'U'] },
-    muted:  { title: 'С приглушкой',               s: ['D', 'U', 'X', 'U', 'D', 'U', 'X', 'U'] },
-    easy12: { title: 'Простой: ↓ на каждый пульс', s: ['D', '', '', 'D', '', '', 'D', '', '', 'D', '', ''] },
-    // схема автора разбора: ↓-↓-↑↑↓-↓↑↓↑ на такт; при смене аккорда посреди такта слоты 0–2 играет первый аккорд, 3–11 второй
-    pat12:  { title: 'По схеме автора',            s: ['D', '', 'D', '', 'U', 'U', 'D', '', 'D', 'U', 'D', 'U'] }
-  };
   function slotLabels(beats, sub) {
     var tail = sub === 3 ? ['и', 'а'] : ['и'], out = [];
     for (var b = 1; b <= beats; b++) { out.push(String(b)); tail.forEach(function (t) { out.push(t); }); }
@@ -54,6 +33,18 @@
   var $ = function (id) { return document.getElementById(id); };
   var song = window.GUITAR_SONG;
   if (!song) return;
+
+  // данные из PHP: постановка аккордов и варианты боя
+  var CHORDS = {};
+  Object.keys(song.chords || {}).forEach(function (k) { CHORDS[k] = { fr: song.chords[k].frets, f: song.chords[k].fingers }; });
+  var STRUMS = {};
+  Object.keys(song.strums || {}).forEach(function (k) {
+    var d = song.strums[k], arr = [];
+    for (var i = 0; i < d.slots; i++) arr.push('');
+    d.hits.forEach(function (h) { arr[h.slot] = h.type === 'down' ? 'D' : h.type === 'up' ? 'U' : 'X'; });
+    STRUMS[k] = { title: d.title, s: arr };
+  });
+  window.GUITAR_COL = COL;
 
   var meter = song.meter || { beats: 4, sub: 2 };
   var beats = meter.beats, sub = meter.sub, slots = beats * sub;

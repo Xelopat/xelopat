@@ -20,7 +20,8 @@ if (!function_exists("esc")) {
 require_once $_SERVER["DOCUMENT_ROOT"] . "/auth/lib.php";
 auth_current_user();
 
-$songs = require __DIR__ . "/songs.php";
+require_once __DIR__ . "/lib.php";
+$songs = guitar_songs();
 
 $song = null;
 $slug = (string)($_GET["song"] ?? "");
@@ -36,31 +37,11 @@ if ($slug !== "") {
     }
 }
 
-$chords_of = static function (array $s): array {
-    $out = [];
-    foreach ($s["sections"] as $sec) {
-        foreach ($sec["bars"] as $bar) {
-            foreach ((array)$bar as $c) {
-                if (!in_array($c, $out, true)) {
-                    $out[] = $c;
-                }
-            }
-        }
-    }
-    return $out;
-};
+$chords_of = static fn(array $s): array => guitar_chords_of($s);
 
-// Тренажёр работает только с записью: если файла нет, блока нет.
-$audio_src = null;
-if ($song && !empty($song["audio"]["file"])) {
-    $f = basename((string)$song["audio"]["file"]);
-    if (is_file(__DIR__ . "/audio/" . $f)) {
-        $audio_src = "/guitar/audio/" . rawurlencode($f);
-    }
-}
-if ($song && $audio_src === null) {
-    unset($song["audio"]);
-}
+// Запись нужна только блоку «С записью»: если файла нет, блока нет.
+$audio_src = $song ? guitar_audio_src($song) : null;
+$payload = $song ? guitar_payload($song, $audio_src !== null) : null;
 
 $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
 ?>
@@ -148,11 +129,39 @@ $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
     .g-lyr-pair{border-left:3px solid transparent;padding-left:8px;margin-left:-11px;border-radius:4px}
     .g-lyr-pair.cur{border-left-color:var(--accent,#f9c940);background:rgba(249,201,64,.12)}
 
+    /* плеер гитары */
+    .gp-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px}
+    .gp-modes{display:flex;flex-wrap:wrap;gap:6px}
+    .gp-status{font-size:12px;color:var(--muted,#868899)}
+    .gp-now{font-size:56px;font-weight:700;line-height:1.1}
+    .gp-next{font-size:34px;font-weight:700;color:var(--violet,#9d8ff0);line-height:1.6}
+    .gp-sec{display:block;text-align:center;min-height:20px;font-size:14px;color:var(--green,#61d1ad);margin-bottom:6px}
+    .gp-fb{position:relative;margin:4px 0 8px;padding:6px 36px 6px 30px;background:var(--panel-2,#191920);border:1px solid var(--line,#333340);border-radius:10px}
+    .gp-s{position:relative;display:flex;align-items:center;height:20px}
+    .gp-line{flex:1;display:block;height:var(--w,2px);background:#8a8fa0;border-radius:2px;opacity:.55;transition:background .08s,opacity .08s}
+    .gp-fr{position:absolute;left:-24px;width:20px;text-align:right;font-size:12px;font-weight:700;color:var(--muted,#868899)}
+    .gp-nm{position:absolute;right:-26px;width:20px;font-size:11px;color:var(--muted,#868899)}
+    .gp-s.mute .gp-line{opacity:.15}
+    .gp-s.on .gp-line{background:var(--c,#f9c940);opacity:1;animation:gp-vib .28s linear 1}
+    .gp-s.on .gp-fr{color:var(--c,#f9c940)}
+    @keyframes gp-vib{0%{transform:translateY(-3px)}25%{transform:translateY(3px)}50%{transform:translateY(-2px)}75%{transform:translateY(2px)}100%{transform:none}}
+    .gp-pick{position:absolute;right:10px;top:6px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:12px solid var(--text,#efeff1);transform:translateY(-6px);pointer-events:none;opacity:0}
+    .gp-pick.go{opacity:.9}
+    .gp-pick.up{transform:translateY(-6px) rotate(180deg)}
+    .gp-ctrl{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin:8px 0}
+    .gp-ctrl label{font-size:13px;color:var(--muted,#868899);display:flex;align-items:center;gap:6px}
+    .gp-lbl{font-size:13px;color:var(--muted,#868899)}
+    .gp-btns{display:flex;flex-wrap:wrap;gap:6px}
+    .gp-bpm{min-width:3ch;text-align:center;font-weight:700;font-variant-numeric:tabular-nums}
+    .gp-spacer{flex:1}
+    .g-sl.next{outline:2px dashed var(--accent,#f9c940);outline-offset:-2px}
+    .g-sl.down-now .g-a{transform:translateY(2px)}
+    .g-sl.up-now .g-a{transform:translateY(-2px)}
     [hidden]{display:none!important}
     .g-note{color:var(--muted,#868899);font-size:13px;margin:6px 0}
     .g-hint{font-size:12px;color:var(--muted,#868899);margin:6px 0 0}
     @media(max-width:560px){
-      #g-now{font-size:44px}#g-next{font-size:28px}
+      #g-now,.gp-now{font-size:44px}#g-next,.gp-next{font-size:28px}
       .g-sl .g-a{font-size:17px}.g-sl .g-k{font-size:11px}
       .g-seg b{font-size:20px}
     }
@@ -194,8 +203,54 @@ $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
   </div>
   <p class="g-note"><?= esc($song["note"]) ?></p>
 
+  <h2>Гитара</h2>
+  <div class="g-card gp" id="gp" data-slug="<?= esc($song["slug"]) ?>" data-api="/guitar/api">
+    <div class="gp-top">
+      <div class="gp-modes" id="gp-modes">
+        <button type="button" class="g-btn on" data-mode="listen" title="Играет гитара в выбранном темпе">Слушаю</button>
+        <button type="button" class="g-btn" data-mode="watch" title="В два раза медленнее: видно каждую струну">Смотрю</button>
+        <button type="button" class="g-btn" data-mode="along" title="Метроном и подсветка следующего удара: играешь сам">Играю вместе</button>
+      </div>
+      <span class="gp-status" id="gp-status"></span>
+    </div>
+
+    <div class="g-stage">
+      <div><div class="g-lbl">Сейчас</div><div class="gp-now" id="gp-now">—</div></div>
+      <div><div class="g-lbl">Дальше</div><div class="gp-next" id="gp-next">—</div></div>
+    </div>
+    <span class="gp-sec" id="gp-sec"></span>
+
+    <div class="gp-fb" id="gp-fb"></div>
+    <div class="g-strum" id="gp-row"></div>
+
+    <div class="gp-ctrl">
+      <button type="button" class="g-btn g-main" id="gp-play">▶ Играть</button>
+      <button type="button" class="g-btn" id="gp-prev" title="Предыдущий такт">⏮ Такт</button>
+      <button type="button" class="g-btn" id="gp-nextbar" title="Следующий такт">Такт ⏭</button>
+      <span class="gp-spacer"></span>
+      <button type="button" class="g-btn" id="gp-loop-bar" title="Повторять текущий такт">↻ Такт</button>
+      <button type="button" class="g-btn" id="gp-loop-sec" title="Повторять текущую часть">↻ Часть</button>
+    </div>
+
+    <div class="gp-ctrl">
+      <span class="gp-lbl">Темп</span>
+      <span class="gp-btns" id="gp-bpm-btns"></span>
+      <button type="button" class="g-btn" id="gp-bpm-dec" title="Медленнее на 2">−</button>
+      <span class="gp-bpm" id="gp-bpm">50</span>
+      <button type="button" class="g-btn" id="gp-bpm-inc" title="Быстрее на 2">+</button>
+    </div>
+
+    <div class="gp-ctrl">
+      <label>Бой <select class="g-sel" id="g-strum-sel"></select></label>
+      <label>Начать с <select class="g-sel" id="gp-from"></select></label>
+      <label><input type="checkbox" id="gp-snd" checked> Гитара</label>
+      <label><input type="checkbox" id="gp-met"> Метроном</label>
+    </div>
+    <p class="g-hint">↓ вниз · ↑ вверх · ✕ приглушённый. Звук гитары синтезируется в браузере, поэтому темп можно менять на ходу.</p>
+  </div>
+
   <?php if ($audio_src !== null): ?>
-  <h2>Тренажёр</h2>
+  <h2>С записью</h2>
   <div class="g-card">
     <audio id="g-au" src="<?= esc($audio_src) ?>" preload="metadata"></audio>
     <div class="g-stage">
@@ -226,22 +281,12 @@ $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
     <div class="g-ov" id="g-ov"></div>
 
     <div class="g-strumbox">
-      <div class="g-ctrl" style="margin-bottom:4px">
-        <label>Бой <select class="g-sel" id="g-strum-sel"></select></label>
-        <span class="g-hint" style="margin:0">Цвет под ударом — аккорд, которым он играется. Яркие удары — для текущего аккорда.</span>
-      </div>
+      <div class="g-hint" style="margin:0 0 4px">Цвет под ударом — аккорд, которым он играется. Вариант боя выбирается в блоке «Гитара».</div>
       <div class="g-strum" id="g-bar-now"></div>
       <div class="g-lbl" style="margin-top:6px">Следующий такт</div>
       <div class="g-strum g-bar-next" id="g-bar-next"></div>
     </div>
     <p class="g-hint">Клик по шкале — перемотка. Смены аккордов определены по записи автоматически, поэтому возможны неточности.</p>
-  </div>
-  <?php else: ?>
-  <h2>Бой</h2>
-  <div class="g-card">
-    <div class="g-ctrl" style="margin-bottom:4px"><label>Вариант <select class="g-sel" id="g-strum-sel"></select></label></div>
-    <div id="g-strum-rows"></div>
-    <p class="g-hint">↓ вниз · ↑ вверх · ✕ приглушённый.</p>
   </div>
   <?php endif; ?>
 
@@ -265,8 +310,9 @@ $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
 
   <p class="g-note" style="margin-top:16px">Аккорды составлены по любительским разборам и упрощены, поэтому могут отличаться от оригинала.</p>
 
-  <script>window.GUITAR_SONG = <?= json_encode($song, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+  <script>window.GUITAR_SONG = <?= json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
   <script src="/guitar/guitar.js?v=<?= (int)@filemtime(__DIR__ . "/guitar.js") ?>"></script>
+  <script src="/guitar/guitar-player.js?v=<?= (int)@filemtime(__DIR__ . "/guitar-player.js") ?>"></script>
 <?php endif; ?>
 </div>
 
