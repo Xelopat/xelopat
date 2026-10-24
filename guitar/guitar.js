@@ -11,14 +11,22 @@
   };
   var COL = { Am: '#ff8fa3', Em: '#f9c940', G: '#61d1ad', D: '#5ec4ff', Dm: '#9d8ff0', C: '#c3a6ff' };
 
-  // 8 слотов на такт: 1 и 2 и 3 и 4 и ; D — вниз, U — вверх, X — приглушённый удар
-  var SLOT_LBL = ['1', 'и', '2', 'и', '3', 'и', '4', 'и'];
+  // Бой: слоты внутри такта; D — вниз, U — вверх, X — приглушённый удар.
+  // Размер песни: song.meter = {beats, sub} — долей в такте и слотов на долю (по умолчанию 4×2, т.е. 4/4 восьмыми;
+  // 4×3 — это 12/8: четыре «пульса» по три восьмых).
   var STRUMS = {
-    easy:  { title: 'Простой ↓ на каждую долю', s: ['D', '', 'D', '', 'D', '', 'D', ''] },
-    six:   { title: '«Шестёрка»',                s: ['D', '', 'D', 'U', '', 'U', 'D', 'U'] },
-    eight: { title: '«Восьмёрка»',               s: ['D', 'U', 'D', 'U', 'D', 'U', 'D', 'U'] },
-    muted: { title: 'С приглушкой',              s: ['D', 'U', 'X', 'U', 'D', 'U', 'X', 'U'] }
+    easy:   { title: 'Простой ↓ на каждую долю',  s: ['D', '', 'D', '', 'D', '', 'D', ''] },
+    six:    { title: '«Шестёрка»',                s: ['D', '', 'D', 'U', '', 'U', 'D', 'U'] },
+    eight:  { title: '«Восьмёрка»',               s: ['D', 'U', 'D', 'U', 'D', 'U', 'D', 'U'] },
+    muted:  { title: 'С приглушкой',              s: ['D', 'U', 'X', 'U', 'D', 'U', 'X', 'U'] },
+    easy12: { title: 'Простой ↓ на каждый пульс', s: ['D', '', '', 'D', '', '', 'D', '', '', 'D', '', ''] },
+    pat12:  { title: 'Бой из разбора',            s: ['D', '', 'D', '', 'U', 'U', 'D', '', 'D', 'U', 'D', 'U'] }
   };
+  function slotLabels(beats, sub) {
+    var tail = sub === 3 ? ['и', 'а'] : ['и'], out = [];
+    for (var b = 1; b <= beats; b++) { out.push(String(b)); tail.forEach(function (t) { out.push(t); }); }
+    return out;
+  }
 
   function svg(name) {
     var c = CHORDS[name], W = 120, H = 140, x0 = 22, dx = 15.2, y0 = 24, dy = 22, i;
@@ -46,8 +54,13 @@
   if (!song) return;
 
   // ---- аккорды песни
+  var meter = song.meter || { beats: 4, sub: 2 };
+  var beats = meter.beats, sub = meter.sub, slots = beats * sub;
+  var SLOT_LBL = slotLabels(beats, sub);
+  // такт в данных: строка — один аккорд на весь такт, массив — аккорд на каждую долю
+  function barChords(b) { var a = []; for (var i = 0; i < beats; i++) a.push(typeof b === 'string' ? b : b[i]); return a; }
   var used = [];
-  song.sections.forEach(function (sec) { sec.bars.forEach(function (c) { if (used.indexOf(c) < 0) used.push(c); }); });
+  song.sections.forEach(function (sec) { sec.bars.forEach(function (b) { barChords(b).forEach(function (c) { if (used.indexOf(c) < 0) used.push(c); }); }); });
   $('g-chords').innerHTML = used.map(function (n) {
     return '<div class="g-ch"><div class="g-ch-n" style="color:' + COL[n] + '">' + n + '</div>' + svg(n) + '<small>' + CHORDS[n].tip + '</small></div>';
   }).join('');
@@ -57,18 +70,22 @@
   var secHtml = '';
   song.sections.forEach(function (sec, si) {
     var start = bars.length;
-    sec.bars.forEach(function (c) { bars.push({ chord: c, sec: si }); });
+    sec.bars.forEach(function (b) { bars.push({ chords: barChords(b), sec: si }); });
     secHtml += '<div class="g-sec"><div class="g-sec-h"><b>' + sec.name + '</b>' +
       '<button type="button" class="g-btn g-loop" data-sec="' + si + '">↻ петля</button></div><div class="g-bars">' +
-      sec.bars.map(function (c, k) {
-        return '<span class="g-bar" data-i="' + (start + k) + '" style="border-color:' + COL[c] + '">' + c + '</span>';
+      sec.bars.map(function (b, k) {
+        var cs = barChords(b), groups = [];
+        cs.forEach(function (c, j) { if (j && groups[groups.length - 1].c === c) groups[groups.length - 1].n++; else groups.push({ c: c, n: 1, j: j }); });
+        return '<span class="g-bar" data-i="' + (start + k) + '" style="border-color:' + COL[cs[0]] + '">' +
+          groups.map(function (g) { return '<i data-j="' + g.j + '" data-n="' + g.n + '" style="color:' + COL[g.c] + '">' + g.c + '</i>'; }).join('') + '</span>';
       }).join('') + '</div></div>';
   });
   $('g-sections').innerHTML = secHtml;
   var barEls = [].slice.call(document.querySelectorAll('.g-bar'));
 
   // ---- бой
-  var strumKey = song.strum in STRUMS ? song.strum : 'easy';
+  var avail = Object.keys(STRUMS).filter(function (k) { return STRUMS[k].s.length === slots; });
+  var strumKey = avail.indexOf(song.strum) >= 0 ? song.strum : avail[0];
   var strumEl = $('g-strum');
   function drawStrum() {
     strumEl.innerHTML = STRUMS[strumKey].s.map(function (a, i) {
@@ -76,7 +93,7 @@
       return '<div class="g-sl' + (a ? ' hit' : '') + '"><div class="g-a">' + ch + '</div><div class="g-c">' + SLOT_LBL[i] + '</div></div>';
     }).join('');
   }
-  $('g-strums').innerHTML = Object.keys(STRUMS).map(function (k) {
+  $('g-strums').innerHTML = avail.map(function (k) {
     return '<button type="button" class="g-btn g-strm' + (k === strumKey ? ' on' : '') + '" data-s="' + k + '">' + STRUMS[k].title + '</button>';
   }).join('');
   drawStrum();
@@ -89,6 +106,8 @@
 
   // ---- метроном / проигрывание
   var bpmEl = $('g-bpm'), bpmOut = $('g-bpm-v');
+  if (song.bpm_min) bpmEl.min = song.bpm_min;
+  if (song.bpm_max) bpmEl.max = song.bpm_max;
   bpmEl.value = song.bpm; bpmOut.textContent = song.bpm;
   bpmEl.oninput = function () { bpmOut.textContent = bpmEl.value; };
 
@@ -115,40 +134,57 @@
     return [lo, hi];
   }
 
-  function show(i) {
-    barEls.forEach(function (el, k) { el.classList.toggle('cur', k === i); });
-    var cur = bars[i], nx = bars[i + 1] || null;
-    var name = $('g-now'), nn = $('g-next');
-    if (!cur) { name.textContent = '—'; name.style.color = ''; nn.textContent = '—'; return; }
-    name.textContent = cur.chord; name.style.color = COL[cur.chord];
-    nn.textContent = nx ? nx.chord : 'конец';
-    $('g-sec-now').textContent = song.sections[cur.sec].name;
+  var curChord = '';
+  function chordAt(i, beat) { return bars[i] ? bars[i].chords[beat] : null; }
+  // следующий отличающийся от текущего аккорд
+  function nextDifferent(i, beat) {
+    var c = chordAt(i, beat), r = range();
+    for (var n = 1; n < 1000; n++) {
+      var b2 = beat + n, bi = i + Math.floor(b2 / beats), bb = b2 % beats;
+      if (bi > r[1]) { if (loopSec < 0) return null; bi = r[0] + (bi - r[0]) % (r[1] - r[0] + 1); }
+      var x = chordAt(bi, bb);
+      if (x !== c) return x;
+    }
+    return null;
+  }
+  function show(i, beat) {
+    barEls.forEach(function (el, k) {
+      el.classList.toggle('cur', k === i);
+      if (k === i) [].forEach.call(el.children, function (g) {
+        var j = +g.dataset.j; g.classList.toggle('now', beat >= j && beat < j + +g.dataset.n);
+      });
+    });
+    var c = chordAt(i, beat), name = $('g-now'), nn = $('g-next');
+    name.textContent = c; name.style.color = COL[c];
+    var nx = nextDifferent(i, beat);
+    nn.textContent = nx || 'конец';
+    $('g-sec-now').textContent = song.sections[bars[i].sec].name;
   }
 
   function step() {
-    var slot = ((eighth % 8) + 8) % 8;
+    var slot = ((eighth % slots) + slots) % slots;
     var stEls = strumEl.children;
     for (var k = 0; k < stEls.length; k++) stEls[k].classList.toggle('cur', k === slot);
+    var onBeat = slot % sub === 0;
     if (eighth < 0) {
       $('g-sec-now').textContent = 'Приготовься…';
-      if (eighth % 2 === 0) click(slot === 0);
     } else {
       if (slot === 0) {
         var r = range();
         if (eighth > 0) barIdx++;
         if (barIdx > r[1]) { if (loopSec >= 0) barIdx = r[0]; else { stop(); return; } }
-        show(barIdx);
       }
-      if (eighth % 2 === 0) click(slot === 0);
+      if (onBeat) show(barIdx, slot / sub);
     }
+    if (onBeat) click(slot === 0);
     eighth++;
-    nextAt += 60000 / +bpmEl.value / 2;
+    nextAt += 60000 / +bpmEl.value / sub;
     timer = setTimeout(step, Math.max(0, nextAt - performance.now()));
   }
 
   function start() {
     var r = range();
-    barIdx = r[0]; eighth = -8; running = true;
+    barIdx = r[0]; eighth = -slots; running = true;
     $('g-play').textContent = '⏸ Стоп';
     nextAt = performance.now();
     if (actx && actx.state === 'suspended') actx.resume();
@@ -158,7 +194,7 @@
     running = false; clearTimeout(timer);
     $('g-play').textContent = '▶ Играть';
     [].forEach.call(strumEl.children, function (el) { el.classList.remove('cur'); });
-    barEls.forEach(function (el) { el.classList.remove('cur'); });
+    barEls.forEach(function (el) { el.classList.remove('cur'); [].forEach.call(el.children, function (g) { g.classList.remove('now'); }); });
     $('g-now').textContent = '—'; $('g-now').style.color = ''; $('g-next').textContent = '—'; $('g-sec-now').textContent = '';
   }
   $('g-play').onclick = function () { running ? stop() : start(); };

@@ -98,8 +98,11 @@ $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
     .g-sec:first-child{border-top:0;padding-top:0}
     .g-sec-h{display:flex;align-items:center;gap:12px;margin-bottom:8px}
     .g-bars{display:flex;flex-wrap:wrap;gap:6px}
-    .g-bar{min-width:52px;text-align:center;padding:6px 10px;border-radius:8px;border:2px solid;background:var(--panel-2,#191920);font-weight:700;transition:background .1s,color .1s}
-    .g-bar.cur{background:var(--accent,#f9c940);color:#151518}
+    .g-bar{min-width:52px;text-align:center;padding:6px 7px;border-radius:8px;border:2px solid;background:var(--panel-2,#191920);font-weight:700;transition:background .1s,color .1s}
+    .g-bar i{font-style:normal;padding:0 3px}
+    .g-bar i+i{border-left:1px solid var(--line,#333340)}
+    .g-bar.cur{border-color:var(--accent,#f9c940)!important}
+    .g-bar.cur i.now{background:var(--accent,#f9c940);color:#151518!important;border-radius:5px}
     .g-note{color:var(--muted,#868899);font-size:14px}
     ol.g-steps{padding-left:20px;margin:0}
     ol.g-steps li{margin:6px 0}
@@ -146,7 +149,7 @@ $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
   <div class="g-card">
     <div class="g-ctrl">
       <button type="button" class="g-btn" id="g-play">▶ Играть</button>
-      <label>Темп <input type="range" id="g-bpm" min="40" max="140" step="2"> <span class="g-bpm-v"><span id="g-bpm-v"></span></span> уд/мин</label>
+      <label>Темп <input type="range" id="g-bpm" min="40" max="140" step="2"> <span class="g-bpm-v"><span id="g-bpm-v"></span></span> <?= !empty($song["meter"]) ? "пульсов" : "уд" ?>/мин</label>
       <label><input type="checkbox" id="g-click" checked> Метроном</label>
     </div>
     <div class="g-stage">
@@ -156,7 +159,7 @@ $page_title = $song ? $song["title"] . " — гитара" : "Гитара";
     <div style="text-align:center"><span id="g-sec-now"></span></div>
     <div class="g-strum" id="g-strum"></div>
     <div class="g-strums" id="g-strums"></div>
-    <p class="g-note" style="margin-bottom:0">Один аккорд = один такт (4 доли). Сначала один такт отсчёта. «↻ петля» у раздела гоняет только его. Начни с медленного темпа — 50–60.</p>
+    <p class="g-note" style="margin-bottom:0">Такт — 4 <?= !empty($song["meter"]) ? "пульса" : "доли" ?>. Сначала один такт отсчёта; метроном щёлкает на каждую <?= !empty($song["meter"]) ? "пульс" : "долю" ?>, первая — громче. «↻ петля» у раздела гоняет только его. Начни с медленного темпа — 50–60.</p>
   </div>
 
   <h2>Аккорды</h2>
