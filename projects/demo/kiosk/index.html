@@ -5,7 +5,34 @@
     <link rel="icon" type="image/svg+xml" href="./vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Карта филиалов — киоск</title>
-    <script type="module" crossorigin src="./assets/index-CfKagT52.js"></script>
+    <script>
+    /* Киоск рассчитан на экран 1920x1080. На узком экране показываем его целиком, уменьшенным, в рамке этого размера. */
+    (function () {
+      if (window.top !== window || innerWidth >= 900) {
+        var s = document.createElement('script'); s.type = 'module'; s.src = './assets/index-CfKagT52.js'; document.head.appendChild(s);
+        return;
+      }
+      var st = document.createElement('style');
+      st.textContent = 'html,body{margin:0;height:100%;background:#0b0d14;overflow:hidden}' +
+        '.kw{position:fixed;left:0;top:0;width:100%;height:100%;overflow:hidden}' +
+        'iframe{position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;background:#f0f0f0;transform-origin:0 0}' +
+        '.rot{position:fixed;left:0;right:0;top:calc(50% + 110px);text-align:center;color:#9496a8;font:13px/1.4 system-ui,sans-serif;padding:0 24px}';
+      document.head.appendChild(st);
+      document.addEventListener('DOMContentLoaded', function () {
+        var box = document.createElement('div'), f = document.createElement('iframe'), hint = document.createElement('div');
+        box.className = 'kw';
+        f.title = 'Киоск'; f.src = location.pathname + location.search;
+        hint.className = 'rot'; hint.textContent = 'Киоск рассчитан на большой горизонтальный экран. Поверните телефон, чтобы он стал крупнее.';
+        box.appendChild(f); document.body.appendChild(box); document.body.appendChild(hint);
+        function fit() {
+          var w = box.clientWidth, h = box.clientHeight, k = Math.min(w / 1920, h / 1080);
+          f.style.transform = 'translate(' + (w - 1920 * k) / 2 + 'px,' + (h - 1080 * k) / 2 + 'px) scale(' + k + ')';
+          hint.style.display = h > w ? '' : 'none';
+        }
+        fit(); addEventListener('resize', fit);
+      });
+    })();
+  </script>
     <link rel="stylesheet" crossorigin href="./assets/index-B8gQxDLh.css">
   <script>(function(){var a=/[?&]admin(=|&|$)/.test(location.search);window.__DEMO_BAR={title:"демо Киоск",links:[{label:"Киоск",href:"/projects/demo/kiosk/",current:!a},{label:"Админка",href:"/projects/demo/kiosk/?admin",current:a},{label:"Все проекты",href:"/projects",current:false}]};})();</script><script src="./_demo/kiosk-admin.js" defer></script><script src="./_demo/demo-bar.js" defer></script>
   </head>

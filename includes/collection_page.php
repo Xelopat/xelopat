@@ -491,7 +491,8 @@ function coll_rich(string $text): string {
   .pj--wide .pj-title{ font-size:clamp(30px, 3.4vw, 42px); line-height:1.1; }
   .pj--wide .pj-desc{ font-size:16px; }
   .pj-stack li{ border-radius:999px; padding:4px 11px; background:rgba(255,255,255,.04); border-color:#33333f; }
-  .pj-actions .btn{ border-radius:10px; }
+  .pj-actions{ align-items:center; }
+  .pj-actions .btn{ display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-height:46px; padding:0 22px; border-radius:999px; line-height:1; white-space:nowrap; }
   .cs-hero{ position:relative; }
   .cs-hero::before{ content:""; position:absolute; z-index:-1; left:-14%; width:90%; top:-150px; height:440px; pointer-events:none; background:radial-gradient(ellipse closest-side at 50% 50%, rgba(249,201,64,.13), transparent); }
   .cs-title{ font-size:clamp(36px, 6vw, 64px); letter-spacing:-.03em; line-height:1.02; }
@@ -599,7 +600,7 @@ function coll_rich(string $text): string {
     .pj-title, .pj--wide .pj-title{ font-size:20px; }
     .pj-desc{ font-size:14px; line-height:1.55; }
     .pj-actions{ flex-wrap:nowrap; }
-    .pj-actions .btn{ flex:1 1 0; justify-content:center; text-align:center; padding:11px 8px; white-space:nowrap; }
+    .pj-actions .btn{ flex:1 1 0; padding:0 8px; }
   }
   @media (max-width: 760px){
     .co-view{ grid-template-columns:1fr; }

@@ -50,7 +50,6 @@ $hobby_items = [
     ['Путешествия', '/travel'],
     ['Фото', '/photo'],
     ['Духи', '/perfumes'],
-    ['CTF', '/ctf'],
     ['Гитара', '/guitar'],
 ];
 
@@ -190,7 +189,7 @@ if (isset($site_page_title)):
       <?php // Хобби видно только после входа; сами страницы открываются и по прямой ссылке ?>
       <?php if ($auth_user): ?>
       <div class="dd" id="dd-hobby-wrap">
-        <button type="button" class="nav-btn<?= strpos($uri_s, '/perfumes/') === 0 || strpos($uri_s, '/ctf/') === 0 || strpos($uri_s, '/photo/') === 0 || strpos($uri_s, '/travel/') === 0 || strpos($uri_s, '/guitar/') === 0 ? ' active' : '' ?>" data-dd-btn="hobby" aria-expanded="false">Хобби</button>
+        <button type="button" class="nav-btn<?= strpos($uri_s, '/perfumes/') === 0 || strpos($uri_s, '/photo/') === 0 || strpos($uri_s, '/travel/') === 0 || strpos($uri_s, '/guitar/') === 0 ? ' active' : '' ?>" data-dd-btn="hobby" aria-expanded="false">Хобби</button>
         <div class="dd-panel" id="dd-hobby" role="dialog" aria-label="Хобби">
           <ul class="menu-root">
             <?php foreach ($hobby_items as $it): ?>
