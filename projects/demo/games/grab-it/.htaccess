@@ -1,0 +1,5 @@
+# —борка Unity лежит без сжати€: пусть сервер сожмЄт еЄ сам
+AddType application/wasm .wasm
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE application/wasm application/octet-stream application/javascript
+</IfModule>
