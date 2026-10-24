@@ -246,11 +246,17 @@ function coll_missing_starters(string $key, array $items): array {
     if ($file === '' || !is_file(coll_root() . $file)) return [];
     $cards = json_decode((string)file_get_contents(coll_root() . $file), true);
     $have = [];
-    foreach ($items as $it) if ($it['link'] !== '') $have[rtrim($it['link'], '/')] = true;
+    $haveTitle = [];
+    foreach ($items as $it) {
+        if ($it['link'] !== '') $have[rtrim($it['link'], '/')] = true;
+        $haveTitle[mb_strtolower(trim((string)$it['title']))] = true;
+    }
     $out = [];
     foreach ((array)$cards as $c) {
         if (!is_array($c) || trim((string)($c['title'] ?? '')) === '') continue;
-        if (isset($have[rtrim((string)($c['link'] ?? ''), '/')])) continue;
+        $link = rtrim((string)($c['link'] ?? ''), '/');
+        // Карточки без демо (ссылки нет) сверяем по названию, иначе они считаются недобавленными вечно
+        if ($link === '' ? isset($haveTitle[mb_strtolower(trim((string)$c['title']))]) : isset($have[$link])) continue;
         $c['media'] = array_map(fn($src) => ['type' => coll_media_kind((string)$src), 'src' => (string)$src, 'preview' => ''], (array)($c['media'] ?? []));
         $out[] = $c;
     }
