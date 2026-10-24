@@ -233,7 +233,9 @@ function coll_month_human(string $d): string {
 // Главная кнопка проекта: «Открыть демо» с иконкой-стрелкой, которая при наведении «пролетает» по диагонали
 function coll_demo_btn(string $href, string $label, string $extra = ''): string {
     $svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>';
-    return '<a class="demo-btn' . $extra . '" href="' . coll_h($href) . '" target="_blank" rel="noopener"><span>' . coll_h($label) . '</span><i class="demo-ic">' . $svg . $svg . '</i></a>';
+    // свои демо открываем в этой же вкладке, чужие сайты в новой
+    $tab = strpos($href, '/') === 0 ? '' : ' target="_blank" rel="noopener"';
+    return '<a class="demo-btn' . $extra . '" href="' . coll_h($href) . '"' . $tab . '><span>' . coll_h($label) . '</span><i class="demo-ic">' . $svg . $svg . '</i></a>';
 }
 
 function coll_rich(string $text): string {

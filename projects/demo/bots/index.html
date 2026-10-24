@@ -13,7 +13,7 @@
   .label{ font-family:var(--mono); font-size:12px; color:var(--accent); margin-bottom:10px; }
   h1{ margin:0 0 12px; font-size:clamp(30px,4.6vw,52px); line-height:1.05; letter-spacing:-.03em; }
   .lead{ max-width:700px; margin:0 0 30px; color:var(--muted); font-size:clamp(15px,1.5vw,18px); }
-  .grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:22px; }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:18px; }
   .g{ display:flex; flex-direction:column; border:1px solid #2c2c38; border-radius:18px; overflow:hidden; background:linear-gradient(180deg,#20202a,#17171d); box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 24px 48px -28px rgba(0,0,0,.8); transition:.22s; }
   .g:hover{ border-color:rgba(249,201,64,.55); transform:translateY(-4px); box-shadow:0 30px 60px -28px rgba(0,0,0,.9), 0 18px 50px -24px rgba(249,201,64,.35); }
   .shot{ position:relative; display:block; aspect-ratio:16/9; border:0; padding:0; width:100%; cursor:pointer; background:#101014; overflow:hidden; }
@@ -24,9 +24,9 @@
   .play i{ display:grid; place-items:center; width:32px; height:32px; border-radius:50%; background:#1b1606; color:#f9c940; }
   .play svg{ width:14px; height:14px; margin-left:2px; }
   .g:hover .play{ transform:translateY(-2px) scale(1.03); }
-  .body{ padding:18px 20px 20px; display:flex; flex-direction:column; gap:10px; flex:1; }
-  .body h2{ margin:0; font-size:22px; letter-spacing:-.015em; }
-  .body p{ margin:0; color:var(--muted); font-size:14.5px; line-height:1.6; }
+  .body{ padding:14px 16px 16px; display:flex; flex-direction:column; gap:10px; flex:1; }
+  .body h2{ margin:0; font-size:19px; letter-spacing:-.015em; }
+  .body p{ margin:0; color:var(--muted); font-size:14px; line-height:1.5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
   .tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:auto; padding-top:4px; }
   .tags span{ padding:4px 11px; border:1px solid #33333f; border-radius:999px; background:rgba(255,255,255,.04); font-family:var(--mono); font-size:11px; color:#c5c8d6; }
   .foot{ margin-top:26px; color:var(--muted); font-size:13px; }
@@ -44,7 +44,12 @@
   .ovbar button:hover{ border-color:var(--accent); color:var(--accent); }
   .ov iframe{ flex:1; width:100%; border:0; background:#000; }
 
-  @media (max-width:760px){ .grid{ grid-template-columns:1fr; } }
+  body.ovopen #xp-demo-bar{ display:none; }
+  .ovback{ flex:none; }
+  .ovarr{ flex:none; width:36px; padding:8px 0; font-size:18px; line-height:1; }
+  .wrap{ max-width:1200px; }
+  .lead{ margin-bottom:22px; }
+  @media (max-width:760px){ .grid{ grid-template-columns:1fr; } .ovbar{ gap:6px; padding:8px; } .ovback{ padding:8px 12px; } .lead{ display:none; } body{ padding-top:22px; } }
 </style>
 </head>
 <body>
@@ -56,7 +61,7 @@
 </div>
 
 <div class="ov" id="ov" aria-hidden="true">
-  <div class="ovbar"><div class="ovtabs" id="ovTabs"></div><button id="ovR" type="button">Обновить</button><button id="ovX" type="button">Закрыть</button></div>
+  <div class="ovbar"><button id="ovX" type="button" class="ovback">&larr; Все боты</button><button id="ovP" type="button" class="ovarr" aria-label="Предыдущий">&#8249;</button><button id="ovN" type="button" class="ovarr" aria-label="Следующий">&#8250;</button><div class="ovtabs" id="ovTabs"></div><button id="ovR" type="button">Обновить</button></div>
   <iframe id="fr" title="Бот" allow="fullscreen; autoplay" allowfullscreen></iframe>
 </div>
 
@@ -78,21 +83,49 @@
     return '<article class="g"><button class="shot" type="button" data-id="' + g.id + '" aria-label="Открыть: ' + g.t + '"><img src="./covers/' + g.id + '.webp" alt="" loading="lazy"><span class="play"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.640A1 1 0 0 0 8 5.500z" fill="currentColor"/></svg></i>Открыть</span></button>' +
       '<div class="body"><h2>' + g.t + '</h2><p>' + g.d + '</p><div class="tags">' + g.tags.map(function(x){ return '<span>' + x + '</span>'; }).join('') + '</div></div></article>';
   }).join('');
-  function open(id){
+  var pushed = false;
+  function show(id){
     cur = GAMES.filter(function(g){ return g.id === id; })[0];
+    if (!cur) return hide();
     tabs(); $('fr').src = '../' + id + '/index.html';
-    $('ov').classList.add('on'); $('ov').setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden';
+    $('ov').classList.add('on'); $('ov').setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; document.body.classList.add('ovopen');
   }
+  function hide(){ $('ov').classList.remove('on'); $('ov').setAttribute('aria-hidden', 'true'); $('fr').src = 'about:blank'; document.body.style.overflow = ''; document.body.classList.remove('ovopen'); cur = null; }
+  function open(id){
+    var on = $('ov').classList.contains('on');
+    history[on ? 'replaceState' : 'pushState'](null, '', '#' + id);
+    if (!on) pushed = true;
+    show(id);
+  }
+  function close(){
+    if (pushed) {
+      pushed = false; history.back();
+      // если браузер не откатил историю, закрываем сами
+      setTimeout(function(){ if ($('ov').classList.contains('on')) { history.replaceState(null, '', location.pathname + location.search); hide(); } }, 250);
+      return;
+    }
+    history.replaceState(null, '', location.pathname + location.search); hide();
+  }
+  function step(d){ var i = GAMES.indexOf(cur); if (i < 0) return; open(GAMES[(i + d + GAMES.length) % GAMES.length].id); }
   function tabs(){
     $('ovTabs').innerHTML = '';
     GAMES.forEach(function(g){ var b = document.createElement('button'); b.type = 'button'; b.textContent = g.t; b.className = g.id === cur.id ? 'on' : ''; b.onclick = function(){ open(g.id); }; $('ovTabs').appendChild(b); });
     var on = $('ovTabs').querySelector('.on'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
-  function close(){ $('ov').classList.remove('on'); $('ov').setAttribute('aria-hidden', 'true'); $('fr').src = 'about:blank'; document.body.style.overflow = ''; }
   $('grid').addEventListener('click', function(e){ var b = e.target.closest('.shot'); if (b) open(b.dataset.id); });
   $('ovX').onclick = close;
+  $('ovP').onclick = function(){ step(-1); };
+  $('ovN').onclick = function(){ step(1); };
   $('ovR').onclick = function(){ if (cur) $('fr').src = '../' + cur.id + '/index.html'; };
-  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && $('ov').classList.contains('on')) close(); });
+  document.addEventListener('keydown', function(e){
+    if (!$('ov').classList.contains('on')) return;
+    if (e.key === 'Escape') close();
+    else if (e.key === 'ArrowLeft') step(-1);
+    else if (e.key === 'ArrowRight') step(1);
+  });
+  // Кнопка «Назад» браузера закрывает окно, а не уводит со страницы; ссылка с #имя открывает сразу
+  window.addEventListener('popstate', function(){ var id = location.hash.slice(1); if (id) show(id); else hide(); });
+  if (location.hash.length > 1) show(location.hash.slice(1));
 })();
 </script>
 </body>

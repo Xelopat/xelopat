@@ -67,7 +67,6 @@
 /* телефон компактный: целиком влезает в экран ПК и остаётся на виду, пока читаешь описание рядом */
 @media (min-width:901px){
   .grid{ grid-template-columns:340px minmax(0,1fr); }
-  .phone{ position:sticky; top:24px; }
 }
 @media (max-width:900px){
   .grid{ grid-template-columns:minmax(0,1fr); }
@@ -79,4 +78,30 @@
   .screen{ border-radius:28px; }
   .card{ padding:16px; }
   .term, .code, .log{ font-size:11.5px; }
+}
+
+/* меньше текста: вступление и пояснения убраны, подробности свёрнуты */
+.lead{ display:none; }
+.label{ margin-bottom:6px; }
+h1{ font-size:clamp(22px,5.5vw,30px); margin:0 0 14px; }
+.card:not(.info) > p:not(.hint){ display:none; }
+.card{ padding:14px 16px; }
+.card h2{ font-size:16px; margin:0 0 8px; }
+.card.info{ padding:0; }
+.card.info > summary{ list-style:none; cursor:pointer; padding:12px 16px; font-size:15px; font-weight:600; display:flex; justify-content:space-between; align-items:center; }
+.card.info > summary::-webkit-details-marker{ display:none; }
+.card.info > summary::after{ content:"+"; color:var(--accent); font-size:20px; line-height:1; }
+.card.info[open] > summary::after{ content:"2"; }
+.card.info > :not(summary){ margin-left:16px; margin-right:16px; }
+.card.info > :last-child{ margin-bottom:14px; }
+body{ padding-top:20px; }
+
+/* на ПК всё в рамках окна: телефон слева на всю высоту, справа карточки, страница не прокручивается */
+@media (min-width:901px) and (min-height:600px){
+  body{ height:100svh; overflow:hidden; padding:14px 24px 16px; display:flex; flex-direction:column; }
+  .wrap{ flex:1; min-height:0; width:100%; display:flex; flex-direction:column; }
+  .grid{ flex:1; min-height:0; grid-template-rows:minmax(0,1fr); align-items:start; }
+  .phone{ position:relative; height:100%; max-height:760px; }
+  .side{ max-height:100%; overflow-y:auto; padding-right:4px; scrollbar-width:thin; }
+  .term{ height:clamp(110px, 20vh, 220px) !important; }
 }
