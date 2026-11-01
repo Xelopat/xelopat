@@ -321,6 +321,19 @@
     return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
   }
 
+  // Страница /workout лежит вне области воркера (/workout/), поэтому serviceWorker.ready не сработает: ждём сам воркер
+  function activated(reg) {
+    const sw = reg.installing || reg.waiting || reg.active;
+    if (!sw || sw.state === 'activated') return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Service worker не запустился. Обнови страницу и попробуй ещё раз.')), 15000);
+      sw.addEventListener('statechange', () => {
+        if (sw.state === 'activated') { clearTimeout(timeout); resolve(); }
+        else if (sw.state === 'redundant') { clearTimeout(timeout); reject(new Error('Service worker не установился.')); }
+      });
+    });
+  }
+
   async function loadSub() {
     rem.sub = null;
     if (!pushSupported) return;
@@ -367,7 +380,7 @@
       if (enable) {
         if ((await Notification.requestPermission()) !== 'granted') throw new Error('Без разрешения на уведомления напоминание не включить.');
         const reg = await navigator.serviceWorker.register('/workout/sw.js');
-        await navigator.serviceWorker.ready;
+        await activated(reg);
         let sub = await reg.pushManager.getSubscription();
         const opts = { userVisibleOnly: true, applicationServerKey: b64ToBytes(W.vapid) };
         try {
