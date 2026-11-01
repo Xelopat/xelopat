@@ -1,0 +1,12 @@
+{
+  "name": "Тренировки",
+  "short_name": "Тренировки",
+  "start_url": "/workout",
+  "scope": "/workout",
+  "display": "standalone",
+  "background_color": "#151518",
+  "theme_color": "#151518",
+  "icons": [
+    { "src": "/img/xelopat.png", "sizes": "288x288", "type": "image/png" }
+  ]
+}
