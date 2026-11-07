@@ -1,8 +1,7 @@
 <?php
-// Утреннее напоминание. Запускается по cron из консоли, из браузера недоступен:
+// Завтрак и воскресные замеры. Запускается по cron из консоли:
 //   */10 * * * * php /var/www/xelopat_ru_usr/data/www/xelopat.ru/workout/cron.php
-// Скрипт сам решает, кому пора слать: время и часовой пояс берутся из настроек пользователя,
-// за день уходит один пуш, а опоздавший больше чем на 3 часа запуск пропускается (завтрак в 20:00 не нужен).
+// Для каждого напоминания отправляется максимум один пуш в день.
 declare(strict_types=1);
 
 if (PHP_SAPI !== 'cli') {
@@ -15,26 +14,34 @@ require_once __DIR__ . '/push_lib.php';
 
 const REMINDER_WINDOW = 3 * 3600;
 
-foreach (array_keys(workout_read()['users'] ?? []) as $uid) {
-    $rem = workout_user((string)$uid)['reminder'] ?? [];
+$lock = fopen(dirname(workout_file()) . '/workout_cron.lock', 'c');
+if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) exit;
+
+function reminder_due(DateTimeImmutable $now, string $time, ?string $last): bool {
+    [$h, $m] = array_map('intval', explode(':', $time));
+    $late = $now->getTimestamp() - $now->setTime($h, $m)->getTimestamp();
+    return $late >= 0 && $late <= REMINDER_WINDOW && $last !== $now->format('Y-m-d');
+}
+
+foreach (workout_read()['users'] ?? [] as $uid => $user) {
+    $rem = $user['reminder'] ?? [];
     if (empty($rem['subs'])) continue;
 
     $tz = new DateTimeZone(in_array($rem['tz'] ?? '', timezone_identifiers_list(), true) ? $rem['tz'] : 'Europe/Moscow');
     $now = new DateTimeImmutable('now', $tz);
     $today = $now->format('Y-m-d');
-    [$h, $m] = array_map('intval', explode(':', (string)($rem['time'] ?? '07:50')));
-    $due = $now->setTime($h, $m);
-
-    $late = $now->getTimestamp() - $due->getTimestamp();
-    if ($late < 0 || $late > REMINDER_WINDOW || ($rem['last_sent'] ?? '') === $today) continue;
-
-    $sent = push_send_user((string)$uid);
-    $left = count(workout_user((string)$uid)['reminder']['subs'] ?? []);
-    // Если ничего не принято, а подписки живы (сбой сети), следующий запуск попробует снова
-    if ($sent > 0 || $left === 0) {
-        workout_mutate(function (array &$users) use ($uid, $today) {
-            $users[$uid]['reminder']['last_sent'] = $today;
-        });
+    $schedule = ['breakfast' => [$rem['time'] ?? '07:50', 'last_sent']];
+    if ($now->format('N') === '7' && empty($user['measures'][$today])) {
+        $schedule['measurements'] = [WORKOUT_MEASURE_TIME, 'last_measure_sent'];
     }
-    echo date('c'), " user {$uid}: sent {$sent}\n";
+    foreach ($schedule as $type => [$time, $field]) {
+        if (!reminder_due($now, $time, $rem[$field] ?? null)) continue;
+        $sent = push_send_user((string)$uid, $type);
+        if ($sent > 0) {
+            workout_mutate(function (array &$users) use ($uid, $today, $field) {
+                $users[$uid]['reminder'][$field] = $today;
+            });
+        }
+        echo date('c'), " user {$uid}: {$type} sent {$sent}\n";
+    }
 }

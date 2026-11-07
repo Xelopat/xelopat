@@ -1,6 +1,6 @@
 <?php
 // Хранилище тренировок: один JSON в /.private (деплой его не трогает), запись под блокировкой.
-// Формат: {"users": {"<id>": {"days": {"2026-11-03": {"done": {"<ex>": 1}, "w": {"<ex>": 22.5}}},
+// Формат: {"users": {"<id>": {"days": {"2026-11-03": {"done": {"<ex>": 1}, "w": {"<ex>": 22.5}, "sets": {"<ex>": [10, 8]}}},
 //                              "measures": {"2026-11-03": {...}},
 //                              "reminder": {"time": "07:50", "tz": "Europe/Moscow", "subs": {"<hash>": {...}}, "last_sent": "2026-11-03"}}}}
 declare(strict_types=1);
@@ -52,14 +52,15 @@ function workout_plan(): array {
     return $plan ??= require __DIR__ . '/plan.php';
 }
 
-// Все id упражнений плана: чужие id в хранилище не пишем
-function workout_exercise_ids(): array {
-    $ids = [];
+function workout_exercises(): array {
+    $exercises = [];
     foreach (workout_plan()['days'] as $day) {
-        foreach ($day['exercises'] as $ex) $ids[$ex['id']] = true;
+        foreach ($day['exercises'] as $ex) $exercises[$ex['id']] = $ex;
     }
-    return $ids;
+    return $exercises;
 }
+
+const WORKOUT_MEASURE_TIME = '12:00';
 
 function workout_valid_date(string $d): bool {
     return (bool)preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $d, $m) && checkdate((int)$m[2], (int)$m[3], (int)$m[1]);
@@ -73,7 +74,9 @@ function workout_public_state(array $u): array {
         'measures' => (object)($u['measures'] ?? []),
         'reminder' => [
             'time' => (string)($rem['time'] ?? '07:50'),
+            'measure_time' => WORKOUT_MEASURE_TIME,
             'subs' => array_keys(is_array($rem['subs'] ?? null) ? $rem['subs'] : []),
+            'measure_subs' => array_keys(array_filter($rem['subs'] ?? [], static fn(array $s): bool => isset($s['p256dh'], $s['auth']))),
         ],
     ];
 }

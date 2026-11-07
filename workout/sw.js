@@ -1,5 +1,4 @@
-// Service worker страницы тренировок: показывает утреннее напоминание о завтраке.
-// Пуш приходит пустым, текст собирается здесь по дню недели на устройстве.
+// Пустой пуш — завтрак, зашифрованный тип measurements — контрольные замеры.
 // Названия дней дублируют workout/plan.php.
 const TODAY = {
   1: 'Пн — верх / сила',
@@ -15,13 +14,14 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 
 self.addEventListener('push', (e) => {
+  const measures = e.data?.text() === 'measurements';
   const d = new Date().getDay() || 7;
-  e.waitUntil(self.registration.showNotification('Позавтракай 🍳', {
-    body: 'Белок и углеводы с утра. Сегодня: ' + TODAY[d],
+  e.waitUntil(self.registration.showNotification(measures ? 'Контрольные замеры' : 'Позавтракай 🍳', {
+    body: measures ? 'Запиши результаты во вкладке «Прогресс».' : 'Белок и углеводы с утра. Сегодня: ' + TODAY[d],
     icon: '/img/xelopat.png',
     badge: '/img/xelopat.png',
-    tag: 'breakfast',
-    data: { url: '/workout' },
+    tag: measures ? 'measurements' : 'breakfast',
+    data: { url: measures ? '/workout#progress' : '/workout' },
   }));
 });
 
@@ -30,7 +30,10 @@ self.addEventListener('notificationclick', (e) => {
   const url = (e.notification.data && e.notification.data.url) || '/workout';
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
     for (const c of list) {
-      if (c.url.includes('/workout') && 'focus' in c) return c.focus();
+      if (new URL(c.url).pathname.replace(/\/$/, '') === '/workout' && 'focus' in c) {
+        if (url.endsWith('#progress')) c.postMessage({ tab: 'progress' });
+        return c.focus();
+      }
     }
     return self.clients.openWindow(url);
   }));

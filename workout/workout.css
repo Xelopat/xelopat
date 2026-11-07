@@ -3,31 +3,13 @@
 .wo{ --wo-ok:var(--green); }
 .wo-muted{ color:var(--muted); }
 
-/* ===== Шапка с фото ===== */
-.wo-hero{
-  position:relative;
-  min-height:230px;
-  display:flex;
-  align-items:flex-end;
-  margin-bottom:14px;
-  border:1px solid var(--line);
-  border-radius:var(--radius-lg);
-  overflow:hidden;
-  background:
-    linear-gradient(90deg, rgba(21,21,24,.97) 0%, rgba(21,21,24,.78) 42%, rgba(21,21,24,.05) 100%),
-    url(/img/toji/hero.webp) 72% 16% / cover no-repeat;
-}
-.wo-hero-text{ padding:22px 24px; max-width:560px; }
-.wo-hero .page-title{ margin-bottom:8px; }
-.wo-hero .page-sub{ margin:0; }
-
 /* ===== Напоминание ===== */
 .wo-reminder{
   display:grid;
   grid-template-columns:auto 1fr auto;
   align-items:center;
   gap:16px;
-  margin-bottom:14px;
+  margin-top:14px;
 }
 .wo-avatar{
   width:64px; height:64px;
@@ -45,7 +27,8 @@
 .wo-rem-line input[type=time]:focus{ outline:none; border-color:var(--accent); }
 .wo-rem-status{ margin:6px 0 0; font-size:12px; color:var(--muted); line-height:1.5; }
 .wo-rem-status.is-error{ color:var(--danger); }
-.wo-rem-actions{ display:flex; align-items:center; gap:12px; }
+.wo-rem-actions{ display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.wo-measure-rem-title{ margin-top:10px; }
 
 .wo-switch{ position:relative; width:52px; height:30px; flex:0 0 auto; }
 .wo-switch input{ position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; z-index:1; }
@@ -167,7 +150,8 @@
 .wo-check input:checked + span::after{ opacity:1; }
 .wo-check input:focus-visible + span{ box-shadow:0 0 0 3px rgba(97,209,173,.3); }
 
-.wo-ex-top{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+.wo-ex > div{ min-width:0; }
+.wo-ex-top{ flex-wrap:wrap; display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
 .wo-ex-name{ font-size:15px; font-weight:600; line-height:1.4; }
 .wo-ex-sets{ flex:0 0 auto; font-family:var(--mono); font-size:13px; color:var(--accent); white-space:nowrap; }
 .wo-badges{ display:flex; gap:6px; margin-top:4px; }
@@ -193,6 +177,12 @@
 }
 .wo-rest:hover{ border-color:var(--accent); color:var(--accent); }
 
+.wo-log{ margin-top:10px; font-size:13px; }
+.wo-log summary{ color:var(--accent); cursor:pointer; }
+.wo-sets{ display:grid; gap:8px; margin-top:10px; }
+.wo-set-row{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.wo-set-row[hidden], .wo-timer .btn[hidden]{ display:none; }
+
 /* ===== Неделя ===== */
 .wo-weekgrid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:10px; }
 .wo-weekcard{
@@ -208,7 +198,9 @@
 .wo-weekcard p{ margin:0 0 8px; font-size:12px; color:var(--muted); }
 
 /* ===== Прогресс ===== */
-.wo-grid2{ display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:12px; margin-bottom:12px; }
+.wo-measures, .wo-stats{ margin-bottom:12px; }
+.wo-stats .field{ max-width:28rem; margin-bottom:12px; }
+.wo-stats .data-table{ min-width:0; }
 .wo-panel-title{ margin:0 0 12px; font-size:15px; }
 .wo-goal + .wo-goal{ margin-top:16px; }
 .wo-goal-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:6px; font-size:14px; }
@@ -216,7 +208,7 @@
 .wo-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
 .wo-chip{ font-size:12px; padding:3px 9px; border:1px solid var(--line); border-radius:999px; color:var(--muted); }
 .wo-chip.is-hit{ border-color:rgba(97,209,173,.5); color:var(--wo-ok); }
-.wo-form{ display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; }
+.wo-form{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
 .wo-form .field.wide{ grid-column:1 / -1; }
 .wo-form .btn{ grid-column:1 / -1; }
 .wo-form-hint{ grid-column:1 / -1; margin:0; font-size:12px; color:var(--muted); }
@@ -241,14 +233,14 @@
 /* ===== Таймер отдыха ===== */
 .wo-timer{
   position:fixed; left:50%; bottom:max(14px, env(safe-area-inset-bottom)); transform:translateX(-50%);
-  z-index:900;
+  z-index:900; width:max-content; max-width:calc(100% - 24px);
   display:flex; align-items:center; gap:12px;
   padding:10px 14px;
   background:var(--panel); border:1px solid var(--accent); border-radius:var(--radius-lg);
   box-shadow:var(--shadow);
 }
 .wo-timer[hidden]{ display:none; }
-.wo-timer-label{ font-size:12px; color:var(--muted); }
+.wo-timer-label{ font-size:12px; color:var(--muted); overflow-wrap:anywhere; }
 .wo-timer-time{ font-family:var(--mono); font-size:22px; font-weight:700; min-width:3.2ch; color:var(--accent); }
 .wo-timer.is-done .wo-timer-time{ color:var(--wo-ok); }
 .wo-timer .btn{ padding:6px 10px; font-size:13px; }
@@ -261,16 +253,13 @@
 }
 
 @media (max-width: 700px){
-  .wo-hero{
-    min-height:260px;
-    background:
-      linear-gradient(0deg, rgba(21,21,24,.97) 0%, rgba(21,21,24,.7) 55%, rgba(21,21,24,.05) 100%),
-      url(/img/toji/hero.webp) 62% 0 / cover no-repeat;
-  }
-  .wo-hero-text{ padding:16px; }
+  .wo-tabs{ flex-wrap:wrap; }
+  .wo-tab{ padding:7px 12px; }
+  .wo-stats .data-table{ table-layout:fixed; overflow-wrap:anywhere; }
+  .wo-stats .data-table th, .wo-stats .data-table td{ padding-inline:4px; }
+  .wo-stats .data-table th:nth-child(2), .wo-stats .data-table th:nth-child(4){ width:18%; }
   .wo-reminder{ grid-template-columns:auto 1fr; }
   .wo-rem-actions{ grid-column:1 / -1; justify-content:space-between; }
   .wo-day{ padding:7px 0 8px; font-size:12px; }
   .wo-day small{ display:none; }
-  .wo-form{ grid-template-columns:1fr 1fr; }
 }

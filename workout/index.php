@@ -32,28 +32,21 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 ?>
 <main class="page wo">
   <div class="page-wrap">
-    <section class="wo-hero">
-      <div class="wo-hero-text">
-        <div class="page-label">// тренировки</div>
-        <h1 class="page-title">Дисциплина вместо мотивации</h1>
-        <p class="page-sub" id="woHeroSub"><?= htmlspecialchars($plan['goal'], ENT_QUOTES, 'UTF-8') ?></p>
-      </div>
-    </section>
-
-    <section class="wo-reminder panel" id="woReminder" aria-label="Напоминание о завтраке"></section>
-
+    <h1 class="page-title" data-type="off">Тренировки</h1>
     <div class="wo-tabs" role="tablist" id="woTabs">
       <button type="button" class="wo-tab" role="tab" data-tab="today">Сегодня</button>
       <button type="button" class="wo-tab" role="tab" data-tab="week">Неделя</button>
       <button type="button" class="wo-tab" role="tab" data-tab="progress">Прогресс</button>
+      <button type="button" class="wo-tab" role="tab" data-tab="stats">Статистика</button>
       <button type="button" class="wo-tab" role="tab" data-tab="plan">План и питание</button>
     </div>
 
     <div id="woView"><noscript>Для страницы нужен JavaScript.</noscript></div>
+    <section class="wo-reminder panel" id="woReminder" aria-label="Напоминания"></section>
   </div>
 
   <div class="wo-timer" id="woTimer" hidden>
-    <span class="wo-timer-label">Отдых</span>
+    <span class="wo-timer-label" id="woTimerLabel">Отдых</span>
     <span class="wo-timer-time" id="woTimerTime">0:00</span>
     <button type="button" class="btn" id="woTimerAdd">+30 с</button>
     <button type="button" class="btn" id="woTimerStop">Стоп</button>

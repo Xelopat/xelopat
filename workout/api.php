@@ -30,8 +30,9 @@ $action = (string)($in['action'] ?? '');
 $date = (string)($in['date'] ?? '');
 $exId = (string)($in['id'] ?? '');
 
-if (in_array($action, ['done', 'weight'], true)) {
-    if (!workout_valid_date($date) || !isset(workout_exercise_ids()[$exId])) api_out(['error' => 'bad_request'], 400);
+if (in_array($action, ['done', 'weight', 'exercise_log'], true)) {
+    $exercise = workout_exercises()[$exId] ?? null;
+    if (!workout_valid_date($date) || !$exercise) api_out(['error' => 'bad_request'], 400);
 }
 
 switch ($action) {
@@ -51,6 +52,27 @@ switch ($action) {
             if ($w !== null) $users[$uid]['days'][$date]['w'][$exId] = $w;
             else unset($users[$uid]['days'][$date]['w'][$exId]);
         });
+        break;
+
+    case 'exercise_log':
+        $sets = $in['sets'] ?? null;
+        $weight = $in['weight'] ?? null;
+        $max = isset($exercise['seconds']) ? 7200 : 999;
+        if (!is_array($sets) || array_values($sets) !== $sets || count($sets) > 30) api_out(['error' => 'bad_request'], 400);
+        foreach ($sets as $value) {
+            if ($value !== null && (!is_int($value) || $value < 1 || $value > $max)) api_out(['error' => 'bad_request'], 400);
+        }
+        if ($weight !== null && (empty($exercise['track']) || !is_numeric($weight) || $weight < 0.01 || $weight > 1000)) {
+            api_out(['error' => 'bad_request'], 400);
+        }
+        $saved = workout_mutate(function (array &$users) use ($uid, $date, $exId, $sets, $weight) {
+            if ($sets) $users[$uid]['days'][$date]['sets'][$exId] = $sets;
+            else unset($users[$uid]['days'][$date]['sets'][$exId]);
+            if ($weight !== null) $users[$uid]['days'][$date]['w'][$exId] = round((float)$weight, 2);
+            else unset($users[$uid]['days'][$date]['w'][$exId]);
+            return true;
+        });
+        if (!$saved) api_out(['error' => 'storage'], 500);
         break;
 
     case 'measure_add':
@@ -88,12 +110,19 @@ switch ($action) {
         $tz = (string)($in['tz'] ?? '');
         if (!push_endpoint_ok($endpoint)) api_out(['error' => 'bad_endpoint'], 400);
         if (!in_array($tz, timezone_identifiers_list(), true)) $tz = 'Europe/Moscow';
+        $p256dh = (string)($in['p256dh'] ?? '');
+        $auth = (string)($in['auth'] ?? '');
+        if (($p256dh !== '' || $auth !== '') && !push_keys_ok($p256dh, $auth)) api_out(['error' => 'bad_keys'], 400);
         $ua = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 120);
-        workout_mutate(function (array &$users) use ($uid, $endpoint, $tz, $ua) {
+        workout_mutate(function (array &$users) use ($uid, $endpoint, $tz, $ua, $p256dh, $auth) {
             $rem = $users[$uid]['reminder'] ?? [];
             $rem['time'] = $rem['time'] ?? '07:50';
             $rem['tz'] = $tz;
-            $rem['subs'][sha1($endpoint)] = ['endpoint' => $endpoint, 'ua' => $ua, 'added' => time()];
+            $hash = sha1($endpoint);
+            $sub = $rem['subs'][$hash] ?? [];
+            $sub = array_merge($sub, ['endpoint' => $endpoint, 'ua' => $ua, 'added' => time()]);
+            if ($p256dh !== '') $sub = array_merge($sub, ['p256dh' => $p256dh, 'auth' => $auth]);
+            $rem['subs'][$hash] = $sub;
             $users[$uid]['reminder'] = $rem;
         });
         break;
@@ -106,7 +135,7 @@ switch ($action) {
         break;
 
     case 'push_test':
-        $sent = push_send_user($uid);
+        $sent = push_send_user($uid, ($in['type'] ?? '') === 'measurements' ? 'measurements' : 'breakfast');
         api_out(['sent' => $sent, 'state' => workout_public_state(workout_user($uid))]);
 
     default:

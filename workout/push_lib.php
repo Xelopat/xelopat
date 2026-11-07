@@ -1,6 +1,5 @@
 <?php
-// Web Push без библиотек: отправка «пустого» пуша с подписью VAPID (RFC 8292).
-// Текст уведомления собирает сам service worker (workout/sw.js), поэтому шифровать полезную нагрузку не нужно.
+// Web Push с подписью VAPID. Для новых типов уведомлений шифруем полезную нагрузку.
 declare(strict_types=1);
 
 function push_b64u(string $bin): string {
@@ -64,7 +63,34 @@ function push_endpoint_ok(string $endpoint): bool {
 }
 
 // Возвращает HTTP-статус push-сервиса: 201 — принято, 404/410 — подписка умерла, 0 — не достучались.
-function push_send(string $endpoint, int $ttl = 7200): int {
+function push_keys_ok(string $p256dh, string $auth): bool {
+    return preg_match('/^[A-Za-z0-9_-]{87}$/D', $p256dh)
+        && preg_match('/^[A-Za-z0-9_-]{22}$/D', $auth)
+        && push_b64u_decode($p256dh)[0] === "\x04";
+}
+
+// Один финальный aes128gcm-рекорд по RFC 8291 и RFC 8188.
+function push_encrypt(string $message, string $p256dh, string $auth): ?string {
+    if (!push_keys_ok($p256dh, $auth)) return null;
+    $point = push_b64u_decode($p256dh);
+    // Заголовок SubjectPublicKeyInfo для несжатой точки P-256.
+    $spki = hex2bin('3059301306072a8648ce3d020106082a8648ce3d030107034200') . $point;
+    $receiver = openssl_pkey_get_public("-----BEGIN PUBLIC KEY-----\n" . base64_encode($spki) . "\n-----END PUBLIC KEY-----");
+    $sender = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
+    if (!$receiver || !$sender) return null;
+    $ec = openssl_pkey_get_details($sender)['ec'];
+    $senderPoint = "\x04" . str_pad($ec['x'], 32, "\0", STR_PAD_LEFT) . str_pad($ec['y'], 32, "\0", STR_PAD_LEFT);
+    $secret = openssl_pkey_derive($receiver, $sender, 32);
+    if ($secret === false) return null;
+    $ikm = hash_hkdf('sha256', $secret, 32, "WebPush: info\0" . $point . $senderPoint, push_b64u_decode($auth));
+    $salt = random_bytes(16);
+    $key = hash_hkdf('sha256', $ikm, 16, "Content-Encoding: aes128gcm\0", $salt);
+    $nonce = hash_hkdf('sha256', $ikm, 12, "Content-Encoding: nonce\0", $salt);
+    $cipher = openssl_encrypt($message . "\x02", 'aes-128-gcm', $key, OPENSSL_RAW_DATA, $nonce, $tag);
+    return $cipher === false ? null : $salt . pack('NC', 4096, 65) . $senderPoint . $cipher . $tag;
+}
+
+function push_send(string $endpoint, ?string $body = null, int $ttl = 7200): int {
     $vapid = push_vapid();
     if (!$vapid || !push_endpoint_ok($endpoint)) return 0;
     $jwt = push_jwt($endpoint, $vapid);
@@ -74,12 +100,16 @@ function push_send(string $endpoint, int $ttl = 7200): int {
         'Authorization: vapid t=' . $jwt . ', k=' . $vapid['public'],
         'TTL: ' . $ttl,
         'Urgency: normal',
-        'Content-Length: 0',
     ];
+    if ($body !== null) {
+        $headers[] = 'Content-Encoding: aes128gcm';
+        $headers[] = 'Content-Type: application/octet-stream';
+    }
+    $headers[] = 'Content-Length: ' . strlen($body ?? '');
     $ch = curl_init($endpoint);
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => '',
+        CURLOPT_POSTFIELDS => $body ?? '',
         CURLOPT_HTTPHEADER => $headers,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 15,
@@ -92,12 +122,17 @@ function push_send(string $endpoint, int $ttl = 7200): int {
 }
 
 // Шлёт пуш на все подписки пользователя, мёртвые подписки удаляет. Возвращает число принятых.
-function push_send_user(string $uid): int {
+function push_send_user(string $uid, string $type = 'breakfast'): int {
     $subs = workout_user($uid)['reminder']['subs'] ?? [];
     $ok = 0;
     $dead = [];
     foreach ($subs as $hash => $s) {
-        $status = push_send((string)($s['endpoint'] ?? ''));
+        $body = null;
+        if ($type === 'measurements') {
+            $body = push_encrypt($type, $s['p256dh'] ?? '', $s['auth'] ?? '');
+            if ($body === null) continue;
+        }
+        $status = push_send((string)($s['endpoint'] ?? ''), $body);
         if ($status >= 200 && $status < 300) $ok++;
         elseif ($status === 404 || $status === 410) $dead[] = $hash;
     }
