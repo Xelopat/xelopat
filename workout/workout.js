@@ -86,11 +86,14 @@
 
   function setRow(ex, i, value, weight) {
     const index = i + 1;
+    const planned = ex.seconds ? null : ex.sets.match(/^\d+×(\d+)/)?.[1];
+    const suggested = value == null && planned != null;
     return `<div class="wo-set-row">
       <span class="wo-set-index">${index}</span>
       <div class="wo-stepper">
         <input type="number" inputmode="numeric" min="1" max="${ex.seconds ? 7200 : 999}" data-set-value
-          aria-label="${ex.seconds ? 'Секунды' : 'Повторы'}, подход ${index}" value="${value ?? ''}" placeholder="${ex.seconds || '—'}">
+          aria-label="${ex.seconds ? 'Секунды' : 'Повторы'}, подход ${index}" value="${value ?? planned ?? ''}"
+          placeholder="${ex.seconds || '—'}"${suggested ? ' data-planned title="По плану. Нажми Enter, чтобы записать."' : ''}>
         <button type="button" class="wo-rest" data-step="-1" aria-label="Уменьшить, подход ${index}">−</button>
         <button type="button" class="wo-rest" data-step="1" aria-label="Увеличить, подход ${index}">+</button>
       </div>
@@ -247,7 +250,7 @@
 
   function statsChart(ex, history) {
     const metrics = {
-      ...(ex.track && !ex.seconds ? { volume: ['Объём, кг', 'кг'] } : {}),
+      ...(ex.track && !ex.seconds ? { volume: ['Объём нагрузки', 'кг'] } : {}),
       ...(ex.track ? { mean: ['Средний вес, кг', 'кг'] } : {}),
       total: [ex.seconds ? 'Время, сек' : 'Повторы', units(ex)],
     };
@@ -295,9 +298,9 @@
         <select id="woStatsExercise">${statsExercises.map((item) => `<option value="${item.id}"${item.id === ex.id ? ' selected' : ''}>${esc(item.name)}</option>`).join('')}</select></div>
       ${statsChart(ex, history)}
       ${rows ? `<div class="wo-table-wrap"><table class="data-table"><thead><tr><th>Дата</th><th>Подходы</th>
-        ${ex.track ? '<th>Средний вес, кг</th>' : ''}${ex.track && !ex.seconds ? '<th>Объём, кг</th>' : ''}</tr></thead><tbody>${rows}</tbody></table></div>`
+        ${ex.track ? '<th>Средний вес, кг</th>' : ''}${ex.track && !ex.seconds ? '<th>Объём нагрузки</th>' : ''}</tr></thead><tbody>${rows}</tbody></table></div>`
         : '<p class="wo-muted">Тренировок с этим упражнением пока нет.</p>'}
-      ${ex.track && !ex.seconds ? '<p class="wo-ex-note">Объём — сумма «вес × повторы» по подходам, где есть оба значения. Средний вес учитывает количество повторов.</p>' : ''}
+      ${ex.track && !ex.seconds ? '<p class="wo-ex-note">Объём нагрузки в килограммах — сумма «вес × повторы» за тренировку.</p>' : ''}
       </section>
       <section class="panel"><h2 class="wo-panel-title">Цели из плана</h2>${goals}
         <p class="wo-ex-note">Текущие значения берутся из последних замеров или стартовых данных плана.</p></section>`;
@@ -399,6 +402,14 @@
     const form = e.target.form;
     if (!form?.dataset.log) return;
     const { log: id, logDate: date } = form.dataset;
+    let editedSet = e.target.closest('[data-set-value]');
+    if (e.target.matches('[data-set-weight]') && e.target.value && e.target.validity.valid) {
+      editedSet = $('[data-set-value]', e.target.closest('.wo-set-row'));
+    }
+    if (editedSet?.hasAttribute('data-planned')) {
+      editedSet.removeAttribute('data-planned');
+      editedSet.removeAttribute('title');
+    }
     if (e.target.name === 'count' && e.target.validity.valid) {
       const ex = exercises.get(id);
       const container = $('.wo-set-values', form);
@@ -415,8 +426,15 @@
       $('.wo-save-status', form).textContent = 'Проверь значения';
       return;
     }
-    const read = (selector) => $$(selector + ':enabled', form).map((input) => input.valueAsNumber || null);
+    const read = (selector) => $$(selector + ':enabled', form)
+      .map((input) => input.hasAttribute('data-planned') ? null : input.valueAsNumber || null);
     scheduleLog({ date, id, sets: read('[data-set-value]'), weights: read('[data-set-weight]') });
+  });
+
+  root.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !e.target.matches('[data-planned]')) return;
+    e.preventDefault();
+    e.target.dispatchEvent(new Event('input', { bubbles: true }));
   });
 
   const logForm = (date, id) => root.querySelector(`[data-log-date="${date}"][data-log="${id}"]`);

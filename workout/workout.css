@@ -191,6 +191,7 @@
 .wo-stepper{ display:grid; grid-template-columns:minmax(0, 1fr) 1.9rem 1.9rem; gap:4px; }
 .wo-set-row input{ box-sizing:border-box; width:100%; min-width:0; height:34px; padding-inline:4px; text-align:center; appearance:textfield; }
 .wo-set-row input::-webkit-inner-spin-button{ appearance:none; }
+.wo-set-row input[data-planned]{ color:var(--muted); }
 .wo-stepper .wo-rest{ min-height:34px; padding:0; font-size:16px; }
 .wo-set-row[hidden], .wo-timer .btn[hidden]{ display:none; }
 
