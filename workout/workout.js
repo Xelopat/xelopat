@@ -79,15 +79,32 @@
     return { sets, weights };
   }
 
+  function suggestedWeights(ex, before) {
+    if (!ex.track) return [];
+    for (const date of Object.keys(state.days).filter((date) => date < before).sort().reverse()) {
+      const { w = {}, sw = {} } = dayState(date);
+      const ids = new Set([ex.id, ...Object.keys(sw), ...Object.keys(w)]);
+      for (const id of ids) {
+        const previous = exercises.get(id);
+        if (!previous || groupOf(previous) !== groupOf(ex)) continue;
+        const { weights } = savedLog(date, id);
+        if (weights.some((weight) => weight != null)) return weights;
+      }
+    }
+    return [ex.defaultWeight ?? 5];
+  }
+
   const units = (ex) => ex.seconds ? 'сек' : 'повт.';
   const number = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
   const displayNumber = (value) => value == null ? '—' : number.format(value);
   const plannedCount = (ex) => Number(ex.sets.match(/^(\d+)×/)?.[1] || 1);
 
-  function setRow(ex, i, value, weight) {
+  function setRow(ex, i, value, weight, defaults) {
     const index = i + 1;
     const planned = ex.seconds ? null : ex.sets.match(/^\d+×(\d+)/)?.[1];
     const suggested = value == null && planned != null;
+    const defaultWeight = defaults[i] ?? defaults.find((entry) => entry != null);
+    const suggestedWeight = weight == null && defaultWeight > 0;
     return `<div class="wo-set-row">
       <span class="wo-set-index">${index}</span>
       <div class="wo-stepper">
@@ -97,8 +114,13 @@
         <button type="button" class="wo-rest" data-step="-1" aria-label="Уменьшить, подход ${index}">−</button>
         <button type="button" class="wo-rest" data-step="1" aria-label="Увеличить, подход ${index}">+</button>
       </div>
-      ${ex.track ? `<input type="number" class="wo-set-weight" inputmode="decimal" step="0.01" min="0.01" max="1000"
-        data-set-weight aria-label="Вес, подход ${index}" value="${weight ?? ''}" placeholder="кг">` : ''}
+      ${ex.track ? `<div class="wo-stepper wo-weight-stepper">
+        <input type="number" inputmode="decimal" step="0.01" min="0.01" max="1000"
+          data-set-weight aria-label="Вес, подход ${index}" value="${weight ?? (suggestedWeight ? defaultWeight : '')}"
+          placeholder="—"${suggestedWeight ? ' data-planned title="Предложенный вес. Нажми Enter, чтобы записать."' : ''}>
+        <button type="button" class="wo-rest" data-step="-5" aria-label="Уменьшить вес на 5 кг, подход ${index}">−5</button>
+        <button type="button" class="wo-rest" data-step="5" aria-label="Увеличить вес на 5 кг, подход ${index}">+5</button>
+      </div>` : ''}
       ${ex.seconds ? '<button type="button" class="wo-rest" data-ex-timer>Старт</button>' : ''}
     </div>`;
   }
@@ -107,6 +129,7 @@
     const draft = pendingLogs.get(logKey(date, ex.id));
     const { sets, weights } = draft?.payload || savedLog(date, ex.id);
     const count = sets.length || plannedCount(ex);
+    const defaults = suggestedWeights(ex, date);
     return `<details class="wo-log">
       <summary>Подходы</summary>
       <form data-log="${ex.id}" data-log-date="${date}">
@@ -114,9 +137,9 @@
           <label class="wo-weight">Подходов <input type="number" inputmode="numeric" min="1" max="30" name="count" value="${count}" required></label>
           <span class="wo-save-status" role="status">${draft?.message || ''}</span>
         </div>
-        <div class="wo-sets">
-          <div class="wo-set-head"><span>№</span><span>${ex.seconds ? 'Секунды' : 'Повторы'}</span>${ex.track ? '<span>кг</span>' : ''}</div>
-          <div class="wo-set-values">${Array.from({ length: count }, (_, i) => setRow(ex, i, sets[i], weights[i])).join('')}</div>
+        <div class="wo-sets${ex.track ? ' wo-sets--weighted' : ''}">
+          <div class="wo-set-head"><span>№</span><span>${ex.seconds ? 'Секунды' : 'Повторы'}</span>${ex.track ? '<span>Вес, кг</span>' : ''}</div>
+          <div class="wo-set-values">${Array.from({ length: count }, (_, i) => setRow(ex, i, sets[i], weights[i], defaults)).join('')}</div>
         </div>
       </form>
     </details>`;
@@ -349,10 +372,10 @@
     else if (t.dataset.goto) setTab(t.dataset.goto);
     else if (t.dataset.rest) startTimer(Number(t.dataset.rest));
     else if (t.dataset.step) {
-      const input = $('[data-set-value]', t.closest('.wo-set-row'));
+      const input = $('input', t.closest('.wo-stepper'));
       const current = input.valueAsNumber || Number(input.placeholder) || 0;
       const next = Math.min(Number(input.max), current + Number(t.dataset.step));
-      input.value = next > 0 ? next : '';
+      input.value = next > 0 ? Number(next.toFixed(2)) : '';
       input.dispatchEvent(new Event('input', { bubbles: true }));
     } else if (t.hasAttribute('data-ex-timer')) {
       const row = t.closest('.wo-set-row');
@@ -402,20 +425,22 @@
     const form = e.target.form;
     if (!form?.dataset.log) return;
     const { log: id, logDate: date } = form.dataset;
-    let editedSet = e.target.closest('[data-set-value]');
+    const edited = [e.target];
     if (e.target.matches('[data-set-weight]') && e.target.value && e.target.validity.valid) {
-      editedSet = $('[data-set-value]', e.target.closest('.wo-set-row'));
+      edited.push($('[data-set-value]', e.target.closest('.wo-set-row')));
     }
-    if (editedSet?.hasAttribute('data-planned')) {
-      editedSet.removeAttribute('data-planned');
-      editedSet.removeAttribute('title');
+    for (const input of edited) {
+      if (!input.hasAttribute('data-planned')) continue;
+      input.removeAttribute('data-planned');
+      input.removeAttribute('title');
     }
     if (e.target.name === 'count' && e.target.validity.valid) {
       const ex = exercises.get(id);
       const container = $('.wo-set-values', form);
       const count = e.target.valueAsNumber;
+      const defaults = suggestedWeights(ex, date);
       while (container.children.length < count) {
-        container.insertAdjacentHTML('beforeend', setRow(ex, container.children.length));
+        container.insertAdjacentHTML('beforeend', setRow(ex, container.children.length, null, null, defaults));
       }
       [...container.children].forEach((row, i) => {
         row.hidden = i >= count;

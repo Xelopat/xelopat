@@ -187,12 +187,18 @@
   gap:6px; align-items:center;
 }
 .wo-set-head{ color:var(--muted); font-size:12px; margin-bottom:6px; }
+.wo-sets--weighted .wo-set-head, .wo-sets--weighted .wo-set-row{
+  grid-template-columns:1.25rem minmax(0, 7rem) minmax(0, 8rem) max-content;
+}
+.wo-sets--weighted .wo-set-head > :last-child{ padding-left:9px; }
 .wo-set-index{ color:var(--muted); font-variant-numeric:tabular-nums; }
 .wo-stepper{ display:grid; grid-template-columns:minmax(0, 1fr) 1.9rem 1.9rem; gap:4px; }
+.wo-weight-stepper{ padding-left:8px; border-left:1px solid var(--line); }
 .wo-set-row input{ box-sizing:border-box; width:100%; min-width:0; height:34px; padding-inline:4px; text-align:center; appearance:textfield; }
 .wo-set-row input::-webkit-inner-spin-button{ appearance:none; }
 .wo-set-row input[data-planned]{ color:var(--muted); }
 .wo-stepper .wo-rest{ min-height:34px; padding:0; font-size:16px; }
+.wo-weight-stepper .wo-rest{ font-size:13px; }
 .wo-set-row[hidden], .wo-timer .btn[hidden]{ display:none; }
 
 /* ===== Неделя ===== */
@@ -284,7 +290,14 @@
   .wo-day small{ display:none; }
 }
 
+@media (max-width: 440px){
+  .wo-sets--weighted .wo-set-head, .wo-sets--weighted .wo-set-row{
+    grid-template-columns:1rem minmax(0, 7rem) minmax(0, 8rem);
+  }
+  .wo-weight-stepper + [data-ex-timer]{ grid-column:2 / -1; justify-self:start; }
+}
+
 @media (max-width: 360px){
   .wo-set-head, .wo-set-row{ grid-template-columns:1.25rem 6.5rem 3.2rem; }
-  .wo-set-weight + [data-ex-timer]{ grid-column:2; justify-self:start; }
+  .wo-stepper{ grid-template-columns:minmax(0, 1fr) 1.65rem 1.65rem; }
 }

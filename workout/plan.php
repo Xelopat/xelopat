@@ -3,6 +3,7 @@
 // Пункты с 'added' => true дополнены поверх исходного плана (разминка, заминка, пара упражнений на плечи и кор).
 // 'optional' => true — по желанию, в процент выполнения дня не входят.
 // 'track' => true — у упражнения можно записать вес каждого подхода.
+// 'defaultWeight' — вес из плана до первой записи. Ноль означает, что дополнительный вес не подставляется.
 // 'rest' — отдых между подходами в секундах (тяжёлые 2–3 мин, изоляция 60–90 сек), по нему запускается таймер.
 declare(strict_types=1);
 
@@ -33,9 +34,9 @@ return [
             'short' => 'Пн', 'name' => 'Понедельник', 'title' => 'Верх / сила', 'kind' => 'upper',
             'exercises' => [
                 $warmup,
-                ['id' => 'mon-pullups', 'name' => 'Подтягивания', 'track' => true, 'sets' => '5×4–6', 'rest' => 150,
+                ['id' => 'mon-pullups', 'name' => 'Подтягивания', 'track' => true, 'defaultWeight' => 0, 'sets' => '5×4–6', 'rest' => 150,
                     'note' => 'Без раскачки. Когда станет легко 5×6, начинай добавлять небольшой вес.'],
-                ['id' => 'mon-incline-press', 'name' => 'Жим гантелей лёжа на наклонной скамье 15°', 'sets' => '4×6–8', 'rest' => 150, 'track' => true,
+                ['id' => 'mon-incline-press', 'name' => 'Жим гантелей лёжа на наклонной скамье 15°', 'sets' => '4×6–8', 'rest' => 150, 'track' => true, 'defaultWeight' => 22,
                     'note' => 'Старт: гантели по 22 кг. Сделал 8/8/8/8 чисто — увеличивай вес.'],
                 ['id' => 'mon-chest-row', 'name' => 'Горизонтальная тяга в тренажёре с упором грудью', 'sets' => '4×6–8', 'rest' => 150, 'track' => true,
                     'note' => 'Тяжело, но без рывков.'],
@@ -53,7 +54,7 @@ return [
             'short' => 'Вт', 'name' => 'Вторник', 'title' => 'Ноги', 'kind' => 'legs',
             'exercises' => [
                 array_merge($warmup, ['note' => 'Лёгкий велотренажёр, приседания с собственным весом, мостик. Перед жимом платформы 1–2 лёгких подхода.']),
-                ['id' => 'tue-leg-press', 'name' => 'Жим платформы', 'sets' => '4×10–15', 'rest' => 150, 'track' => true,
+                ['id' => 'tue-leg-press', 'name' => 'Жим платформы', 'sets' => '4×10–15', 'rest' => 150, 'track' => true, 'defaultWeight' => 110,
                     'note' => 'Текущая база: 110 кг × 15 × 4. Не сокращай амплитуду ради веса.'],
                 ['id' => 'tue-leg-curl', 'name' => 'Сгибание ног сидя или лёжа', 'sets' => '4×8–12', 'rest' => 120, 'track' => true],
                 ['id' => 'tue-leg-ext', 'name' => 'Разгибание ног в тренажёре', 'sets' => '3×10–15', 'rest' => 90, 'track' => true],
@@ -75,9 +76,9 @@ return [
             'short' => 'Чт', 'name' => 'Четверг', 'title' => 'Верх / масса', 'kind' => 'upper',
             'exercises' => [
                 $warmup,
-                ['id' => 'thu-pullups', 'name' => 'Подтягивания', 'track' => true, 'group' => 'mon-pullups', 'sets' => '4×6–8', 'rest' => 150,
+                ['id' => 'thu-pullups', 'name' => 'Подтягивания', 'track' => true, 'defaultWeight' => 0, 'group' => 'mon-pullups', 'sets' => '4×6–8', 'rest' => 150,
                     'note' => 'Не до отказа.'],
-                ['id' => 'thu-incline-press', 'name' => 'Жим гантелей лёжа, наклон 15°', 'group' => 'mon-incline-press', 'sets' => '3×8–12', 'rest' => 120, 'track' => true],
+                ['id' => 'thu-incline-press', 'name' => 'Жим гантелей лёжа, наклон 15°', 'group' => 'mon-incline-press', 'sets' => '3×8–12', 'rest' => 120, 'track' => true, 'defaultWeight' => 22],
                 ['id' => 'thu-chest-row', 'name' => 'Горизонтальная тяга с упором грудью', 'group' => 'mon-chest-row', 'sets' => '3×8–12', 'rest' => 120, 'track' => true],
                 ['id' => 'thu-pulldown', 'name' => 'Вертикальная тяга нейтральным хватом', 'group' => 'mon-pulldown', 'sets' => '3×10–12', 'rest' => 90, 'track' => true],
                 ['id' => 'thu-crossover', 'name' => 'Кроссовер на грудь', 'track' => true, 'sets' => '2×12–15', 'rest' => 75],
