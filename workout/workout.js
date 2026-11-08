@@ -22,6 +22,9 @@
   const view = { tab: 'today', date: todayKey };
   const exercises = new Map(Object.values(plan.days).flatMap((day) => day.exercises.map((ex) => [ex.id, ex])));
   const groupOf = (ex) => ex.group || ex.id;
+  const isLogged = (ex) => !ex.section;
+  const pendingLogs = new Map();
+  const logKey = (date, id) => date + '/' + id;
 
   /* ---------- данные ---------- */
   const dayState = (k) => state.days[k] || {};
@@ -30,16 +33,6 @@
   const required = (k) => dayPlan(k).exercises.filter((e) => !e.optional);
   const doneCount = (k) => required(k).filter((e) => doneMap(k)[e.id]).length;
   const isFull = (k) => required(k).length > 0 && doneCount(k) === required(k).length;
-
-  function lastWeight(ex, before) {
-    for (const date of Object.keys(state.days).filter((k) => k < before).sort().reverse()) {
-      for (const [id, value] of Object.entries(dayState(date).w || {})) {
-        const previous = exercises.get(id);
-        if (previous && groupOf(previous) === groupOf(ex)) return { value, date };
-      }
-    }
-    return null;
-  }
 
   let requests = Promise.resolve();
   function api(action, payload = {}) {
@@ -51,6 +44,7 @@
     try {
       const res = await fetch('/workout/api', {
         method: 'POST',
+        keepalive: action === 'exercise_log',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, csrf: W.csrf, ...payload }),
       });
@@ -77,45 +71,49 @@
     return `<div class="wo-bar${total && done === total ? ' is-full' : ''}"><i style="width:${pct}%"></i></div>`;
   };
 
-  const savedSets = (date, id) => dayState(date).sets?.[id] || [];
-  const units = (ex) => ex.seconds ? 'сек' : 'повт.';
-  const logSummary = (date, ex) => {
-    const sets = savedSets(date, ex.id);
-    const weight = dayState(date).w?.[ex.id];
-    const details = [];
-    if (sets.length) details.push(`${sets.length} подх. · ${sets.map((n) => n ?? '—').join(' / ')} ${units(ex)}`);
-    if (weight != null) details.push(`${weight} кг`);
-    return details.join(' · ') || 'Записать подходы';
-  };
+  function savedLog(date, id) {
+    const day = dayState(date);
+    const sets = day.sets?.[id] || [];
+    const legacy = day.w?.[id];
+    const weights = day.sw?.[id] || (legacy == null ? [] : (sets.length ? sets.map(() => legacy) : [legacy]));
+    return { sets, weights };
+  }
 
-  function setRow(ex, i, value) {
+  const units = (ex) => ex.seconds ? 'сек' : 'повт.';
+  const number = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
+  const displayNumber = (value) => value == null ? '—' : number.format(value);
+  const plannedCount = (ex) => Number(ex.sets.match(/^(\d+)×/)?.[1] || 1);
+
+  function setRow(ex, i, value, weight) {
+    const index = i + 1;
     return `<div class="wo-set-row">
-      <label class="wo-weight">Подход ${i + 1}
-        <input type="number" inputmode="numeric" min="1" max="${ex.seconds ? 7200 : 999}"
-          data-set-value value="${value ?? ''}" placeholder="${ex.seconds || ''}"> ${units(ex)}</label>
-      ${ex.seconds ? '<button type="button" class="wo-rest" data-ex-timer>Запустить таймер</button>' : ''}
+      <span class="wo-set-index">${index}</span>
+      <div class="wo-stepper">
+        <input type="number" inputmode="numeric" min="1" max="${ex.seconds ? 7200 : 999}" data-set-value
+          aria-label="${ex.seconds ? 'Секунды' : 'Повторы'}, подход ${index}" value="${value ?? ''}" placeholder="${ex.seconds || '—'}">
+        <button type="button" class="wo-rest" data-step="-1" aria-label="Уменьшить, подход ${index}">−</button>
+        <button type="button" class="wo-rest" data-step="1" aria-label="Увеличить, подход ${index}">+</button>
+      </div>
+      ${ex.track ? `<input type="number" class="wo-set-weight" inputmode="decimal" step="0.01" min="0.01" max="1000"
+        data-set-weight aria-label="Вес, подход ${index}" value="${weight ?? ''}" placeholder="кг">` : ''}
+      ${ex.seconds ? '<button type="button" class="wo-rest" data-ex-timer>Старт</button>' : ''}
     </div>`;
   }
 
   function exerciseLog(ex, date) {
-    const sets = savedSets(date, ex.id);
-    const count = sets.length || Number(ex.sets.match(/^(\d+)×/)?.[1] || 1);
-    const weight = dayState(date).w?.[ex.id];
-    const last = ex.track ? lastWeight(ex, date) : null;
+    const draft = pendingLogs.get(logKey(date, ex.id));
+    const { sets, weights } = draft?.payload || savedLog(date, ex.id);
+    const count = sets.length || plannedCount(ex);
     return `<details class="wo-log">
-      <summary>${logSummary(date, ex)}</summary>
+      <summary>Подходы</summary>
       <form data-log="${ex.id}" data-log-date="${date}">
         <div class="wo-ex-tools">
           <label class="wo-weight">Подходов <input type="number" inputmode="numeric" min="1" max="30" name="count" value="${count}" required></label>
-          ${ex.track ? `<label class="wo-weight">Вес <input type="number" inputmode="decimal" step="0.01" min="0.01" max="1000" name="weight"
-            value="${weight ?? ''}" placeholder="${last?.value ?? ''}"> кг</label>` : ''}
-          ${last ? `<span class="wo-muted">Прошлый вес · ${last.value} кг (${human(last.date)})</span>` : ''}
+          <span class="wo-save-status" role="status">${draft?.message || ''}</span>
         </div>
-        <div class="wo-sets">${Array.from({ length: count }, (_, i) => setRow(ex, i, sets[i])).join('')}</div>
-        <div class="wo-ex-tools">
-          <button type="submit" class="btn">Сохранить</button>
-          <button type="button" class="wo-rest" data-clear-log>Очистить запись</button>
-          <span class="wo-muted" role="status"></span>
+        <div class="wo-sets">
+          <div class="wo-set-head"><span>№</span><span>${ex.seconds ? 'Секунды' : 'Повторы'}</span>${ex.track ? '<span>кг</span>' : ''}</div>
+          <div class="wo-set-values">${Array.from({ length: count }, (_, i) => setRow(ex, i, sets[i], weights[i])).join('')}</div>
         </div>
       </form>
     </details>`;
@@ -155,7 +153,7 @@
           <div class="wo-ex-top"><span class="wo-ex-name">${esc(ex.name)}</span><span class="wo-ex-sets">${esc(ex.sets)}</span></div>
           ${badges ? `<div class="wo-badges">${badges}</div>` : ''}
           ${ex.note ? `<p class="wo-ex-note">${esc(ex.note)}</p>` : ''}
-          ${exerciseLog(ex, k)}
+          ${isLogged(ex) ? exerciseLog(ex, k) : ''}
           ${ex.rest ? `<div class="wo-ex-tools"><button type="button" class="wo-rest" data-rest="${ex.rest}">⏱ отдых ${fmt(ex.rest)}</button></div>` : ''}
         </div></li>`;
     }).join('');
@@ -217,24 +215,75 @@
         : '<p class="wo-muted" style="margin:0;font-size:14px">Пока пусто. Первые замеры лучше сделать до начала плана, чтобы было с чем сравнивать.</p>'}</section>`;
   }
 
-  function renderStats() {
-    const history = new Map();
+  const statsExercises = [...exercises.values()].filter((ex) => isLogged(ex) && groupOf(ex) === ex.id)
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  const sum = (values) => values.reduce((total, value) => total + value, 0);
+
+  function exerciseHistory(ex) {
+    const ids = [...exercises.values()].filter((item) => groupOf(item) === ex.id).map((item) => item.id);
+    const history = [];
     for (const date of Object.keys(state.days).sort().reverse()) {
-      const { w = {}, sets = {} } = dayState(date);
-      for (const id of new Set([...Object.keys(w), ...Object.keys(sets)])) {
-        const ex = exercises.get(id);
-        if (!ex) continue;
-        const group = groupOf(ex);
-        if (!history.has(group)) history.set(group, []);
-        history.get(group).push({ date, sets: sets[id] || [], weight: w[id] });
+      for (const id of ids) {
+        const { sets, weights } = savedLog(date, id);
+        const values = sets.filter((value) => value != null);
+        const recordedWeights = weights.filter((weight) => weight != null);
+        if (!values.length && !recordedWeights.length && !doneMap(date)[id]) continue;
+        let weightedReps = 0;
+        let volume = 0;
+        if (!ex.seconds) {
+          sets.forEach((reps, i) => {
+            if (reps == null || weights[i] == null) return;
+            weightedReps += reps;
+            volume += reps * weights[i];
+          });
+        }
+        const mean = weightedReps ? volume / weightedReps
+          : recordedWeights.length ? sum(recordedWeights) / recordedWeights.length : null;
+        history.push({ date, sets, weights, mean, volume: weightedReps ? volume : null, total: values.length ? sum(values) : null });
       }
     }
-    const options = [...history.keys()].sort((a, b) => exercises.get(a).name.localeCompare(exercises.get(b).name, 'ru'));
-    if (!history.has(view.exercise)) view.exercise = options[0];
+    return history;
+  }
+
+  function statsChart(ex, history) {
+    const metrics = {
+      ...(ex.track && !ex.seconds ? { volume: ['Объём, кг', 'кг'] } : {}),
+      ...(ex.track ? { mean: ['Средний вес, кг', 'кг'] } : {}),
+      total: [ex.seconds ? 'Время, сек' : 'Повторы', units(ex)],
+    };
+    const options = Object.keys(metrics);
+    const metric = view.metric || options.find((key) => history.some((row) => row[key] != null)) || options[0];
+    const [label, unit] = metrics[metric];
+    const entries = history.filter((row) => row[metric] != null).slice(0, 12).reverse();
+    const max = Math.max(...entries.map((row) => row[metric]));
+    return `<div class="wo-chart">
+      ${options.length > 1 ? `<div class="field"><label for="woStatsMetric">Показатель графика</label><select id="woStatsMetric">
+        ${options.map((key) => `<option value="${key}"${key === metric ? ' selected' : ''}>${metrics[key][0]}</option>`).join('')}</select></div>` : ''}
+      ${entries.length ? `<ul class="wo-chart-bars" aria-label="${label} по тренировкам">${entries.map((row) => `<li>
+        <time datetime="${row.date}">${human(row.date)}</time>
+        <span class="wo-bar" aria-hidden="true"><i style="width:${100 * row[metric] / max}%"></i></span>
+        <b>${displayNumber(row[metric])} ${unit}</b>
+      </li>`).join('')}</ul>` : '<p class="wo-muted">Для этого графика пока нет записанных значений.</p>'}
+    </div>`;
+  }
+
+  function renderStats() {
+    if (!view.exercise) {
+      view.exercise = statsExercises.find((ex) => exerciseHistory(ex).some((row) => row.total != null || row.mean != null))?.id
+        || statsExercises[0].id;
+    }
     const ex = exercises.get(view.exercise);
-    const rows = (history.get(view.exercise) || []).map(({ date, sets, weight }) => `<tr>
-      <td>${human(date)} ${parse(date).getFullYear()}</td><td>${sets.length || '—'}</td>
-      <td>${sets.map((n) => n ?? '—').join(' / ') || '—'}</td><td>${weight ?? '—'}</td></tr>`).join('');
+    const history = exerciseHistory(ex);
+    const rows = history.map(({ date, sets, weights, mean, volume }) => {
+      const values = Array.from({ length: Math.max(sets.length, weights.length) }, (_, i) => {
+        if (sets[i] == null && weights[i] == null) return '';
+        return `<span>${sets[i] == null ? '' : `${sets[i]} ${units(ex)}`}${sets[i] != null && weights[i] != null ? ' × ' : ''}${weights[i] == null ? '' : `${displayNumber(weights[i])} кг`}</span>`;
+      }).filter(Boolean);
+      return `<tr><td>${human(date)} ${parse(date).getFullYear()}</td>
+        <td class="wo-stats-sets">${values.join('') || 'Отмечено выполнение'}</td>
+        ${ex.track ? `<td>${displayNumber(mean)}</td>` : ''}
+        ${ex.track && !ex.seconds ? `<td>${displayNumber(volume)}</td>` : ''}</tr>`;
+    }).join('');
     const goals = Object.entries(plan.targets).map(([k, t]) => {
       const cur = latest(k);
       const max = t.goals[t.goals.length - 1];
@@ -242,11 +291,14 @@
       return `<div class="wo-goal"><div class="wo-goal-head"><span>${esc(t.label)}</span><b>${cur} ${t.unit}</b></div>${bar(Math.min(cur, max), max)}<div class="wo-chips">${chips}</div></div>`;
     }).join('');
     return `<section class="panel wo-stats"><h2 class="wo-panel-title">История упражнений</h2>
-      ${ex ? `<div class="field"><label for="woStatsExercise">Упражнение</label>
-        <select id="woStatsExercise">${options.map((id) => `<option value="${id}"${id === view.exercise ? ' selected' : ''}>${esc(exercises.get(id).name)}</option>`).join('')}</select></div>
-        <div class="wo-table-wrap"><table class="data-table"><thead><tr><th>Дата</th><th>Подходы</th>
-        <th>${ex.seconds ? 'Секунды' : 'Повторы'} по подходам</th><th>Вес, кг</th></tr></thead><tbody>${rows}</tbody></table></div>`
-      : '<p class="wo-muted">Здесь появятся сохранённые подходы и рабочие веса.</p>'}</section>
+      <div class="field"><label for="woStatsExercise">Упражнение</label>
+        <select id="woStatsExercise">${statsExercises.map((item) => `<option value="${item.id}"${item.id === ex.id ? ' selected' : ''}>${esc(item.name)}</option>`).join('')}</select></div>
+      ${statsChart(ex, history)}
+      ${rows ? `<div class="wo-table-wrap"><table class="data-table"><thead><tr><th>Дата</th><th>Подходы</th>
+        ${ex.track ? '<th>Средний вес, кг</th>' : ''}${ex.track && !ex.seconds ? '<th>Объём, кг</th>' : ''}</tr></thead><tbody>${rows}</tbody></table></div>`
+        : '<p class="wo-muted">Тренировок с этим упражнением пока нет.</p>'}
+      ${ex.track && !ex.seconds ? '<p class="wo-ex-note">Объём — сумма «вес × повторы» по подходам, где есть оба значения. Средний вес учитывает количество повторов.</p>' : ''}
+      </section>
       <section class="panel"><h2 class="wo-panel-title">Цели из плана</h2>${goals}
         <p class="wo-ex-note">Текущие значения берутся из последних замеров или стартовых данных плана.</p></section>`;
   }
@@ -286,25 +338,29 @@
   const root = $('#woView');
 
   root.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-date],[data-week],[data-open],[data-goto],[data-rest],[data-del],[data-ex-timer],[data-clear-log]');
+    const t = e.target.closest('[data-date],[data-week],[data-open],[data-goto],[data-rest],[data-del],[data-ex-timer],[data-step]');
     if (!t) return;
     if (t.dataset.date) { view.date = t.dataset.date; render(); }
     else if (t.dataset.week) { view.date = key(addDays(parse(view.date), Number(t.dataset.week))); render(); }
     else if (t.dataset.open) { view.date = t.dataset.open; setTab('today'); window.scrollTo(0, 0); }
     else if (t.dataset.goto) setTab(t.dataset.goto);
     else if (t.dataset.rest) startTimer(Number(t.dataset.rest));
-    else if (t.hasAttribute('data-ex-timer')) {
+    else if (t.dataset.step) {
       const input = $('[data-set-value]', t.closest('.wo-set-row'));
+      const current = input.valueAsNumber || Number(input.placeholder) || 0;
+      const next = Math.min(Number(input.max), current + Number(t.dataset.step));
+      input.value = next > 0 ? next : '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    } else if (t.hasAttribute('data-ex-timer')) {
+      const row = t.closest('.wo-set-row');
+      const input = $('[data-set-value]', row);
       if (!input.reportValidity()) return;
-      const ex = exercises.get(t.form.dataset.log);
+      const { log: id, logDate: date } = t.form.dataset;
+      const ex = exercises.get(id);
+      const index = [...row.parentElement.children].indexOf(row);
       const seconds = input.valueAsNumber || ex.seconds;
-      startTimer(seconds, ex.name, () => {
-        if (input.isConnected && !input.value) input.value = seconds;
-      });
-    } else if (t.hasAttribute('data-clear-log') && confirm('Очистить подходы и вес за этот день?')) {
-      saveLog(t.form, [], null, true);
-    }
-    else if (t.dataset.del && confirm('Удалить замер за ' + human(t.dataset.del) + '?')) {
+      startTimer(seconds, ex.name, () => recordTimer(date, id, index, seconds));
+    } else if (t.dataset.del && confirm('Удалить замер за ' + human(t.dataset.del) + '?')) {
       api('measure_del', { date: t.dataset.del }).then(render);
     }
   });
@@ -328,18 +384,24 @@
     }
     if (e.target.id === 'woStatsExercise') {
       view.exercise = e.target.value;
+      view.metric = null;
       render();
       $('#woStatsExercise').focus();
+    }
+    if (e.target.id === 'woStatsMetric') {
+      view.metric = e.target.value;
+      render();
+      $('#woStatsMetric').focus();
     }
   });
 
   root.addEventListener('input', (e) => {
     const form = e.target.form;
     if (!form?.dataset.log) return;
-    $('[role=status]', form).textContent = '';
+    const { log: id, logDate: date } = form.dataset;
     if (e.target.name === 'count' && e.target.validity.valid) {
-      const ex = exercises.get(form.dataset.log);
-      const container = $('.wo-sets', form);
+      const ex = exercises.get(id);
+      const container = $('.wo-set-values', form);
       const count = e.target.valueAsNumber;
       while (container.children.length < count) {
         container.insertAdjacentHTML('beforeend', setRow(ex, container.children.length));
@@ -349,35 +411,81 @@
         $$('input, button', row).forEach((control) => { control.disabled = row.hidden; });
       });
     }
+    if ($$('input:enabled', form).some((input) => !input.validity.valid)) {
+      $('.wo-save-status', form).textContent = 'Проверь значения';
+      return;
+    }
+    const read = (selector) => $$(selector + ':enabled', form).map((input) => input.valueAsNumber || null);
+    scheduleLog({ date, id, sets: read('[data-set-value]'), weights: read('[data-set-weight]') });
   });
 
-  async function saveLog(form, sets, weight, clear = false) {
-    const buttons = $$('button', form);
-    buttons.forEach((button) => { button.disabled = true; });
-    const { log: id, logDate: date } = form.dataset;
-    const res = await api('exercise_log', { date, id, sets, weight });
-    if (form.isConnected) {
-      buttons.forEach((button) => { button.disabled = !!button.closest('[hidden]'); });
-      if (!res) return;
-      if (clear) {
-        form.closest('details').outerHTML = exerciseLog(exercises.get(id), date);
-        return;
-      }
-      $('summary', form.closest('details')).textContent = logSummary(date, exercises.get(id));
-      $('[role=status]', form).textContent = 'Сохранено';
-    } else if (res && view.tab === 'stats') render();
+  const logForm = (date, id) => root.querySelector(`[data-log-date="${date}"][data-log="${id}"]`);
+
+  function setLogStatus(draft, message) {
+    draft.message = message;
+    const status = logForm(draft.payload.date, draft.payload.id)?.querySelector('.wo-save-status');
+    if (status) status.textContent = message;
   }
+
+  function scheduleLog(payload) {
+    const k = logKey(payload.date, payload.id);
+    clearTimeout(pendingLogs.get(k)?.timeout);
+    const draft = { payload };
+    pendingLogs.set(k, draft);
+    draft.timeout = setTimeout(() => saveLog(k, draft), 1500);
+    setLogStatus(draft, 'Ожидает сохранения');
+  }
+
+  async function saveLog(k, draft) {
+    clearTimeout(draft.timeout);
+    if (draft.saving) return;
+    draft.saving = true;
+    setLogStatus(draft, 'Сохраняю…');
+    const res = await api('exercise_log', draft.payload);
+    draft.saving = false;
+    if (pendingLogs.get(k) !== draft) return;
+    if (res) pendingLogs.delete(k);
+    setLogStatus(draft, res ? 'Сохранено' : 'Не сохранено');
+    if (res && view.tab === 'stats') {
+      const focused = document.activeElement.id;
+      render();
+      if (focused) document.getElementById(focused)?.focus();
+    }
+  }
+
+  function recordTimer(date, id, index, seconds) {
+    const form = logForm(date, id);
+    if (form) {
+      const input = $$('[data-set-value]', form)[index];
+      if (input && !input.disabled && !input.value) {
+        input.value = seconds;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      return;
+    }
+    const ex = exercises.get(id);
+    const log = pendingLogs.get(logKey(date, id))?.payload || savedLog(date, id);
+    const count = log.sets.length || plannedCount(ex);
+    if (index >= count || log.sets[index] != null) return;
+    const sets = Array.from({ length: count }, (_, i) => i === index ? seconds : (log.sets[i] ?? null));
+    const weights = ex.track ? Array.from({ length: count }, (_, i) => log.weights[i] ?? null) : [];
+    scheduleLog({ date, id, sets, weights });
+  }
+
+  function flushLogs() {
+    for (const [k, draft] of pendingLogs) saveLog(k, draft);
+  }
+
+  window.addEventListener('online', flushLogs);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) flushLogs();
+  });
 
   root.addEventListener('submit', async (e) => {
     const form = e.target.closest('#woMeasureForm, [data-log]');
     if (!form) return;
     e.preventDefault();
-    if (form.dataset.log) {
-      const sets = $$('[data-set-value]', form).slice(0, form.elements.count.valueAsNumber)
-        .map((input) => input.valueAsNumber || null);
-      saveLog(form, sets, form.elements.weight?.valueAsNumber || null);
-      return;
-    }
+    if (form.dataset.log) return;
     const values = {};
     $$('input[type=number]', form).forEach((i) => { if (i.value !== '') values[i.name] = Number(i.value); });
     if (!Object.keys(values).length) return toast('Заполни хотя бы одно поле');

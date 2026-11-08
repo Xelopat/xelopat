@@ -164,12 +164,12 @@
 .wo-ex-note{ margin:6px 0 0; font-size:13px; line-height:1.55; color:var(--muted); }
 .wo-ex-tools{ display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; margin-top:10px; }
 .wo-weight{ display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); }
-.wo-weight input{
+.wo-weight input, .wo-set-row input{
   width:76px; background:var(--bg); color:var(--text);
   border:1px solid var(--line); border-radius:var(--radius);
   padding:6px 8px; font:inherit; font-size:13px;
 }
-.wo-weight input:focus{ outline:none; border-color:var(--accent); }
+.wo-weight input:focus, .wo-set-row input:focus{ outline:none; border-color:var(--accent); }
 .wo-rest{
   border:1px solid var(--line); background:transparent; color:var(--muted);
   border-radius:var(--radius); padding:6px 10px;
@@ -179,8 +179,19 @@
 
 .wo-log{ margin-top:10px; font-size:13px; }
 .wo-log summary{ color:var(--accent); cursor:pointer; }
-.wo-sets{ display:grid; gap:8px; margin-top:10px; }
-.wo-set-row{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.wo-save-status{ color:var(--muted); font-size:12px; }
+.wo-sets{ margin-top:10px; }
+.wo-set-values{ display:grid; gap:6px; }
+.wo-set-head, .wo-set-row{
+  display:grid; grid-template-columns:1.25rem 7rem 3.5rem max-content;
+  gap:6px; align-items:center;
+}
+.wo-set-head{ color:var(--muted); font-size:12px; margin-bottom:6px; }
+.wo-set-index{ color:var(--muted); font-variant-numeric:tabular-nums; }
+.wo-stepper{ display:grid; grid-template-columns:minmax(0, 1fr) 1.9rem 1.9rem; gap:4px; }
+.wo-set-row input{ box-sizing:border-box; width:100%; min-width:0; height:34px; padding-inline:4px; text-align:center; appearance:textfield; }
+.wo-set-row input::-webkit-inner-spin-button{ appearance:none; }
+.wo-stepper .wo-rest{ min-height:34px; padding:0; font-size:16px; }
 .wo-set-row[hidden], .wo-timer .btn[hidden]{ display:none; }
 
 /* ===== Неделя ===== */
@@ -200,7 +211,15 @@
 /* ===== Прогресс ===== */
 .wo-measures, .wo-stats{ margin-bottom:12px; }
 .wo-stats .field{ max-width:28rem; margin-bottom:12px; }
-.wo-stats .data-table{ min-width:0; }
+.wo-stats .wo-table-wrap .data-table{ min-width:0; }
+.wo-stats-sets span{ display:block; }
+.wo-chart{ margin:0 0 14px; }
+.wo-chart .field{ max-width:16rem; }
+.wo-chart-bars{ list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+.wo-chart-bars li{ display:grid; grid-template-columns:7rem minmax(0, 1fr) minmax(5.5rem, auto); gap:8px; align-items:center; font-size:13px; }
+.wo-chart-bars .wo-bar{ height:10px; }
+.wo-chart-bars time{ color:var(--muted); }
+.wo-chart-bars b{ text-align:right; font-variant-numeric:tabular-nums; }
 .wo-panel-title{ margin:0 0 12px; font-size:15px; }
 .wo-goal + .wo-goal{ margin-top:16px; }
 .wo-goal-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:6px; font-size:14px; }
@@ -257,9 +276,14 @@
   .wo-tab{ padding:7px 12px; }
   .wo-stats .data-table{ table-layout:fixed; overflow-wrap:anywhere; }
   .wo-stats .data-table th, .wo-stats .data-table td{ padding-inline:4px; }
-  .wo-stats .data-table th:nth-child(2), .wo-stats .data-table th:nth-child(4){ width:18%; }
+  .wo-chart-bars li{ grid-template-columns:5rem minmax(0, 1fr) minmax(4rem, auto); }
   .wo-reminder{ grid-template-columns:auto 1fr; }
   .wo-rem-actions{ grid-column:1 / -1; justify-content:space-between; }
   .wo-day{ padding:7px 0 8px; font-size:12px; }
   .wo-day small{ display:none; }
+}
+
+@media (max-width: 360px){
+  .wo-set-head, .wo-set-row{ grid-template-columns:1.25rem 6.5rem 3.2rem; }
+  .wo-set-weight + [data-ex-timer]{ grid-column:2; justify-self:start; }
 }

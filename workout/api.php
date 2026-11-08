@@ -57,6 +57,8 @@ switch ($action) {
     case 'exercise_log':
         $sets = $in['sets'] ?? null;
         $weight = $in['weight'] ?? null;
+        $perSet = array_key_exists('weights', $in);
+        $weights = $in['weights'] ?? [];
         $max = isset($exercise['seconds']) ? 7200 : 999;
         if (!is_array($sets) || array_values($sets) !== $sets || count($sets) > 30) api_out(['error' => 'bad_request'], 400);
         foreach ($sets as $value) {
@@ -65,10 +67,26 @@ switch ($action) {
         if ($weight !== null && (empty($exercise['track']) || !is_numeric($weight) || $weight < 0.01 || $weight > 1000)) {
             api_out(['error' => 'bad_request'], 400);
         }
-        $saved = workout_mutate(function (array &$users) use ($uid, $date, $exId, $sets, $weight) {
+        if ($perSet) {
+            if (!is_array($weights) || array_values($weights) !== $weights ||
+                count($weights) !== (!empty($exercise['track']) ? count($sets) : 0)) {
+                api_out(['error' => 'bad_request'], 400);
+            }
+            foreach ($weights as &$value) {
+                if ($value === null) continue;
+                if ((!is_int($value) && !is_float($value)) || $value < 0.01 || $value > 1000) api_out(['error' => 'bad_request'], 400);
+                $value = round($value, 2);
+            }
+            unset($value);
+        }
+        $saved = workout_mutate(function (array &$users) use ($uid, $date, $exId, $sets, $weight, $perSet, $weights) {
             if ($sets) $users[$uid]['days'][$date]['sets'][$exId] = $sets;
             else unset($users[$uid]['days'][$date]['sets'][$exId]);
-            if ($weight !== null) $users[$uid]['days'][$date]['w'][$exId] = round((float)$weight, 2);
+            if ($perSet) {
+                if (array_filter($weights)) $users[$uid]['days'][$date]['sw'][$exId] = $weights;
+                else unset($users[$uid]['days'][$date]['sw'][$exId]);
+            }
+            if (!$perSet && $weight !== null) $users[$uid]['days'][$date]['w'][$exId] = round((float)$weight, 2);
             else unset($users[$uid]['days'][$date]['w'][$exId]);
             return true;
         });
