@@ -102,6 +102,10 @@ public class TimerService extends Service {
     private void checkRoute() {
         if (player == null) return;
         AudioDeviceInfo routed = player.getRoutedDevice();
+        if (routed == null && !audible) {
+            handler.postDelayed(this::checkRoute, 50);
+            return;
+        }
         if (!headphones(routed) || routed.getId() != outputId) {
             stopSignal();
             return;
