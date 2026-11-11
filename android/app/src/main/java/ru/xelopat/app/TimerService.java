@@ -59,8 +59,6 @@ public class TimerService extends Service {
         }
         getSharedPreferences("timer", 0).edit().remove("end").apply();
         vibrate(this);
-        getSystemService(NotificationManager.class).notify(1,
-            TimerReceiver.notification(this, "Таймер завершён", label));
         AudioDeviceInfo output = null;
         for (AudioDeviceInfo device : audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
             if (headphones(device)) { output = device; break; }

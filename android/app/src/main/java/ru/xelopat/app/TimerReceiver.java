@@ -31,11 +31,9 @@ public class TimerReceiver extends BroadcastReceiver {
         try {
             context.startForegroundService(service);
         } catch (RuntimeException e) {
-            // A restricted background launch still gets a silent notification and vibration.
+            // Keep vibration when Android restricts a background service launch.
             context.getSharedPreferences("timer", 0).edit().remove("end").apply();
             TimerService.vibrate(context);
-            context.getSystemService(NotificationManager.class).notify(1,
-                notification(context, "Таймер завершён", intent.getStringExtra("label")));
         }
     }
 }
