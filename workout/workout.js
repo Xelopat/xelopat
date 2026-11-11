@@ -118,8 +118,8 @@
         <input type="number" inputmode="decimal" step="0.01" min="0.01" max="1000"
           data-set-weight aria-label="Вес, подход ${index}" value="${weight ?? (suggestedWeight ? defaultWeight : '')}"
           placeholder="—"${suggestedWeight ? ' data-planned title="Предложенный вес. Нажми Enter, чтобы записать."' : ''}>
-        <button type="button" class="wo-rest" data-step="-5" aria-label="Уменьшить вес на 5 кг, подход ${index}">−5</button>
-        <button type="button" class="wo-rest" data-step="5" aria-label="Увеличить вес на 5 кг, подход ${index}">+5</button>
+        <button type="button" class="wo-rest" data-step="-1" aria-label="Уменьшить вес на 1 кг, подход ${index}">−1</button>
+        <button type="button" class="wo-rest" data-step="1" aria-label="Увеличить вес на 1 кг, подход ${index}">+1</button>
       </div>` : ''}
       ${ex.seconds ? '<button type="button" class="wo-rest" data-ex-timer>Старт</button>' : ''}
     </div>`;
@@ -347,6 +347,7 @@
     // Фокус и прокрутка не должны прыгать при отметке упражнения
     const y = window.scrollY;
     root.innerHTML = renderers[view.tab]();
+    $('#woReminder').hidden = view.tab !== 'plan';
     window.scrollTo(0, y);
   }
 
@@ -599,6 +600,8 @@
     const left = Math.max(0, Math.ceil(((prep ? timer.start : timer.end) - now) / 1000));
     $('#woTimerLabel').textContent = prep ? 'Приготовься' : (left ? timer.label : 'Готово');
     $('#woTimerTime').textContent = prep ? left : fmt(left);
+    $('#woTimerLabel').hidden = !timer.finish && left > 0;
+    $('#woTimerSubtract').hidden = !!timer.finish || left === 0;
     if (left === 0) {
       clearInterval(timer.id);
       timer.id = 0;
@@ -634,15 +637,21 @@
     keepScreenOn();
   }
 
-  $('#woTimerAdd').addEventListener('click', () => {
-    if (!timer.id) return startTimer(30);
-    timer.end += 30000;
+  function changeRest(seconds) {
+    if (timer.finish) return;
+    if (!timer.id) {
+      if (seconds > 0) startTimer(seconds);
+      return;
+    }
+    timer.end = Math.max(Date.now() + 1000, timer.end + seconds * 1000);
     try {
       localStorage.setItem('workoutRestTimer', JSON.stringify({ start: timer.start, end: timer.end, label: timer.label, exercise: !!timer.finish }));
     } catch (e) {}
     scheduleTones();
     tick();
-  });
+  }
+  $('#woTimerSubtract').addEventListener('click', () => changeRest(-10));
+  $('#woTimerAdd').addEventListener('click', () => changeRest(10));
   $('#woTimerStop').addEventListener('click', () => {
     clearInterval(timer.id);
     clearTimeout(timer.hide);

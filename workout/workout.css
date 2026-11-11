@@ -199,7 +199,7 @@
 .wo-set-row input[data-planned]{ color:var(--muted); }
 .wo-stepper .wo-rest{ min-height:34px; padding:0; font-size:16px; }
 .wo-weight-stepper .wo-rest{ font-size:13px; }
-.wo-set-row[hidden], .wo-timer .btn[hidden]{ display:none; }
+.wo-reminder[hidden], .wo-timer-label[hidden], .wo-set-row[hidden], .wo-timer .btn[hidden]{ display:none; }
 
 /* ===== Неделя ===== */
 .wo-weekgrid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:10px; }

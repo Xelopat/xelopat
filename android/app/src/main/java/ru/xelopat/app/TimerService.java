@@ -111,6 +111,7 @@ public class TimerService extends Service {
         if (!audible) {
             player.setVolume(1, 1);
             audible = true;
+            handler.postDelayed(this::stopSignal, 650);
         }
     }
     private void stopSignal() {

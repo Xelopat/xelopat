@@ -42,13 +42,14 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
     </div>
 
     <div id="woView"><noscript>Для страницы нужен JavaScript.</noscript></div>
-    <section class="wo-reminder panel" id="woReminder" aria-label="Напоминания"></section>
+    <section class="wo-reminder panel" id="woReminder" aria-label="Напоминания" hidden></section>
   </div>
 
   <div class="wo-timer" id="woTimer" hidden>
-    <span class="wo-timer-label" id="woTimerLabel">Отдых</span>
+    <button type="button" class="btn" id="woTimerSubtract" aria-label="Уменьшить отдых на 10 секунд">−10 с</button>
+    <span class="wo-timer-label" id="woTimerLabel" hidden></span>
     <span class="wo-timer-time" id="woTimerTime">0:00</span>
-    <button type="button" class="btn" id="woTimerAdd">+30 с</button>
+    <button type="button" class="btn" id="woTimerAdd" aria-label="Увеличить отдых на 10 секунд">+10 с</button>
     <button type="button" class="btn" id="woTimerStop">Стоп</button>
   </div>
 </main>
