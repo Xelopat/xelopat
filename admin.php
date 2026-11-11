@@ -171,7 +171,9 @@ unset($_SESSION['admin_flash']);
 /* ---------------- данные для страницы ---------------- */
 
 $load_errors = [];
-$sections = [];
+$sections = [
+    ['title' => 'Тренировки', 'url' => '/workout', 'add' => '', 'stat' => 'План и результаты', 'last' => ''],
+];
 try {
 foreach (COLLECTIONS as $key => $def) {
     $items = coll_load($key);
