@@ -37,6 +37,41 @@ jobs:
           PORT="${DEPLOY_PORT:-22}"
           ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build Android application
+        run: gradle -p android assembleRelease
+
+      - name: Sign and install Android download
+        run: |
+          PORT="${{ secrets.DEPLOY_PORT }}"
+          PORT="${PORT:-22}"
+          TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
+          ssh -i ~/.ssh/deploy_key -p "$PORT" "$TARGET" "mkdir -p '${DEPLOY_PATH}/.private'; chmod 700 '${DEPLOY_PATH}/.private'"
+          if ssh -i ~/.ssh/deploy_key -p "$PORT" "$TARGET" "test -f '.xelopat-android-signing.p12'"; then
+            scp -i ~/.ssh/deploy_key -P "$PORT" "$TARGET:.xelopat-android-signing.p12" /tmp/android-signing.p12
+          else
+            keytool -genkeypair -keystore /tmp/android-signing.p12 -storepass android -keypass android -alias xelopat -keyalg RSA -keysize 3072 -validity 10000 -dname "CN=Xelopat"
+            scp -i ~/.ssh/deploy_key -P "$PORT" /tmp/android-signing.p12 "$TARGET:.xelopat-android-signing.p12"
+            ssh -i ~/.ssh/deploy_key -p "$PORT" "$TARGET" "chmod 600 '.xelopat-android-signing.p12'"
+          fi
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          "$BUILD_TOOLS/zipalign" -p -f 4 android/app/build/outputs/apk/release/app-release-unsigned.apk /tmp/xelopat.apk
+          "$BUILD_TOOLS/apksigner" sign --ks /tmp/android-signing.p12 --ks-pass pass:android /tmp/xelopat.apk
+          "$BUILD_TOOLS/apksigner" verify /tmp/xelopat.apk
+          scp -i ~/.ssh/deploy_key -P "$PORT" /tmp/xelopat.apk "$TARGET:${DEPLOY_PATH}/.private/xelopat.apk.new"
+          ssh -i ~/.ssh/deploy_key -p "$PORT" "$TARGET" "mv '${DEPLOY_PATH}/.private/xelopat.apk.new' '${DEPLOY_PATH}/.private/xelopat.apk'"
+          rm /tmp/android-signing.p12
+
       - name: Deploy with rsync
         run: |
           PORT="${DEPLOY_PORT:-22}"

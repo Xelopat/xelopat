@@ -359,6 +359,10 @@ include __DIR__ . '/header.php';
       <div>
         <div class="page-label">// admin</div>
         <h1 class="page-title">Админка</h1>
+        <?php if (is_file(__DIR__ . '/.private/xelopat.apk')): ?>
+          <p><a class="btn" href="/workout/android.php">Скачать приложение для Android</a></p>
+          <p>После установки войди в аккаунт и открой «Звук и разрешения таймера». Разреши уведомления и точные таймеры, настрой громкость будильника.</p>
+        <?php endif; ?>
       </div>
       <a class="btn" href="/auth/logout">Выйти</a>
     </div>

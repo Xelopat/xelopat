@@ -541,6 +541,10 @@
   const fmt = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
   const clock = $('#woTimer');
 
+  if (window.XelopatNative) {
+    window.XelopatNative.onmessage = (event) => alert(event.data);
+  }
+
   function stopTones() {
     for (const tone of timer.tones) tone.stop();
     timer.tones = [];
@@ -548,6 +552,10 @@
 
   function scheduleTones() {
     stopTones();
+    if (window.XelopatNative) {
+      window.XelopatNative.postMessage(JSON.stringify({ action: 'start', end: timer.end, label: timer.label }));
+      return;
+    }
     const ctx = timer.ctx;
     if (!ctx) return;
     const now = Date.now();
@@ -596,7 +604,8 @@
       timer.id = 0;
       releaseWakeLock();
       clock.classList.add('is-done');
-      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      if (!window.XelopatNative && navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      try { localStorage.removeItem('workoutRestTimer'); } catch (e) {}
       timer.finish?.();
       timer.hide = setTimeout(() => { clock.hidden = true; }, 6000);
     }
@@ -616,6 +625,9 @@
     clock.hidden = false;
     clock.classList.remove('is-done');
     $('#woTimerAdd').hidden = !!finish;
+    try {
+      localStorage.setItem('workoutRestTimer', JSON.stringify({ start: timer.start, end: timer.end, label: timer.label, exercise: !!timer.finish }));
+    } catch (e) {}
     scheduleTones();
     tick();
     timer.id = setInterval(tick, 100);
@@ -625,6 +637,9 @@
   $('#woTimerAdd').addEventListener('click', () => {
     if (!timer.id) return startTimer(30);
     timer.end += 30000;
+    try {
+      localStorage.setItem('workoutRestTimer', JSON.stringify({ start: timer.start, end: timer.end, label: timer.label, exercise: !!timer.finish }));
+    } catch (e) {}
     scheduleTones();
     tick();
   });
@@ -635,6 +650,8 @@
     releaseWakeLock();
     stopTones();
     clock.hidden = true;
+    window.XelopatNative?.postMessage(JSON.stringify({ action: 'cancel' }));
+    try { localStorage.removeItem('workoutRestTimer'); } catch (e) {}
   });
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && timer.id) {
@@ -642,6 +659,16 @@
       if (timer.id) keepScreenOn();
     }
   });
+
+  try {
+    const saved = JSON.parse(localStorage.getItem('workoutRestTimer'));
+    if (saved && !saved.exercise && Number.isFinite(saved.end) && saved.end > Date.now()) {
+      Object.assign(timer, { start: saved.start, end: saved.end, label: saved.label });
+      clock.hidden = false;
+      tick();
+      timer.id = setInterval(tick, 100);
+    }
+  } catch (e) {}
 
   /* ---------- напоминания ---------- */
   const rem = { sub: null, measures: false, error: '', msg: '', busy: false };
