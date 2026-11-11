@@ -21,7 +21,7 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         TimerReceiver.channel(this);
-        setVolumeControlStream(AudioManager.STREAM_ALARM);
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         Button settings = new Button(this);
@@ -77,6 +77,8 @@ public class MainActivity extends Activity {
                         PendingIntent pending = PendingIntent.getBroadcast(this, 1, alarm, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
                         getSharedPreferences("timer", 0).edit().putLong("end", end).apply();
                         alarms.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + delay, pending);
+                        startForegroundService(new Intent(this, TimerService.class).setAction("wait")
+                            .putExtra("end", end).putExtra("label", label));
                     } catch (Exception e) {
                         reply.postMessage("Не удалось включить фоновый сигнал. Проверь разрешения приложения.");
                     }
@@ -89,6 +91,7 @@ public class MainActivity extends Activity {
         web.loadUrl("https://xelopat.ru/workout");
     }
     private void cancelTimer() {
+        stopService(new Intent(this, TimerService.class));
         PendingIntent pending = PendingIntent.getBroadcast(this, 1, new Intent(this, TimerReceiver.class),
             PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
         if (pending != null) getSystemService(AlarmManager.class).cancel(pending);
@@ -96,7 +99,7 @@ public class MainActivity extends Activity {
         getSystemService(NotificationManager.class).cancel(1);
     }
     private void showSettings() {
-        String[] choices = {"Разрешить уведомления", "Разрешить точные таймеры", "Звук и вибрация сигнала", "Громкость будильника"};
+        String[] choices = {"Разрешить уведомления", "Разрешить точные таймеры", "Уведомление таймера", "Громкость в наушниках"};
         new AlertDialog.Builder(this).setTitle("Таймер тренировки").setItems(choices, (dialog, which) -> {
             if (which == 0) {
                 if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -110,7 +113,7 @@ public class MainActivity extends Activity {
                 startActivity(new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
                     .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName()).putExtra(Settings.EXTRA_CHANNEL_ID, TimerReceiver.CHANNEL));
             } else if (which == 3) {
-                getSystemService(AudioManager.class).adjustStreamVolume(AudioManager.STREAM_ALARM, AudioManager.ADJUST_SAME, AudioManager.FLAG_SHOW_UI);
+                getSystemService(AudioManager.class).adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_SAME, AudioManager.FLAG_SHOW_UI);
             }
         }).show();
     }

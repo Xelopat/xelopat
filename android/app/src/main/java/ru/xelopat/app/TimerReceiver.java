@@ -2,34 +2,40 @@ package ru.xelopat.app;
 
 import android.app.*;
 import android.content.*;
-import android.media.AudioAttributes;
-import android.net.Uri;
 
 public class TimerReceiver extends BroadcastReceiver {
-    static final String CHANNEL = "rest_alarm_v1";
+    static final String CHANNEL = "rest_silent_v2";
     static void channel(Context context) {
-        NotificationChannel channel = new NotificationChannel(CHANNEL, "Таймер тренировки", NotificationManager.IMPORTANCE_HIGH);
-        channel.setDescription("Сигнал окончания отдыха. Громкость регулируется как у будильника.");
-        channel.setSound(Uri.parse("android.resource://" + context.getPackageName() + "/" + ru.xelopat.app.R.raw.timer),
-            new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build());
-        channel.enableVibration(true);
-        channel.setVibrationPattern(new long[]{0, 500, 200, 500, 200, 500});
-        context.getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        manager.deleteNotificationChannel("rest_alarm_v1");
+        NotificationChannel channel = new NotificationChannel(CHANNEL, "Таймер тренировки", NotificationManager.IMPORTANCE_LOW);
+        channel.setDescription("Тихое уведомление. Короткий сигнал воспроизводится отдельно в наушниках.");
+        channel.setSound(null, null);
+        channel.enableVibration(false);
+        manager.createNotificationChannel(channel);
     }
-    @Override public void onReceive(Context context, Intent intent) {
-        long end = intent.getLongExtra("end", 0);
-        android.content.SharedPreferences prefs = context.getSharedPreferences("timer", 0);
-        if (end == 0 || prefs.getLong("end", 0) != end) return;
-        prefs.edit().remove("end").apply();
+    static Notification notification(Context context, String title, String label) {
         channel(context);
         PendingIntent open = PendingIntent.getActivity(context, 0, new Intent(context, MainActivity.class),
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        Notification notification = new Notification.Builder(context, CHANNEL)
+        return new Notification.Builder(context, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("Таймер завершён")
-            .setContentText(intent.getStringExtra("label"))
-            .setCategory(Notification.CATEGORY_ALARM)
+            .setContentTitle(title).setContentText(label)
             .setContentIntent(open).setAutoCancel(true).build();
-        context.getSystemService(NotificationManager.class).notify(1, notification);
+    }
+    @Override public void onReceive(Context context, Intent intent) {
+        long end = intent.getLongExtra("end", 0);
+        if (end == 0 || context.getSharedPreferences("timer", 0).getLong("end", 0) != end) return;
+        Intent service = new Intent(context, TimerService.class).setAction("finish")
+            .putExtra("end", end).putExtra("label", intent.getStringExtra("label"));
+        try {
+            context.startForegroundService(service);
+        } catch (RuntimeException e) {
+            // A restricted background launch still gets a silent notification and vibration.
+            context.getSharedPreferences("timer", 0).edit().remove("end").apply();
+            TimerService.vibrate(context);
+            context.getSystemService(NotificationManager.class).notify(1,
+                notification(context, "Таймер завершён", intent.getStringExtra("label")));
+        }
     }
 }
