@@ -65,16 +65,24 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 ?>
 <link rel="stylesheet" href="/books/books.css?v=<?= filemtime(__DIR__ . '/books.css') ?>">
 <main class="page books"><div class="page-wrap">
-  <div class="bk-heading"><div><div class="page-label">// личная библиотека</div><h1 class="page-title" data-type="off">Книги</h1></div>
+  <div class="bk-heading"><h1 class="page-title" data-type="off">Книги</h1>
   <?php if ($editor): ?><div class="bk-actions"><button type="button" id="bkDrafts">Черновики <span id="bkDraftCount">0</span></button><button type="button" id="bkAdd" class="bk-primary">+ Добавить книгу</button></div><?php endif; ?></div>
   <div id="bkRecovery" class="bk-notice" hidden></div>
-  <div class="bk-toolbar"><label class="bk-search"><span class="bk-sr">Поиск по названию или автору</span><input id="bkSearch" type="search" placeholder="Название или автор" autocomplete="off"></label>
-    <label class="bk-sort">Порядок <select id="bkSort"><option value="read">Прочитанные сначала</option><option value="added">Недавно добавленные</option><option value="title">По названию</option><option value="author">По автору</option></select></label></div>
-  <nav id="bkStatuses" class="bk-chips" aria-label="Статус чтения"></nav>
-  <div class="bk-facets"><details><summary>Жанры</summary><div id="bkGenres" class="bk-chips"></div></details><details><summary>Теги</summary><div id="bkTags" class="bk-chips"></div></details></div>
-  <div class="bk-results"><span id="bkCount" role="status"></span><div id="bkApplied" class="bk-chips"></div><button type="button" id="bkReset" hidden>Сбросить</button></div>
-  <div id="bkGrid" class="bk-grid"></div><div id="bkEmpty" class="bk-empty" hidden></div>
-  <button type="button" id="bkMore" class="bk-more" hidden>Показать ещё</button>
+  <div class="bk-results"><div class="bk-active-filters"><div id="bkApplied" class="bk-chips" aria-label="Активные фильтры"></div><button type="button" id="bkReset" hidden>Сбросить</button></div><span id="bkCount" role="status"></span></div>
+  <div class="bk-layout">
+    <aside class="bk-panel bk-sidebar" aria-label="Фильтры книг">
+      <label class="bk-search" for="bkSearch">Поиск</label><input id="bkSearch" type="search" placeholder="Название или автор" autocomplete="off">
+      <section class="bk-filter-group" aria-labelledby="bkStatusLabel"><h2 id="bkStatusLabel">Статус чтения</h2><div id="bkStatuses" class="bk-chips"></div></section>
+      <section class="bk-filter-group" aria-labelledby="bkGenreLabel"><h2 id="bkGenreLabel">Жанры</h2><div id="bkGenres" class="bk-chips"></div></section>
+      <section class="bk-filter-group" aria-labelledby="bkTagLabel"><h2 id="bkTagLabel">Личные метки</h2><p class="bk-filter-hint">Свои подборки: «Любимое», «Перечитать», «По работе».</p><div id="bkTags" class="bk-chips"></div></section>
+    </aside>
+    <section class="bk-panel bk-list-panel" aria-labelledby="bkListLabel">
+      <h2 id="bkListLabel">Список</h2>
+      <div class="bk-sort"><span id="bkSortLabel">Порядок</span><div id="bkSort" role="group" aria-labelledby="bkSortLabel"><button type="button" data-sort="read" aria-pressed="true">Прочитанные сначала</button><button type="button" data-sort="added" aria-pressed="false">Недавно добавленные</button><button type="button" data-sort="title" aria-pressed="false">По названию</button><button type="button" data-sort="author" aria-pressed="false">По автору</button></div></div>
+      <div id="bkGrid" class="bk-grid"></div><div id="bkEmpty" class="bk-empty" hidden></div>
+      <button type="button" id="bkMore" class="bk-more" hidden>Показать ещё</button>
+    </section>
+  </div>
   <noscript>Для поиска и редактирования книг включи JavaScript.</noscript>
 </div></main>
 <dialog id="bkView" class="bk-dialog"><div class="bk-dialog-head"><span>Книга</span><button type="button" data-close="bkView" aria-label="Закрыть книгу">×</button></div><div id="bkViewContent" class="bk-view-content"></div><?php if ($editor): ?><div class="bk-dialog-foot"><button type="button" id="bkEdit" class="bk-primary">Изменить</button></div><?php endif; ?></dialog>
@@ -86,7 +94,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
   <div class="bk-editor-top"><div class="bk-cover-control"><button type="button" id="bkPickCover" class="bk-cover-pick" aria-label="Выбрать обложку"><img id="bkCoverPreview" alt="Обложка" hidden><span id="bkCoverLabel">+ Обложка</span></button><input type="file" id="bkCoverFile" accept="image/jpeg,image/png,image/webp" hidden><button type="button" id="bkRemoveCover" class="bk-text-button" hidden>Убрать обложку</button><span class="bk-hint">Можно перетащить или вставить картинку</span></div>
   <div class="bk-fields"><label>Название <input name="title" maxlength="300" placeholder="Например, Дюна" autocomplete="off"></label><label>Автор <input name="description" maxlength="300" placeholder="Фрэнк Герберт" list="bkAuthors" autocomplete="off"></label><datalist id="bkAuthors"></datalist><label>Статус <select name="status"><?php foreach (BOOK_STATUSES as $key => $label): ?><option value="<?= $key ?>"><?= $label ?></option><?php endforeach; ?></select></label><label id="bkDateLabel" hidden>Дата завершения <input name="finished" type="date"><span class="bk-hint">Можно оставить пустой, если не помнишь</span></label></div></div>
   <div class="bk-fields"><div class="bk-tag-field" data-field="genres"><label for="bkGenreInput">Жанры</label><div class="bk-chips bk-edit-chips"></div><div class="bk-tag-entry"><input id="bkGenreInput" placeholder="Найти или добавить жанр" maxlength="40" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="bkGenreSuggestions"><button type="button" class="bk-tag-add">Добавить</button></div><div id="bkGenreSuggestions" class="bk-suggestions" role="listbox" hidden></div></div>
-  <details id="bkExtra"><summary>Заметка и свои теги</summary><label>Заметка <textarea name="details" rows="4" maxlength="30000" placeholder="Что запомнилось, кому посоветовал бы…"></textarea></label><div class="bk-tag-field" data-field="tags"><label for="bkTagInput">Свои теги</label><div class="bk-chips bk-edit-chips"></div><div class="bk-tag-entry"><input id="bkTagInput" placeholder="Например, Любимое" maxlength="40" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="bkTagSuggestions"><button type="button" class="bk-tag-add">Добавить</button></div><div id="bkTagSuggestions" class="bk-suggestions" role="listbox" hidden></div></div></details></div>
+  <details id="bkExtra"><summary>Заметка и личные метки</summary><label>Заметка <textarea name="details" rows="4" maxlength="30000" placeholder="Что запомнилось, кому посоветовал бы…"></textarea></label><div class="bk-tag-field" data-field="tags"><label for="bkTagInput">Личные метки</label><p class="bk-filter-hint">Например, «Любимое», «Перечитать» или «По работе».</p><div class="bk-chips bk-edit-chips"></div><div class="bk-tag-entry"><input id="bkTagInput" placeholder="Найти или добавить метку" maxlength="40" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="bkTagSuggestions"><button type="button" class="bk-tag-add">Добавить</button></div><div id="bkTagSuggestions" class="bk-suggestions" role="listbox" hidden></div></div></details></div>
   <div id="bkSaveStatus" class="bk-save-status" role="status" aria-live="polite"></div><div class="bk-actions"><button type="button" id="bkRetry" hidden>Повторить сохранение</button><button type="button" id="bkCopy" hidden>Сохранить отдельным черновиком</button></div>
   <div class="bk-dialog-foot"><button type="button" id="bkDelete" class="bk-danger">Удалить черновик</button><div class="bk-actions"><button type="button" id="bkDone">Закрыть</button><button type="submit" id="bkPublish" class="bk-primary">Добавить в библиотеку</button></div></div>
 </form></dialog>

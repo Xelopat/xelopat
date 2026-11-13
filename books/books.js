@@ -13,7 +13,7 @@
   function readFilters() {
     const p = new URLSearchParams(location.search);
     filter = { q: p.get('q') || '', status: config.statuses[p.get('status')] ? p.get('status') : '', genres: p.getAll('genre'), tags: p.getAll('tag'), sort: ['read', 'added', 'title', 'author'].includes(p.get('sort')) ? p.get('sort') : 'read', limit: Math.max(24, Math.min(2400, Number(p.get('limit')) || 24)) };
-    $('bkSearch').value = filter.q; $('bkSort').value = filter.sort;
+    $('bkSearch').value = filter.q;
   }
   function urlState(item = null, push = false) {
     const p = new URLSearchParams();
@@ -52,6 +52,7 @@
   function changedFilters() { filter.limit = 24; urlState(); render(); }
   function render() {
     const published = items.filter(b => !b.draft);
+    $('bkSort').querySelectorAll('[data-sort]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.sort === filter.sort)));
     const statusBox = $('bkStatuses'); statusBox.replaceChildren();
     for (const [key, label] of [['', 'Все'], ['read', 'Прочитано'], ['reading', 'Читаю'], ['planned', 'В планах'], ['stopped', 'Не дочитал']]) {
       const b = button(label, () => { filter.status = key; changedFilters(); });
@@ -67,21 +68,25 @@
         const count = published.filter(it => matches(it, key) && it[key].some(t => lower(t) === lower(value))).length;
         b.append(node('span', String(count))); b.setAttribute('aria-pressed', String(active)); box.append(b);
       }
-      if (!values.length) box.append(node('span', 'Пока нет', 'bk-hint'));
+      if (!values.length) box.append(node('span', key === 'genres' ? 'Жанры появятся здесь после добавления книг.' : 'Метки можно добавить при редактировании книги.', 'bk-filter-hint'));
     }
     const applied = $('bkApplied'); applied.replaceChildren();
+    if (filter.q) applied.append(button('Поиск: ' + filter.q + ' ×', () => { filter.q = ''; $('bkSearch').value = ''; changedFilters(); }));
     if (filter.status) applied.append(button(config.statuses[filter.status] + ' ×', () => { filter.status = ''; changedFilters(); }));
     for (const key of ['genres', 'tags']) for (const value of filter[key]) applied.append(button(value + ' ×', () => { filter[key] = filter[key].filter(t => t !== value); changedFilters(); }));
     $('bkReset').hidden = !filter.q && !filter.status && !filter.genres.length && !filter.tags.length;
     const found = sorted(published.filter(b => matches(b)));
-    $('bkCount').textContent = 'Найдено: ' + found.length + ' · в библиотеке: ' + published.length;
+    $('bkCount').replaceChildren(node('span', 'Найдено: ' + found.length, 'bk-total'), node('span', 'В библиотеке: ' + published.length, 'bk-total'));
     const grid = $('bkGrid'); grid.replaceChildren();
     for (const book of found.slice(0, filter.limit)) {
       const card = button('', () => openView(book.id, true), 'bk-card'); card.dataset.book = book.id;
       card.append(cover(book));
-      const body = node('div', undefined, 'bk-card-body'); body.append(node('h2', book.title), node('div', book.description, 'bk-author'), badge(book));
+      const body = node('div', undefined, 'bk-card-body'); body.append(node('h3', book.title), node('div', book.description, 'bk-author'));
+      const meta = node('div', undefined, 'bk-chips bk-card-meta'); meta.append(badge(book));
+      for (const genre of book.genres) meta.append(node('span', genre, 'bk-badge'));
+      for (const tag of book.tags) meta.append(node('span', tag, 'bk-badge bk-personal-tag'));
+      body.append(meta);
       if (book.details) body.append(node('p', book.details, 'bk-note'));
-      if (book.genres.length) body.append(node('div', book.genres.join(' · '), 'bk-card-genres'));
       if (book.status === 'read' && book.finished) body.append(node('div', dateText(book.finished), 'bk-card-date'));
       card.append(body); grid.append(card);
     }
@@ -114,7 +119,7 @@
     if (id) openView(id); else if ($('bkView').open) closeView();
   });
   $('bkSearch').oninput = () => { filter.q = $('bkSearch').value; changedFilters(); };
-  $('bkSort').onchange = () => { filter.sort = $('bkSort').value; changedFilters(); };
+  $('bkSort').onclick = e => { const choice = e.target.closest('[data-sort]'); if (!choice) return; filter.sort = choice.dataset.sort; changedFilters(); };
   $('bkReset').onclick = () => { filter.q = ''; filter.status = ''; filter.genres = []; filter.tags = []; $('bkSearch').value = ''; changedFilters(); };
   $('bkMore').onclick = () => { filter.limit += 24; urlState(); render(); };
 
