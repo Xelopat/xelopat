@@ -34,6 +34,16 @@ const COLLECTIONS = [
         'layout' => 'gallery',
         'empty' => 'Фотографий пока нет.',
     ],
+    'books' => [
+        'title' => 'Книги',
+        'label' => '// книги',
+        'url' => '/books',
+        'legacy' => [],
+        'layout' => 'cards',
+        'empty' => 'Книг пока нет.',
+        'description_label' => 'Автор',
+        'details_label' => 'Заметки о книге',
+    ],
 ];
 
 const COLL_IMAGE_EXT = ['jpg', 'jpeg', 'png', 'webp', 'gif'];

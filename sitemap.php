@@ -2,7 +2,7 @@
 // Отдаётся по адресу /sitemap.xml (см. .htaccess). Только открытые страницы, которые стоит видеть в поиске.
 require_once __DIR__ . '/crypto/theme.php';
 
-$paths = ['/', '/projects', '/crypto'];
+$paths = ['/', '/projects', '/crypto', '/books'];
 foreach (array_keys(crypto_tools()) as $slug) {
     $paths[] = '/crypto/' . $slug;
 }

@@ -855,8 +855,8 @@ function coll_rich(string $text): string {
         <div class="field"><label for="coTitle">Название</label><input id="coTitle" name="title" required maxlength="200"></div>
         <div class="field"<?= $coll_manual ? ' hidden' : '' ?>><label for="coDate">Дата</label><input id="coDate" name="date" type="date"></div>
       </div>
-      <div class="field"><label for="coDescIn">Коротко (видно на карточке)</label><textarea id="coDescIn" name="description" maxlength="600"></textarea></div>
-      <div class="field"><label for="coDetailsIn">Подробно</label><textarea id="coDetailsIn" name="details"></textarea></div>
+      <div class="field"><label for="coDescIn"><?= coll_h($coll['description_label'] ?? 'Коротко (видно на карточке)') ?></label><textarea id="coDescIn" name="description" maxlength="600"></textarea></div>
+      <div class="field"><label for="coDetailsIn"><?= coll_h($coll['details_label'] ?? 'Подробно') ?></label><textarea id="coDetailsIn" name="details"></textarea></div>
       <div class="co-row">
         <div class="field"><label for="coTags">Теги через запятую</label><input id="coTags" name="tags"></div>
         <div class="field"><label for="coLinkIn">Ссылка</label><input id="coLinkIn" name="link" placeholder="https://"></div>

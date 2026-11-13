@@ -2,6 +2,8 @@
 <IfModule mod_rewrite.c>
 RewriteEngine On
 
+RewriteRule ^guitar(?:/index\.php)?/?$ /books [R=301,L,QSD]
+
 # Карта сайта для поисковиков собирается скриптом
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
 
