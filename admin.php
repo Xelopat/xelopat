@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/auth/lib.php';
 require_once __DIR__ . '/includes/collection_lib.php';
+require_once __DIR__ . '/includes/perfumes_lib.php';
 require_once __DIR__ . '/includes/stats.php';
 require_once __DIR__ . '/includes/lisa_cfg.php';
 require_role('admin');
@@ -188,7 +189,7 @@ foreach (COLLECTIONS as $key => $def) {
     ];
 }
 
-$perf = is_file(__DIR__ . '/perfumes/data.json') ? json_decode((string)file_get_contents(__DIR__ . '/perfumes/data.json'), true) : [];
+$perf = ['items' => array_filter(perf_load(), fn($it) => !$it['draft'])];
 $sections[] = ['title' => 'Духи', 'url' => '/perfumes', 'add' => '/perfumes?add=1', 'stat' => count((array)($perf['items'] ?? [])) . ' шт.', 'last' => 'редактируются на странице'];
 
 $ctfData = is_file(__DIR__ . '/data/ctf_events.json') ? json_decode((string)file_get_contents(__DIR__ . '/data/ctf_events.json'), true) : [];

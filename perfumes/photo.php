@@ -1,37 +1,21 @@
 <?php
-// /perfumes/photo.php
 declare(strict_types=1);
-
-function valid_id(string $id): bool {
-    return (bool)preg_match('/^[a-zA-Z0-9._-]{1,48}$/', $id);
-}
-
-function not_found(): void {
-    http_response_code(404);
-    header("Content-Type: text/plain; charset=utf-8");
-    echo "404 Not Found";
+require_once $_SERVER['DOCUMENT_ROOT'] . '/auth/lib.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/perfumes_lib.php';
+header('Cache-Control: private, no-store');
+function perf_not_found(): void { http_response_code(404); exit; }
+$id = (string)($_GET['id'] ?? '');
+try { $item = perf_load()[$id] ?? null; } catch (Throwable $e) { http_response_code(503); exit; }
+if (!$item || !perf_access($item, auth_current_user())) perf_not_found();
+if ($item['photo_store'] !== '') {
+    $path = perf_photo_path($item['photo_store']);
+    if (!$path || !is_file($path)) perf_not_found();
+    $ext = pathinfo($path, PATHINFO_EXTENSION);
+    header('Content-Type: image/' . ($ext === 'jpg' ? 'jpeg' : $ext));
+    header('X-Content-Type-Options: nosniff');
+    readfile($path);
     exit;
 }
-
-$id = trim((string)($_GET["id"] ?? ""));
-if ($id === "" || !valid_id($id)) not_found();
-
-$data_file = __DIR__ . "/data.json";
-if (!is_file($data_file)) not_found();
-
-$raw = @file_get_contents($data_file);
-$data = $raw ? json_decode($raw, true) : null;
-if (!is_array($data) || !isset($data["items"][$id]) || !is_array($data["items"][$id])) not_found();
-
-$item = $data["items"][$id];
-$photo_file = trim((string)($item["photo_file"] ?? ""));
-if ($photo_file === "") not_found();
-
-$photo_file = basename($photo_file);
-if (!preg_match('/^[a-zA-Z0-9._-]{1,160}\.(jpg|jpeg|png|webp)$/i', $photo_file)) not_found();
-
-$updated = (string)($item["updated_at"] ?? "");
-$qs = $updated !== "" ? ("?v=" . rawurlencode($updated)) : "";
-
-header("Location: /perfumes/uploads/original/" . rawurlencode($photo_file) . $qs, true, 302);
-exit;
+$name = (string)($item['photo_file'] ?? '');
+if (!preg_match('/^[a-zA-Z0-9._-]{1,160}\.(jpg|jpeg|png|webp)$/iD', $name)) perf_not_found();
+header('Location: /perfumes/uploads/original/' . rawurlencode($name), true, 302);

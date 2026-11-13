@@ -1,0 +1,4 @@
+# Legacy data is retained as a migration backup, never served directly.
+<Files "data.json">
+  Require all denied
+</Files>

@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 require_once $_SERVER["DOCUMENT_ROOT"] . "/auth/lib.php";
+require_once $_SERVER["DOCUMENT_ROOT"] . "/includes/perfumes_lib.php";
+header("Cache-Control: private, no-store");
 
 /*
   Просмотр доступен всем (в том числе неаутентифицированным).
@@ -19,33 +21,12 @@ if (function_exists("auth_current_user")) {
 }
 $is_admin = user_has_role($user, "editor");
 
-$DATA_FILE = __DIR__ . "/data.json";
 
-$PUBLIC_UPLOAD_DIR = __DIR__ . "/uploads";
-$PUBLIC_ORIG_DIR = $PUBLIC_UPLOAD_DIR . "/original";
-$PUBLIC_PREVIEW_DIR = $PUBLIC_UPLOAD_DIR . "/preview";
 
 $PUBLIC_ORIG_URL = "/perfumes/uploads/original";
 $PUBLIC_PREVIEW_URL = "/perfumes/uploads/preview";
 
 const PER_PAGE = 50;
-const MAX_UPLOAD_BYTES = 6 * 1024 * 1024;
-const PREVIEW_MAX_SIDE = 220; // размер превью
-const PREVIEW_QUALITY = 78;   // качество webp/jpg превью
-
-if (!is_dir($PUBLIC_ORIG_DIR)) {
-    @mkdir($PUBLIC_ORIG_DIR, 0755, true);
-}
-if (!is_dir($PUBLIC_PREVIEW_DIR)) {
-    @mkdir($PUBLIC_PREVIEW_DIR, 0755, true);
-}
-if (!file_exists($DATA_FILE)) {
-    file_put_contents(
-        $DATA_FILE,
-        json_encode(["items" => []], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
-        LOCK_EX
-    );
-}
 
 /* ---------------- helpers ---------------- */
 
@@ -54,24 +35,6 @@ if (!function_exists("esc")) {
         if (function_exists("h")) return h($s);
         return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, "UTF-8");
     }
-}
-
-function load_data(string $file): array {
-    $raw = @file_get_contents($file);
-    if ($raw === false || trim($raw) === "") return ["items" => []];
-    $data = json_decode($raw, true);
-    if (!is_array($data) || !isset($data["items"]) || !is_array($data["items"])) return ["items" => []];
-    return $data;
-}
-
-function save_data(string $file, array $data): void {
-    $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-    if ($json === false) $json = '{"items":{}}';
-    file_put_contents($file, $json, LOCK_EX);
-}
-
-function valid_id(string $id): bool {
-    return (bool)preg_match('/^[a-zA-Z0-9._-]{1,48}$/', $id);
 }
 
 function clamp_float(float $v, float $min, float $max): float {
@@ -134,13 +97,6 @@ function tags_to_str(array $tags): string {
     return implode(", ", $tags);
 }
 
-function safe_return_url(string $u): string {
-    $u = trim($u);
-    if ($u === "") return "/perfumes";
-    if (!preg_match('~^/perfumes(?:\?|$)~', $u)) return "/perfumes";
-    return $u;
-}
-
 function build_page_url(int $page): string {
     $params = $_GET;
     $params["page"] = (string)$page;
@@ -199,158 +155,16 @@ function note_match_any(string $noteValue, array $needles): bool {
     return false;
 }
 
-function is_allowed_image_ext(string $ext): bool {
-    $ext = strtolower($ext);
-    return in_array($ext, ["jpg", "jpeg", "png", "webp"], true);
-}
-
-function detect_mime(string $path): string {
-    $mime = "";
-    if (function_exists("finfo_open")) {
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        if ($finfo) {
-            $mime = (string)finfo_file($finfo, $path);
-            finfo_close($finfo);
-        }
-    }
-    return $mime;
-}
-
-function image_create_from_path(string $path, string $ext) {
-    $ext = strtolower($ext);
-    if ($ext === "jpg" || $ext === "jpeg") {
-        return function_exists("imagecreatefromjpeg") ? @imagecreatefromjpeg($path) : false;
-    }
-    if ($ext === "png") {
-        return function_exists("imagecreatefrompng") ? @imagecreatefrompng($path) : false;
-    }
-    if ($ext === "webp") {
-        return function_exists("imagecreatefromwebp") ? @imagecreatefromwebp($path) : false;
-    }
-    return false;
-}
-
-function save_preview_image($img, string $destPath, int $quality): bool {
-    $ext = strtolower(pathinfo($destPath, PATHINFO_EXTENSION));
-    if ($ext === "webp" && function_exists("imagewebp")) {
-        return @imagewebp($img, $destPath, $quality);
-    }
-    if (($ext === "jpg" || $ext === "jpeg") && function_exists("imagejpeg")) {
-        return @imagejpeg($img, $destPath, $quality);
-    }
-    if ($ext === "png" && function_exists("imagepng")) {
-        $q = (int)round(9 - ($quality / 100) * 9);
-        if ($q < 0) $q = 0;
-        if ($q > 9) $q = 9;
-        return @imagepng($img, $destPath, $q);
-    }
-    return false;
-}
-
-function make_preview(string $srcPath, string $srcExt, string $destDir, string $baseNameNoExt, int $maxSide, int $quality): string {
-    if (!function_exists("imagecreatetruecolor") || !function_exists("imagesx") || !function_exists("imagesy")) {
-        return "";
-    }
-
-    $src = image_create_from_path($srcPath, $srcExt);
-    if (!$src) return "";
-
-    $w = imagesx($src);
-    $h = imagesy($src);
-    if ($w <= 0 || $h <= 0) {
-        imagedestroy($src);
-        return "";
-    }
-
-    $scale = 1.0;
-    $max = max($w, $h);
-    if ($max > $maxSide) $scale = $maxSide / $max;
-
-    $nw = (int)max(1, floor($w * $scale));
-    $nh = (int)max(1, floor($h * $scale));
-
-    $dst = imagecreatetruecolor($nw, $nh);
-
-    // прозрачность для png/webp
-    if (in_array(strtolower($srcExt), ["png", "webp"], true)) {
-        if (function_exists("imagealphablending")) imagealphablending($dst, false);
-        if (function_exists("imagesavealpha")) imagesavealpha($dst, true);
-        $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
-        imagefilledrectangle($dst, 0, 0, $nw, $nh, $transparent);
-    } else {
-        $white = imagecolorallocate($dst, 255, 255, 255);
-        imagefilledrectangle($dst, 0, 0, $nw, $nh, $white);
-    }
-
-    if (!function_exists("imagecopyresampled")) {
-        imagedestroy($src);
-        imagedestroy($dst);
-        return "";
-    }
-
-    imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
-    imagedestroy($src);
-
-    // формат превью: webp, если возможно, иначе jpg
-    $previewExt = function_exists("imagewebp") ? "webp" : "jpg";
-    $destFile = $baseNameNoExt . "_p." . $previewExt;
-    $destPath = rtrim($destDir, "/") . "/" . $destFile;
-
-    $ok = save_preview_image($dst, $destPath, $quality);
-    imagedestroy($dst);
-
-    if (!$ok) {
-        @unlink($destPath);
-        return "";
-    }
-    return $destFile;
-}
-
-function delete_public_file_safe(string $dir, string $filename): void {
-    $filename = trim($filename);
-    if ($filename === "") return;
-    $filename = basename($filename);
-
-    if (!preg_match('/^[a-zA-Z0-9._-]{1,160}\.(jpg|jpeg|png|webp)$/i', $filename)) return;
-
-    $path = rtrim($dir, "/") . "/" . $filename;
-    if (is_file($path)) @unlink($path);
-}
-
-function handle_upload_with_preview(string $id, string $origDir, string $previewDir): array {
-    if (empty($_FILES["photo"]) || !isset($_FILES["photo"]["error"])) return ["file" => "", "preview" => ""];
-    if ($_FILES["photo"]["error"] !== UPLOAD_ERR_OK) return ["file" => "", "preview" => ""];
-
-    $tmp = (string)($_FILES["photo"]["tmp_name"] ?? "");
-    $size = (int)($_FILES["photo"]["size"] ?? 0);
-    $name = (string)($_FILES["photo"]["name"] ?? "");
-
-    if ($size <= 0 || $size > MAX_UPLOAD_BYTES) return ["file" => "", "preview" => ""];
-
-    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-    if (!is_allowed_image_ext($ext)) return ["file" => "", "preview" => ""];
-
-    $mime = detect_mime($tmp);
-    $allowedMime = ["image/jpeg", "image/png", "image/webp"];
-    if ($mime !== "" && !in_array($mime, $allowedMime, true)) return ["file" => "", "preview" => ""];
-
-    $safeId = preg_replace('/[^a-zA-Z0-9._-]/', "_", $id);
-    $base = $safeId . "_" . date("Ymd_His") . "_" . bin2hex(random_bytes(3));
-    $origFile = $base . "." . $ext;
-
-    $origPath = rtrim($origDir, "/") . "/" . $origFile;
-    if (!move_uploaded_file($tmp, $origPath)) return ["file" => "", "preview" => ""];
-
-    $previewFile = make_preview($origPath, $ext, $previewDir, $base, PREVIEW_MAX_SIDE, PREVIEW_QUALITY);
-
-    return ["file" => $origFile, "preview" => $previewFile];
-}
-
 /* ---------------- load ---------------- */
 
-$data = load_data($DATA_FILE);
-$items = $data["items"];
-if (!is_array($items)) $items = [];
+try {
+    $all_perfumes = perf_load();
+} catch (Throwable $e) {
+    http_response_code(503);
+    exit('Коллекция временно недоступна. Попробуй обновить страницу позже.');
+}
+$items = array_map('perf_public', array_filter($all_perfumes, fn($it) => !$it['draft']));
+$perf_drafts = $is_admin ? array_values(array_map('perf_public', array_filter($all_perfumes, fn($it) => $it['draft'] && perf_access($it, $user)))) : [];
 
 $csrf = $is_admin && function_exists("csrf_token") ? csrf_token() : "";
 $errors = [];
@@ -428,166 +242,16 @@ if ($has_price_params) {
     }
 }
 
-/* ---------------- POST (admin only) ---------------- */
+/* ---------------- current page / legacy form requests ---------------- */
 
 $current_params = $_GET;
 unset($current_params["add"]); // ?add=1 из админки только открывает форму, возвращаться с ним не нужно
 $current_qs = http_build_query($current_params);
 $current_url = "/perfumes" . ($current_qs !== "" ? ("?" . $current_qs) : "");
-$return_url = safe_return_url((string)($_POST["return"] ?? $current_url));
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    if (!$is_admin) {
-        http_response_code(403);
-        echo "403 Forbidden";
-        exit;
-    }
-
-    if (!function_exists("csrf_check") || !csrf_check((string)($_POST["csrf"] ?? ""))) {
-        $errors[] = "CSRF: обнови страницу и попробуй снова.";
-    } else {
-        $action = (string)($_POST["action"] ?? "");
-
-        $id = trim((string)($_POST["id"] ?? ""));
-        $name = trim((string)($_POST["name"] ?? ""));
-        $brand = trim((string)($_POST["brand"] ?? ""));
-        $description = trim((string)($_POST["description"] ?? ""));
-        $notes = trim((string)($_POST["notes"] ?? ""));
-
-        $notes_top = trim((string)($_POST["notes_top"] ?? ""));
-        $notes_middle = trim((string)($_POST["notes_middle"] ?? ""));
-        $notes_base = trim((string)($_POST["notes_base"] ?? ""));
-
-        $tags_arr = parse_tags((string)($_POST["tags"] ?? ""));
-
-        $rating = parse_float_or_null($_POST["rating"] ?? "");
-        $price = parse_int_or_null($_POST["price"] ?? "");
-
-        $rating = $rating === null ? null : clamp_float($rating, 1, 10);
-        $price = $price === null ? null : clamp_int($price, 0, 999999);
-
-        if ($action === "add") {
-            if ($id === "" || !valid_id($id)) $errors[] = "ID обязателен. Разрешены латиница, цифры, точка, подчёркивание, дефис (до 48).";
-            if (isset($items[$id])) $errors[] = "Такой ID уже существует.";
-
-            if (!$errors) {
-                $up = handle_upload_with_preview($id, $PUBLIC_ORIG_DIR, $PUBLIC_PREVIEW_DIR);
-                $now = date("c");
-
-                $items[$id] = [
-                    "id" => $id,
-                    "name" => $name,
-                    "brand" => $brand,
-                    "description" => $description,
-                    "notes" => $notes,
-
-                    "notes_top" => $notes_top,
-                    "notes_middle" => $notes_middle,
-                    "notes_base" => $notes_base,
-
-                    "tags" => $tags_arr,
-
-                    "photo_file" => $up["file"] ?? "",
-                    "photo_preview" => $up["preview"] ?? "",
-
-                    "rating" => $rating,
-                    "price" => $price,
-                    "created_at" => $now,
-                    "updated_at" => $now,
-                ];
-
-                $data["items"] = $items;
-                save_data($DATA_FILE, $data);
-
-                header("Location: " . $return_url);
-                exit;
-            }
-        }
-
-        if ($action === "update") {
-            if ($id === "" || !isset($items[$id])) $errors[] = "Запись не найдена.";
-
-            if (!$errors) {
-                $existing = (string)($items[$id]["photo_file"] ?? "");
-                $existing_preview = (string)($items[$id]["photo_preview"] ?? "");
-
-                $remove_photo = ((string)($_POST["remove_photo"] ?? "") === "1");
-                $new_up = handle_upload_with_preview($id, $PUBLIC_ORIG_DIR, $PUBLIC_PREVIEW_DIR);
-
-                $photo_final = $existing;
-                $preview_final = $existing_preview;
-
-                if ($remove_photo) {
-                    delete_public_file_safe($PUBLIC_ORIG_DIR, $existing);
-                    delete_public_file_safe($PUBLIC_PREVIEW_DIR, $existing_preview);
-                    $photo_final = "";
-                    $preview_final = "";
-                }
-
-                if (($new_up["file"] ?? "") !== "") {
-                    // заменяем, старые удаляем
-                    delete_public_file_safe($PUBLIC_ORIG_DIR, $existing);
-                    delete_public_file_safe($PUBLIC_PREVIEW_DIR, $existing_preview);
-
-                    $photo_final = (string)$new_up["file"];
-                    $preview_final = (string)($new_up["preview"] ?? "");
-                }
-
-                $items[$id]["name"] = $name;
-                $items[$id]["brand"] = $brand;
-                $items[$id]["description"] = $description;
-                $items[$id]["notes"] = $notes;
-
-                $items[$id]["notes_top"] = $notes_top;
-                $items[$id]["notes_middle"] = $notes_middle;
-                $items[$id]["notes_base"] = $notes_base;
-
-                $items[$id]["tags"] = $tags_arr;
-
-                $items[$id]["photo_file"] = $photo_final;
-                $items[$id]["photo_preview"] = $preview_final;
-
-                $items[$id]["rating"] = $rating;
-                $items[$id]["price"] = $price;
-                $items[$id]["updated_at"] = date("c");
-
-                unset(
-                    $items[$id]["longevity"],
-                    $items[$id]["sillage"],
-                    $items[$id]["freshness"],
-                    $items[$id]["sweetness"],
-                    $items[$id]["versatility"],
-                    $items[$id]["compliments"]
-                );
-
-                $data["items"] = $items;
-                save_data($DATA_FILE, $data);
-
-                header("Location: " . $return_url);
-                exit;
-            }
-        }
-
-        if ($action === "delete") {
-            if ($id === "" || !isset($items[$id])) $errors[] = "Запись не найдена.";
-
-            if (!$errors) {
-                $existing = (string)($items[$id]["photo_file"] ?? "");
-                $existing_preview = (string)($items[$id]["photo_preview"] ?? "");
-
-                delete_public_file_safe($PUBLIC_ORIG_DIR, $existing);
-                delete_public_file_safe($PUBLIC_PREVIEW_DIR, $existing_preview);
-
-                unset($items[$id]);
-
-                $data["items"] = $items;
-                save_data($DATA_FILE, $data);
-
-                header("Location: " . $return_url);
-                exit;
-            }
-        }
-    }
+    http_response_code($is_admin ? 405 : 403);
+    exit('Обнови страницу: теперь записи сохраняются автоматически.');
 }
 
 /* ---------------- list build ---------------- */
@@ -692,6 +356,16 @@ $has_any_filters =
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Духи</title>
   <style>
+    [hidden]{display:none!important}
+    .perf-recovery{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;padding:12px;border:1px solid #f9c94066;border-radius:8px;font-size:13px}
+    .perf-draft-dialog{width:min(620px,calc(100vw - 24px));max-height:85dvh;border:1px solid var(--line);border-radius:8px;padding:18px;background:var(--bg);color:var(--text)}
+    .perf-draft-dialog::backdrop{background:#0009}
+    .perf-draft-dialog .row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .perf-draft-dialog .perf-draft-row{align-items:flex-start;width:100%;text-align:left;display:flex;flex-direction:column;gap:6px;margin-top:10px;overflow-wrap:anywhere}
+    #perfSaveStatus{margin:8px 0 10px;line-height:1.6}
+    #perfSaveStatus[data-error=true]{color:var(--danger)}
+    #perfForm button:disabled{opacity:.5;cursor:wait}
+
     *,*::before,*::after{box-sizing:border-box}
     :root{
       --bg:#151518;
@@ -918,6 +592,7 @@ $has_any_filters =
       <?php endif; ?>
 
       <?php if ($is_admin): ?>
+        <button class="btn" type="button" id="openDraftsBtn">Черновики <span id="perfDraftCount">0</span></button>
         <button class="btn primary" type="button" id="openAddBtn">Добавить</button>
       <?php endif; ?>
     </div>
@@ -931,6 +606,7 @@ $has_any_filters =
     </div>
   <?php endif; ?>
 
+  <?php if ($is_admin): ?><div id="perfRecovery" class="perf-recovery" hidden></div><?php endif; ?>
   <div class="layout">
     <div class="card">
       <details class="filters-details" id="filtersDetails" open>
@@ -1066,6 +742,7 @@ $has_any_filters =
                   $full_url = $PUBLIC_ORIG_URL . "/" . rawurlencode($photo_file) . ($updated ? ("?v=" . rawurlencode($updated)) : "");
               }
             ?>
+            <?php if (!empty($it['photo_url'])) { $full_url = $it['photo_url']; if (empty($it['photo_preview'])) $thumb_url = $full_url; } ?>
             <div class="item js-open" data-id="<?= esc((string)$id) ?>" data-full-url="<?= esc($full_url) ?>">
               <div class="thumb">
                 <?php if ($thumb_url !== ""): ?>
@@ -1136,6 +813,7 @@ $has_any_filters =
 <script>
   window.PERFUMES_DATA = <?= $items_json ?>;
   window.PERFUMES_IS_ADMIN = <?= $is_admin ? "true" : "false" ?>;
+  <?php if ($is_admin): ?>window.PERFUMES_EDITOR_CONFIG = <?= json_encode(['drafts' => $perf_drafts, 'user' => (string)$user['id'], 'csrf' => $csrf], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;<?php endif; ?>
 </script>
 
 <!-- VIEW MODAL -->
@@ -1205,70 +883,68 @@ $has_any_filters =
       </div>
     </div>
 
-    <form method="post" enctype="multipart/form-data" style="margin-top:10px;" id="perfForm">
+    <p class="muted" id="perfDraftHint">Черновик виден только тебе. Добавь аромат в коллекцию, когда будешь готов.</p>
+      <div id="perfSaveStatus" class="muted" role="status" aria-live="polite"></div>
+      <div class="row"><button class="btn" type="button" id="perfRetry" hidden>Повторить сохранение</button><button class="btn" type="button" id="perfCopy" hidden>Сохранить отдельным черновиком</button></div>
+    <form style="margin-top:10px;" id="perfForm">
       <input type="hidden" name="csrf" value="<?= esc($csrf) ?>">
       <input type="hidden" name="action" value="add" id="fAction">
       <input type="hidden" name="return" value="<?= esc($current_url) ?>">
       <input type="hidden" name="id" value="" id="fIdHidden">
 
       <div class="modal-grid">
-        <div class="full" id="fIdRow">
-          <label>ID (сам задаёшь)</label>
-          <input type="text" value="" id="fIdInput" placeholder="например: dior_sauvage_2025">
-        </div>
-
         <div>
-          <label>Название</label>
+          <label for="fName">Название</label>
           <input type="text" name="name" value="" id="fName">
         </div>
 
         <div>
-          <label>Бренд</label>
+          <label for="fBrand">Бренд</label>
           <input type="text" name="brand" value="" id="fBrand">
         </div>
 
         <div>
-          <label>Оценка (1-10)</label>
+          <label for="fRating">Оценка (1-10)</label>
           <input type="number" name="rating" min="1" max="10" step="0.1" value="" id="fRating">
         </div>
 
         <div>
-          <label>Цена (₽)</label>
+          <label for="fPrice">Цена (₽)</label>
           <input type="number" name="price" min="0" max="999999" step="1" value="" id="fPrice">
         </div>
 
         <div class="full">
-          <label>Теги (через запятую)</label>
+          <label for="fTags">Теги (через запятую)</label>
           <input type="text" name="tags" value="" id="fTags" placeholder="например: свежий, древесный, цитрус">
         </div>
 
         <div class="full">
-          <label>Описание</label>
+          <label for="fDesc">Описание</label>
           <textarea name="description" id="fDesc"></textarea>
         </div>
 
         <div class="full">
-          <label>Заметки</label>
+          <label for="fNotes">Заметки</label>
           <textarea name="notes" id="fNotes"></textarea>
         </div>
 
         <div class="full">
-          <label>Верхние ноты</label>
+          <label for="fNotesTop">Верхние ноты</label>
           <input type="text" name="notes_top" value="" id="fNotesTop" placeholder="например: бергамот, лимон">
         </div>
 
         <div class="full">
-          <label>Средние ноты</label>
+          <label for="fNotesMiddle">Средние ноты</label>
           <input type="text" name="notes_middle" value="" id="fNotesMiddle" placeholder="например: лаванда, жасмин">
         </div>
 
         <div class="full">
-          <label>Базовые ноты</label>
+          <label for="fNotesBase">Базовые ноты</label>
           <input type="text" name="notes_base" value="" id="fNotesBase" placeholder="например: амбра, кедр, мускус">
         </div>
 
         <div class="full">
-          <label>Фото</label>
+          <label for="fPhoto">Фото</label>
           <input id="fPhoto" type="file" name="photo" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
 
           <div id="pasteBox" class="pastebox" tabindex="0" role="button" aria-label="Вставить фото из буфера">
@@ -1284,8 +960,8 @@ $has_any_filters =
       </div>
 
       <div class="row">
-        <button class="btn primary" type="submit">Сохранить</button>
-        <button class="btn" type="button" data-close="1">Отмена</button>
+        <button class="btn primary" type="submit" id="perfPublish">Добавить в коллекцию</button>
+        <button class="btn" type="button" data-close="1">Закрыть</button>
       </div>
     </form>
 
@@ -1300,6 +976,10 @@ $has_any_filters =
 </div>
 <?php endif; ?>
 
+<?php if ($is_admin): ?>
+<dialog id="perfDraftDialog" class="perf-draft-dialog"><div class="row"><strong>Черновики</strong><button type="button" class="btn" id="perfCloseDrafts" aria-label="Закрыть черновики">×</button></div><p class="muted">Твои незаконченные ароматы. Сохранённые черновики доступны с любого устройства.</p><div id="perfDraftList"></div></dialog>
+<script src="/perfumes/editor.js?v=<?= filemtime(__DIR__ . '/editor.js') ?>"></script>
+<?php endif; ?>
 <script>
 (function(){
   const isAdmin = window.PERFUMES_IS_ADMIN === true;
@@ -1313,8 +993,9 @@ $has_any_filters =
     modal.setAttribute("aria-hidden","false");
     document.body.style.overflow = "hidden";
   }
-  function closeModal(modal){
+  function closeModal(modal, force = false){
     if (!modal) return;
+    if (modal === formModal && window.perfumeEditor && !force) { window.perfumeEditor.close(); return; }
     modal.classList.remove("open");
     modal.setAttribute("aria-hidden","true");
     const anyOpen = document.querySelector(".modal.open");
@@ -1543,227 +1224,7 @@ $has_any_filters =
   /* -------- FORM (admin) -------- */
 
   if (isAdmin && formModal) {
-    const openAddBtn = document.getElementById("openAddBtn");
-
-    const fTitle = document.getElementById("fTitle");
-    const fAction = document.getElementById("fAction");
-    const fIdPill = document.getElementById("fIdPill");
-
-    const fIdRow = document.getElementById("fIdRow");
-    const fIdInput = document.getElementById("fIdInput");
-    const fIdHidden = document.getElementById("fIdHidden");
-
-    const fName = document.getElementById("fName");
-    const fBrand = document.getElementById("fBrand");
-    const fRating = document.getElementById("fRating");
-    const fPrice = document.getElementById("fPrice");
-    const fTags = document.getElementById("fTags");
-    const fDesc = document.getElementById("fDesc");
-    const fNotes = document.getElementById("fNotes");
-
-    const fNotesTop = document.getElementById("fNotesTop");
-    const fNotesMiddle = document.getElementById("fNotesMiddle");
-    const fNotesBase = document.getElementById("fNotesBase");
-
-    const fRemoveLine = document.getElementById("fRemoveLine");
-    const fRemovePhoto = document.getElementById("fRemovePhoto");
-
-    const fPhoto = document.getElementById("fPhoto");
-    const pasteBox = document.getElementById("pasteBox");
-    const photoPreview = document.getElementById("photoPreview");
-
-    const perfForm = document.getElementById("perfForm");
-    const deleteForm = document.getElementById("deleteForm");
-    const dId = document.getElementById("dId");
-
-    function setPhotoFile(file){
-      if (!fPhoto) return;
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      fPhoto.files = dt.files;
-
-      if (photoPreview) {
-        const url = URL.createObjectURL(file);
-        photoPreview.src = url;
-        photoPreview.style.display = "block";
-      }
-    }
-
-    function clearPhotoFile(){
-      if (fPhoto) fPhoto.value = "";
-      if (photoPreview) {
-        photoPreview.src = "";
-        photoPreview.style.display = "none";
-      }
-    }
-
-    if (pasteBox) pasteBox.addEventListener("click", () => pasteBox.focus());
-
-    if (fPhoto && photoPreview) {
-      fPhoto.addEventListener("change", () => {
-        const file = fPhoto.files && fPhoto.files[0] ? fPhoto.files[0] : null;
-        if (!file) { clearPhotoFile(); return; }
-        const url = URL.createObjectURL(file);
-        photoPreview.src = url;
-        photoPreview.style.display = "block";
-        if (fRemovePhoto) fRemovePhoto.checked = false;
-      });
-    }
-
-    document.addEventListener("paste", (e) => {
-      if (!formModal.classList.contains("open")) return;
-
-      const cd = e.clipboardData;
-      if (!cd || !cd.items) return;
-
-      for (const it of cd.items) {
-        if (!it.type || !it.type.startsWith("image/")) continue;
-
-        const blob = it.getAsFile();
-        if (!blob) continue;
-
-        const ext = blob.type === "image/png" ? "png"
-          : blob.type === "image/webp" ? "webp"
-          : "jpg";
-
-        const file = new File([blob], `paste_${Date.now()}.${ext}`, { type: blob.type });
-        setPhotoFile(file);
-        if (fRemovePhoto) fRemovePhoto.checked = false;
-
-        e.preventDefault();
-        break;
-      }
-    });
-
-    if (fRemovePhoto) {
-      fRemovePhoto.addEventListener("change", () => {
-        if (fRemovePhoto.checked) clearPhotoFile();
-      });
-    }
-
-    function setAddMode(){
-      fTitle.textContent = "Добавить";
-      fAction.value = "add";
-
-      fIdPill.style.display = "none";
-      fIdPill.textContent = "";
-
-      fIdRow.style.display = "block";
-      fIdInput.value = "";
-      fIdHidden.value = "";
-
-      fName.value = "";
-      fBrand.value = "";
-      fRating.value = "";
-      fPrice.value = "";
-      fTags.value = "";
-      fDesc.value = "";
-      fNotes.value = "";
-      if (fNotesTop) fNotesTop.value = "";
-      if (fNotesMiddle) fNotesMiddle.value = "";
-      if (fNotesBase) fNotesBase.value = "";
-
-      fRemoveLine.style.display = "none";
-      if (fRemovePhoto) fRemovePhoto.checked = false;
-
-      clearPhotoFile();
-
-      deleteForm.style.display = "none";
-      dId.value = "";
-    }
-
-    function setEditMode(id){
-      const it = window.PERFUMES_DATA && window.PERFUMES_DATA[id] ? window.PERFUMES_DATA[id] : null;
-      if (!it) return;
-
-      fTitle.textContent = "Редактирование";
-      fAction.value = "update";
-
-      fIdPill.style.display = "inline-flex";
-      fIdPill.textContent = id;
-
-      fIdRow.style.display = "none";
-      fIdHidden.value = id;
-      fIdInput.value = id;
-
-      fName.value = it.name || "";
-      fBrand.value = it.brand || "";
-      fDesc.value = it.description || "";
-      fNotes.value = it.notes || "";
-
-      if (fNotesTop) fNotesTop.value = it.notes_top || "";
-      if (fNotesMiddle) fNotesMiddle.value = it.notes_middle || "";
-      if (fNotesBase) fNotesBase.value = it.notes_base || "";
-
-      fRating.value = (it.rating ?? "") === null ? "" : (it.rating ?? "");
-      fPrice.value = (it.price ?? "") === null ? "" : (it.price ?? "");
-
-      const tags = Array.isArray(it.tags) ? it.tags : [];
-      fTags.value = tags.join(", ");
-
-      if (it.photo_file) fRemoveLine.style.display = "flex";
-      else {
-        fRemoveLine.style.display = "none";
-        if (fRemovePhoto) fRemovePhoto.checked = false;
-      }
-
-      clearPhotoFile();
-
-      deleteForm.style.display = "block";
-      dId.value = id;
-    }
-
-    if (openAddBtn) {
-      openAddBtn.addEventListener("click", () => {
-        setAddMode();
-        openModal(formModal);
-      });
-    }
-
-    // Кнопка «+ Добавить» из админки ведёт сюда с ?add=1 и сразу открывает форму
-    if (openAddBtn && new URLSearchParams(location.search).has("add")) {
-      const clean = new URLSearchParams(location.search);
-      clean.delete("add");
-      const qs = clean.toString();
-      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
-      openAddBtn.click();
-    }
-
-    document.querySelectorAll(".js-edit").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const id = btn.getAttribute("data-id");
-        if (!id) return;
-        setEditMode(id);
-        openModal(formModal);
-      });
-    });
-
-    const vEditBtn = document.getElementById("vEditBtn");
-    if (vEditBtn) {
-      vEditBtn.addEventListener("click", () => {
-        const openId = document.getElementById("vIdPill")?.textContent || "";
-        if (!openId) return;
-        closeModal(viewModal);
-        setEditMode(openId);
-        openModal(formModal);
-      });
-    }
-
-    if (perfForm) {
-      perfForm.addEventListener("submit", () => {
-        if (fAction.value === "add") {
-          fIdHidden.value = (fIdInput.value || "").trim();
-        }
-      });
-    }
-
-    if (deleteForm) {
-      deleteForm.addEventListener("submit", (e) => {
-        if (!confirm("Удалить запись?")) e.preventDefault();
-      });
-    }
+    window.perfumeEditor = window.initPerfumeEditor({ openModal, closeModal, formModal, viewModal });
   }
 })();
 </script>
