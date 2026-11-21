@@ -100,3 +100,8 @@
   .bk-editor .bk-dialog-foot button { font-size:14px; }
 }
 @media(max-width:380px) { .bk-sidebar { grid-template-columns:1fr; } }
+.bk-date { margin-bottom:20px; font-size:13px; color:var(--muted); }
+.bk-date-parts { display:grid; grid-template-columns:minmax(60px,1fr) minmax(110px,2fr) minmax(90px,1fr); gap:10px; margin:8px 0; }
+.bk-date-parts label { display:flex; flex-direction:column; gap:7px; min-width:0; }
+.bk-date-parts input, .bk-date-parts select { width:100%; min-width:0; box-sizing:border-box; }
+.bk-date .bk-hint { margin-bottom:8px; }

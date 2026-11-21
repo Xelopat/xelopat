@@ -85,6 +85,17 @@ function books_public(array $book, bool $editor): array {
     return $book;
 }
 
+// Keep complete legacy dates unchanged; zero components represent omitted parts.
+function books_valid_finished(string $value): bool {
+    if ($value === '') return true;
+    if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $value, $parts)) return false;
+    [$year, $month, $day] = array_map('intval', array_slice($parts, 1));
+    if (!$year && !$month && !$day) return false;
+    if ($month > 12 || $day > 31) return false;
+    // Without a year, February 29 is possible. Without a month, any day 1–31 is possible.
+    return !$month || !$day || checkdate($month, $day, $year ?: 2000);
+}
+
 function books_save(array $input, array $user): array {
     $id = (string)($input['id'] ?? '');
     if (!preg_match('/^[a-f0-9]{10,36}$/', $id)) throw new InvalidArgumentException('Некорректная книга.');
@@ -93,10 +104,7 @@ function books_save(array $input, array $user): array {
     }
     if (!isset(BOOK_STATUSES[$input['status'] ?? ''])) throw new InvalidArgumentException('Выбери статус чтения.');
     $finished = (string)($input['finished'] ?? '');
-    if ($finished !== '') {
-        $date = DateTime::createFromFormat('!Y-m-d', $finished);
-        if (!$date || $date->format('Y-m-d') !== $finished) throw new InvalidArgumentException('Проверь дату завершения.');
-    }
+    if (!books_valid_finished($finished)) throw new InvalidArgumentException('Проверь дату завершения. Можно указать только день, месяц или год.');
     $publish = ($input['publish'] ?? false) === true;
     if ($publish && (trim($input['title']) === '' || trim($input['description']) === '')) throw new InvalidArgumentException('Для библиотеки нужны название и автор.');
     $newCover = null;

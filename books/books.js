@@ -7,7 +7,13 @@
   const lower = s => s.trim().toLocaleLowerCase('ru');
   const unique = values => [...new Map(values.map(v => [lower(v), v])).values()];
   const cmp = (a, b) => a.localeCompare(b, 'ru', { sensitivity: 'base', numeric: true });
-  const dateText = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  // Zero components mean omitted parts, never an inferred calendar date.
+  const dateText = value => {
+    if (!value) return '';
+    const [year, month, day] = value.split('-').map(Number);
+    const months = (day ? 'января февраля марта апреля мая июня июля августа сентября октября ноября декабря' : 'январь февраль март апрель май июнь июль август сентябрь октябрь ноябрь декабрь').split(' ');
+    return [day || '', month ? months[month - 1] : '', year || ''].filter(Boolean).join(' ');
+  };
   let items = config.items, viewing = null;
   let filter = { q: '', status: '', genres: [], tags: [], sort: 'read', limit: 24 };
   function readFilters() {
@@ -243,18 +249,29 @@
     form.reset(); for (const key of fields) form.elements[key].value = edit[key];
     form.querySelectorAll('.bk-tag-field').forEach(box => { box.querySelector('input').value = recovery?.pending?.[box.dataset.field] || ''; renderTagField(box); });
     $('bkAuthors').replaceChildren(...unique(items.map(b => b.description).filter(Boolean)).sort(cmp).map(a => { const o = node('option'); o.value = a; return o; }));
-    $('bkExtra').open = !!edit.details || !!edit.tags.length;
+    fillDateParts();
     $('bkRetry').hidden = !recovery; $('bkCopy').hidden = true; editorLabels(); previewCover();
     status(recovery ? 'Восстановлена копия из браузера. Проверь её и продолжай редактировать.' : book ? 'Сохранено на сервере' : 'Черновик сохранится автоматически, как только начнёшь вводить.');
     dialog.showModal(); form.elements.title.focus();
   }
+  const dateFields = ['finishedYear', 'finishedMonth', 'finishedDay'];
+  function fillDateParts() {
+    const parts = (form.elements.finished.value || '0000-00-00').split('-');
+    dateFields.forEach((key, i) => { form.elements[key].value = Number(parts[i]) || ''; });
+  }
+  function readDateParts() {
+    const values = dateFields.map(key => form.elements[key].value);
+    form.elements.finished.value = values.some(Boolean) ? values.map((v, i) => v.padStart(i === 0 ? 4 : 2, '0')).join('-') : '';
+  }
+  $('bkDateToday').onclick = () => {
+    const now = new Date();
+    form.elements.finished.value = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+    fillDateParts(); edited();
+  };
+  $('bkDateClear').onclick = () => { form.elements.finished.value = ''; fillDateParts(); edited(); };
   form.addEventListener('input', e => {
-    if (!fields.includes(e.target.name)) return;
-    if (e.target.name === 'status') {
-      if (e.target.value === 'read' && edit.status !== 'read' && !form.elements.finished.value) {
-        const now = new Date(); form.elements.finished.value = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
-      }
-    }
+    if (dateFields.includes(e.target.name)) readDateParts();
+    else if (!fields.includes(e.target.name)) return;
     edited(); editorLabels();
   });
   async function api(action, data) {
