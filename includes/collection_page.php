@@ -10,6 +10,25 @@ $coll_key = (string)($collection_key ?? '');
 $coll = coll_def($coll_key);
 $coll_user = auth_current_user();
 $coll_is_admin = user_has_role($coll_user, 'editor');
+$coll_user_id = $coll_is_admin ? (string)$coll_user['id'] : '';
+$coll_travel = $coll_key === 'travel';
+$coll_drafts = $coll_travel && $coll_is_admin && isset($_GET['drafts']);
+
+if ($coll_travel && isset($_GET['media'])) {
+    $path = coll_travel_media_path((string)$_GET['media'], $coll_user_id);
+    header('Cache-Control: private, no-store');
+    if ($path === null) { http_response_code(404); exit; }
+    session_write_close();
+    $mime = [
+        'jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'gif' => 'image/gif',
+        'mp4' => 'video/mp4', 'webm' => 'video/webm', 'mov' => 'video/quicktime', 'm4v' => 'video/mp4',
+    ];
+    header('X-Content-Type-Options: nosniff');
+    header('Content-Type: ' . $mime[pathinfo($path, PATHINFO_EXTENSION)]);
+    coll_send_media($path);
+    exit;
+}
+if ($coll_drafts) header('Cache-Control: private, no-store');
 
 const COLL_MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 
@@ -46,8 +65,9 @@ if (isset($_GET['api'])) {
 
     if ($api === 'delete') {
         $id = (string)($_POST['id'] ?? '');
-        $removed = coll_mutate($coll_key, function (array &$items) use ($id) {
+        $removed = coll_mutate($coll_key, function (array &$items) use ($id, $coll_user_id) {
             foreach ($items as $i => $it) {
+                if ($it['draft'] && !coll_draft_owned($it, $coll_user_id)) continue;
                 if ($it['id'] === $id) { array_splice($items, $i, 1); return $it; }
             }
             return null;
@@ -80,58 +100,76 @@ if (isset($_GET['api'])) {
 
         $uploaded = coll_handle_uploads($coll_key, $_FILES['files'] ?? null, $errors);
 
-        $result = coll_mutate($coll_key, function (array &$items) use ($id, $title, $date, $link, $keep, $uploaded) {
-            $idx = null;
-            foreach ($items as $i => $it) if ($it['id'] === $id) { $idx = $i; break; }
-            if ($id !== '' && $idx === null) return ['error' => 'Запись не найдена (возможно, её удалили).'];
-
-            $old = $idx === null ? [] : $items[$idx]['media'];
-            $bySrc = [];
-            foreach ($old as $m) $bySrc[$m['src']] = $m;
-
-            $media = [];
-            $usedNew = [];
-            foreach ($keep as $k) {
-                // {new: N} — N-й загруженный в этом запросе файл, на своём месте в порядке
-                if (isset($k['new'])) {
-                    $n = (int)$k['new'];
-                    if (isset($uploaded[$n]) && !isset($usedNew[$n])) { $media[] = $uploaded[$n]; $usedNew[$n] = true; }
-                    continue;
+        $publish = $coll_travel && (string)($_POST['publish'] ?? '') === '1';
+        if ($coll_travel && $errors) {
+            foreach ($uploaded as $m) coll_delete_media_files($coll_key, $m);
+            coll_api_out(400, ['error' => implode("\n", $errors)]);
+        }
+        try {
+            $result = coll_mutate($coll_key, function (array &$items) use ($id, $title, $date, $link, $keep, $uploaded, $coll_travel, $coll_user_id, $publish) {
+                $idx = null;
+                foreach ($items as $i => $it) {
+                    if ($it['id'] !== $id || ($it['draft'] && !coll_draft_owned($it, $coll_user_id))) continue;
+                    $idx = $i;
+                    break;
                 }
-                $src = trim((string)($k['src'] ?? ''));
-                if ($src === '') continue;
-                if (isset($bySrc[$src])) { $media[] = $bySrc[$src]; unset($bySrc[$src]); continue; }
-                // Новая ссылка: внешняя или на файл этого сайта
-                if (coll_is_local_path($src) || (preg_match('~^https?://~i', $src) && filter_var($src, FILTER_VALIDATE_URL))) {
-                    $media[] = ['type' => coll_media_kind($src), 'src' => $src, 'preview' => ''];
-                }
-            }
-            foreach ($uploaded as $n => $m) if (!isset($usedNew[$n])) $media[] = $m;
+                if ($id !== '' && $idx === null) return ['error' => 'Запись не найдена (возможно, её удалили).'];
+                $draft = $coll_travel && ($idx === null || ($items[$idx]['draft'] && !$publish));
 
-            $item = coll_normalize_item([
-                'id' => $idx === null ? coll_new_id() : $items[$idx]['id'],
-                'title' => $title,
-                'date' => $date,
-                'description' => trim((string)($_POST['description'] ?? '')),
-                'details' => trim((string)($_POST['details'] ?? '')),
-                'tags' => (string)($_POST['tags'] ?? ''),
-                'link' => $link,
-                'fit' => (string)($_POST['fit'] ?? 'auto'),
-                'media' => $media,
-                'created' => $idx === null ? date('c') : $items[$idx]['created'],
-                'updated' => date('c'),
-                'legacy_index' => $idx === null ? null : $items[$idx]['legacy_index'],
-            ]);
-            if ($idx === null) $items[] = $item; else $items[$idx] = $item;
-            return ['item' => $item, 'removed' => array_values($bySrc)];
-        });
+                $old = $idx === null ? [] : $items[$idx]['media'];
+                $bySrc = [];
+                foreach ($old as $m) $bySrc[$m['src']] = $m;
+
+                $media = [];
+                $usedNew = [];
+                foreach ($keep as $k) {
+                    // {new: N} — N-й загруженный в этом запросе файл, на своём месте в порядке
+                    if (isset($k['new'])) {
+                        $n = (int)$k['new'];
+                        if (isset($uploaded[$n]) && !isset($usedNew[$n])) { $media[] = $uploaded[$n]; $usedNew[$n] = true; }
+                        continue;
+                    }
+                    $src = trim((string)($k['src'] ?? ''));
+                    if ($src === '') continue;
+                    if (isset($bySrc[$src])) { $media[] = $bySrc[$src]; unset($bySrc[$src]); continue; }
+                    if ($coll_travel && str_starts_with($src, coll_travel_media_url(''))) continue;
+                    // Новая ссылка: внешняя или на файл этого сайта
+                    if (coll_is_local_path($src) || (preg_match('~^https?://~i', $src) && filter_var($src, FILTER_VALIDATE_URL))) {
+                        $media[] = ['type' => coll_media_kind($src), 'src' => $src, 'preview' => ''];
+                    }
+                }
+                foreach ($uploaded as $n => $m) if (!isset($usedNew[$n])) $media[] = $m;
+
+                $item = coll_normalize_item([
+                    'id' => $idx === null ? coll_new_id() : $items[$idx]['id'],
+                    'title' => $title,
+                    'date' => $date,
+                    'description' => trim((string)($_POST['description'] ?? '')),
+                    'details' => trim((string)($_POST['details'] ?? '')),
+                    'tags' => (string)($_POST['tags'] ?? ''),
+                    'link' => $link,
+                    'fit' => (string)($_POST['fit'] ?? 'auto'),
+                    'media' => $media,
+                    'created' => $idx === null ? date('c') : $items[$idx]['created'],
+                    'updated' => date('c'),
+                    'legacy_index' => $idx === null ? null : $items[$idx]['legacy_index'],
+                    'draft' => $draft,
+                    'draft_owner' => $draft ? $coll_user_id : '',
+                ]);
+                if ($idx === null) $items[] = $item; else $items[$idx] = $item;
+                return ['item' => $item, 'removed' => array_values($bySrc)];
+            });
+        } catch (RuntimeException $e) {
+            foreach ($uploaded as $m) coll_delete_media_files($coll_key, $m);
+            coll_api_out(500, ['error' => 'Не удалось сохранить запись.']);
+        }
 
         if (isset($result['error'])) {
             foreach ($uploaded as $m) coll_delete_media_files($coll_key, $m);
             coll_api_out(409, ['error' => $result['error']]);
         }
         foreach ($result['removed'] as $m) coll_delete_media_files($coll_key, $m);
-        coll_api_out(200, ['ok' => true, 'id' => $result['item']['id'], 'warnings' => $errors]);
+        coll_api_out(200, ['ok' => true, 'id' => $result['item']['id'], 'draft' => $result['item']['draft'], 'warnings' => $errors]);
     }
 
     if ($api === 'starter') {
@@ -188,10 +226,12 @@ if (isset($_GET['api'])) {
 /* ---------------- страница ---------------- */
 
 $coll_manual = coll_is_manual($coll_key);
-$coll_items = coll_sorted(coll_load($coll_key), $coll_manual);
+$coll_items = coll_load($coll_key, $coll_drafts);
+if ($coll_drafts) $coll_items = array_filter($coll_items, fn($item) => coll_draft_owned($item, $coll_user_id));
+$coll_items = coll_sorted($coll_items, $coll_manual);
 $coll_js_items = array_map(function ($it) {
     $it['date_human'] = coll_date_human($it['date']);
-    unset($it['legacy_index'], $it['created'], $it['updated']);
+    unset($it['legacy_index'], $it['created'], $it['updated'], $it['draft_owner']);
     return $it;
 }, $coll_items);
 
@@ -723,13 +763,19 @@ function coll_rich(string $text): string {
           <button class="btn" type="button" id="coDefOrder" title="Расставить карточки как в образце">Порядок по умолчанию</button>
         <?php endif; ?>
         <?php if ($coll_is_admin): ?>
-          <button class="btn co-add" type="button" id="coAdd">+ Добавить</button>
+          <?php if ($coll_travel): ?>
+            <a class="btn" href="<?= $coll_drafts ? '/travel' : '/travel?drafts=1' ?>"><?= $coll_drafts ? 'Все путешествия' : 'Черновики' ?></a>
+          <?php endif; ?>
+          <button class="btn co-add" type="button" id="coAdd"><?= $coll_travel ? '+ Новый черновик' : '+ Добавить' ?></button>
         <?php endif; ?>
       </div>
     </div>
 
+    <?php if ($coll_drafts): ?>
+      <p class="co-hint">Черновики путешествий видны только тебе.</p>
+    <?php endif; ?>
     <?php if (!$coll_items): ?>
-      <div class="co-empty"><?= coll_h($coll['empty']) ?><?= $coll_is_admin ? ' Нажми «Добавить».' : '' ?></div>
+      <div class="co-empty"><?= $coll_drafts ? 'Черновиков пока нет.' : coll_h($coll['empty']) ?></div>
     <?php endif; ?>
 
     <div class="<?= $coll_gallery ? 'co-gallery' : ($coll_cases ? 'pj-list' : 'co-grid') ?>" id="coList">
@@ -801,6 +847,7 @@ function coll_rich(string $text): string {
             <div class="co-body">
               <?php if ($it['date']): ?><div class="co-date"><?= coll_h(coll_date_human($it['date'])) ?></div><?php endif; ?>
               <div class="co-title"><?= coll_h($it['title']) ?></div>
+              <?php if ($it['draft']): ?><span class="co-tag">Черновик</span><?php endif; ?>
               <?php if ($it['description'] !== ''): ?><div class="co-desc"><?= coll_h($it['description']) ?></div><?php endif; ?>
               <?php if ($it['tags']): ?>
                 <div class="co-tags"><?php foreach ($it['tags'] as $t): ?><span class="co-tag"><?= coll_h($t) ?></span><?php endforeach; ?></div>
@@ -880,6 +927,7 @@ function coll_rich(string $text): string {
       <div class="co-actions" style="justify-content:flex-end">
         <button class="btn" type="button" data-close>Отмена</button>
         <button class="btn co-save" type="submit" id="coSave">Сохранить</button>
+        <?php if ($coll_travel): ?><button class="btn" type="submit" id="coPublish" hidden>Опубликовать</button><?php endif; ?>
       </div>
     </form>
   </div>
@@ -890,6 +938,9 @@ function coll_rich(string $text): string {
 (function () {
   const KEY = <?= json_encode($coll_key) ?>;
   const BASE = <?= json_encode($coll['url']) ?>;
+  const DRAFTS = <?= $coll_drafts ? 'true' : 'false' ?>;
+  const LIST_URL = BASE + (DRAFTS ? '?drafts=1' : '');
+  const entryUrl = (id, draft) => BASE + (draft ? '?drafts=1&item=' : '?item=') + encodeURIComponent(id);
   const ITEMS = <?= json_encode($coll_js_items, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?>;
   const IS_ADMIN = <?= $coll_is_admin ? 'true' : 'false' ?>;
   const CSRF = <?= json_encode($coll_csrf) ?>;
@@ -933,7 +984,7 @@ function coll_rich(string $text): string {
     m.querySelectorAll('video').forEach((v) => v.pause());
     if (!document.querySelector('.co-modal.open')) document.body.style.overflow = '';
     openModalEl = document.querySelector('.co-modal.open');
-    if (m.id === 'coViewModal') history.replaceState(null, '', BASE);
+    if (m.id === 'coViewModal') history.replaceState(null, '', LIST_URL);
   }
   document.querySelectorAll('.co-modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeModal(m); }));
 
@@ -965,6 +1016,7 @@ function coll_rich(string $text): string {
     $('coVDate').textContent = it.date_human || '';
     $('coVTitle').textContent = it.title;
     const tags = $('coVTags'); tags.textContent = '';
+    if (it.draft) tags.append(el('span', { class: 'co-tag' }, 'Черновик'));
     it.tags.forEach((t) => tags.append(el('span', { class: 'co-tag' }, t)));
     $('coVDesc').textContent = it.description;
     linkify($('coVDetails'), it.details);
@@ -985,7 +1037,7 @@ function coll_rich(string $text): string {
     });
     if (it.media.length) showMedia(0);
     openModal($('coViewModal'));
-    if (push !== false) history.replaceState(null, '', BASE + '?item=' + encodeURIComponent(id));
+    if (push !== false) history.replaceState(null, '', entryUrl(id, it.draft));
   }
 
   const CASE_ID = <?= json_encode($coll_case ? $coll_case['id'] : '') ?>;
@@ -1255,7 +1307,10 @@ function coll_rich(string $text): string {
 
   function openForm(it) {
     editing = it ? it.id : null;
-    $('coFTitle').textContent = it ? 'Изменить' : 'Добавить';
+    const draft = KEY === 'travel' && (!it || it.draft);
+    $('coFTitle').textContent = draft ? 'Черновик путешествия' : (it ? 'Изменить' : 'Добавить');
+    $('coSave').textContent = draft ? 'Сохранить черновик' : 'Сохранить';
+    if ($('coPublish')) $('coPublish').hidden = !it || !it.draft;
     form.elements.title.value = it ? it.title : '';
     form.elements.date.value = it ? it.date : '';
     form.elements.description.value = it ? it.description : '';
@@ -1287,7 +1342,7 @@ function coll_rich(string $text): string {
     const r = await fetch(BASE + '?api=delete', { method: 'POST', body: fd });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { alert(j.error || 'Не удалось удалить'); return; }
-    location.href = BASE;
+    location.href = LIST_URL;
   };
   $('coDelete').onclick = doDelete;
   if ($('csDelete')) $('csDelete').onclick = doDelete;
@@ -1356,7 +1411,12 @@ function coll_rich(string $text): string {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const save = $('coSave'), bar = $('coProgress'), fill = bar.querySelector('i');
+    const publishButton = $('coPublish');
+    const publish = publishButton && e.submitter === publishButton;
+    if (publish && !confirm('Опубликовать это путешествие вместе с фотографиями?')) return;
+    const saveLabel = save.textContent;
     save.disabled = true;
+    if (publishButton) publishButton.disabled = true;
     $('coErr').textContent = '';
 
     const fresh = media.filter((x) => x.kind === 'new');
@@ -1368,6 +1428,7 @@ function coll_rich(string $text): string {
     const fd = new FormData(form);
     fd.append('csrf', CSRF);
     fd.append('id', editing || '');
+    if (publish) fd.append('publish', '1');
     let n = 0;
     const order = media.map((x) => {
       if (x.kind === 'kept') return { src: x.m.src };
@@ -1381,7 +1442,8 @@ function coll_rich(string $text): string {
     fill.style.width = '0';
     const fail = (msg) => {
       save.disabled = false;
-      save.textContent = 'Сохранить';
+      if (publishButton) publishButton.disabled = false;
+      save.textContent = saveLabel;
       bar.style.display = 'none';
       $('coErr').textContent = msg;
     };
@@ -1399,7 +1461,7 @@ function coll_rich(string $text): string {
       try { j = JSON.parse(xhr.responseText); } catch (_) {}
       if (xhr.status !== 200 || !j.ok) { fail(j.error || ('Ошибка сервера (' + xhr.status + ')')); return; }
       if (j.warnings && j.warnings.length) alert('Сохранено, но не все файлы загрузились:\n' + j.warnings.join('\n'));
-      location.href = BASE + '?item=' + encodeURIComponent(j.id);
+      location.href = entryUrl(j.id, j.draft);
     };
     xhr.onerror = () => fail('Нет связи с сервером.');
     xhr.send(fd);

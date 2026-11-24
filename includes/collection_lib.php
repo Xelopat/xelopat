@@ -121,6 +121,8 @@ function coll_normalize_item(array $it): array {
         'created' => (string)($it['created'] ?? date('c')),
         'updated' => (string)($it['updated'] ?? date('c')),
         'legacy_index' => isset($it['legacy_index']) ? (int)$it['legacy_index'] : null,
+        'draft' => ($it['draft'] ?? false) === true,
+        'draft_owner' => (string)($it['draft_owner'] ?? ''),
     ];
 }
 
@@ -171,36 +173,49 @@ function coll_migrate(string $key): array {
     return $items;
 }
 
-function coll_load(string $key): array {
+function coll_load(string $key, bool $includeDrafts = false, bool $initialize = true): array {
     $file = coll_file($key);
     if (!is_file($file)) {
-        $items = coll_migrate($key);
-        coll_write($key, $items);
-        return $items;
+        if (!$initialize) return coll_migrate($key);
+        $items = coll_mutate($key, fn(array $items) => $items);
+        return $includeDrafts ? $items : array_values(array_filter($items, fn($item) => !$item['draft']));
     }
     $data = json_decode((string)file_get_contents($file), true);
     $items = [];
     foreach ((array)($data['items'] ?? []) as $it) if (is_array($it)) $items[] = coll_normalize_item($it);
-    return $items;
+    return $includeDrafts ? $items : array_values(array_filter($items, fn($item) => !$item['draft']));
 }
 
 function coll_write(string $key, array $items): void {
     $file = coll_file($key);
     if (!is_dir(dirname($file))) @mkdir(dirname($file), 0755, true);
-    file_put_contents($file, json_encode(['items' => array_values($items)], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+    $json = json_encode(['items' => array_values($items)], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $tmp = tempnam(dirname($file), '.collection-');
+    try {
+        if ($json === false || !$tmp || file_put_contents($tmp, $json) === false || !rename($tmp, $file)) {
+            throw new RuntimeException('Не удалось сохранить коллекцию.');
+        }
+        // The hosting account's PHP processes own the file and any future writes.
+        @chmod($file, 0644);
+    } finally {
+        if ($tmp && is_file($tmp)) unlink($tmp);
+    }
 }
 
 // Изменение под блокировкой, чтобы две вкладки не затёрли друг друга
 function coll_mutate(string $key, callable $fn) {
-    $lock = fopen(coll_file($key) . '.lock', 'c');
-    if ($lock) flock($lock, LOCK_EX);
+    $file = coll_file($key);
+    if (!is_dir(dirname($file))) @mkdir(dirname($file), 0755, true);
+    $lock = fopen($file . '.lock', 'c');
+    if (!$lock || !flock($lock, LOCK_EX)) throw new RuntimeException('Не удалось открыть коллекцию.');
     try {
-        $items = coll_load($key);
+        $items = coll_load($key, true, false);
         $result = $fn($items);
         coll_write($key, $items);
         return $result;
     } finally {
-        if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
+        flock($lock, LOCK_UN);
+        fclose($lock);
     }
 }
 
@@ -233,6 +248,7 @@ function coll_cover(array $item): ?array {
 }
 
 function coll_item_url(string $key, array $item): string {
+    if ($key === 'travel' && !empty($item['draft'])) return '/travel?drafts=1&item=' . rawurlencode($item['id']);
     return coll_def($key)['url'] . '?item=' . rawurlencode($item['id']);
 }
 
@@ -327,7 +343,7 @@ function coll_make_preview(string $path, string $ext, string $destBase): string 
 function coll_handle_uploads(string $key, ?array $files, array &$errors): array {
     $media = [];
     if (!$files || !isset($files['name']) || !is_array($files['name'])) return $media;
-    $dir = coll_upload_dir($key);
+    $dir = $key === 'travel' ? coll_travel_media_dir() : coll_upload_dir($key);
     if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
         $errors[] = 'Не удалось создать папку для файлов.';
         return $media;
@@ -364,8 +380,8 @@ function coll_handle_uploads(string $key, ?array $files, array &$errors): array 
         // Ключ = порядковый номер файла в запросе: форма ссылается на него в списке порядка
         $media[$i] = [
             'type' => $isImage ? 'image' : 'video',
-            'src' => $url . '/' . $file,
-            'preview' => $preview !== '' ? $url . '/' . $preview : '',
+            'src' => $key === 'travel' ? coll_travel_media_url($file) : $url . '/' . $file,
+            'preview' => $preview === '' ? '' : ($key === 'travel' ? coll_travel_media_url($preview) : $url . '/' . $preview),
         ];
     }
     return $media;
@@ -375,10 +391,85 @@ function coll_handle_uploads(string $key, ?array $files, array &$errors): array 
 function coll_delete_media_files(string $key, array $m): void {
     $prefix = coll_upload_url($key) . '/';
     foreach ([$m['src'] ?? '', $m['preview'] ?? ''] as $u) {
+        if ($key === 'travel' && str_starts_with($u, coll_travel_media_url(''))) {
+            $name = substr($u, strlen(coll_travel_media_url('')));
+            if (coll_travel_media_name_ok($name)) @unlink(coll_travel_media_dir() . '/' . $name);
+            continue;
+        }
         if (strpos((string)$u, $prefix) !== 0) continue;
         $name = basename((string)$u);
         if (!preg_match('/^[A-Za-z0-9._-]{1,120}$/', $name)) continue;
         $path = coll_upload_dir($key) . '/' . $name;
         if (is_file($path)) @unlink($path);
+    }
+}
+
+function coll_travel_media_dir(): string {
+    return coll_root() . '/data/travel-media';
+}
+
+function coll_travel_media_url(string $name): string {
+    return '/travel?media=' . $name;
+}
+
+function coll_travel_media_name_ok(string $name): bool {
+    return (bool)preg_match('/^\d{8}_\d{6}_[a-f0-9]{8}(?:_p)?\.(jpg|png|webp|gif|mp4|webm|mov|m4v)$/D', $name);
+}
+
+function coll_draft_owned(array $item, string $userId): bool {
+    return $item['draft'] && $userId !== '' && $item['draft_owner'] === $userId;
+}
+
+function coll_travel_media_path(string $name, string $userId): ?string {
+    if (!coll_travel_media_name_ok($name)) return null;
+    $src = coll_travel_media_url($name);
+    foreach (coll_load('travel', $userId !== '') as $item) {
+        if ($item['draft'] && !coll_draft_owned($item, $userId)) continue;
+        foreach ($item['media'] as $media) {
+            if ($media['src'] === $src || $media['preview'] === $src) {
+                $path = coll_travel_media_dir() . '/' . $name;
+                return is_file($path) ? $path : null;
+            }
+        }
+    }
+    return null;
+}
+
+function coll_send_media(string $path): void {
+    $file = fopen($path, 'rb');
+    if (!$file) { http_response_code(404); return; }
+    try {
+        $size = (int)fstat($file)['size'];
+        $first = 0;
+        $last = $size - 1;
+        header('Accept-Ranges: bytes');
+        $range = (string)($_SERVER['HTTP_RANGE'] ?? '');
+        if (preg_match('/^bytes=(\d*)-(\d*)$/D', $range, $match) && $range !== 'bytes=-') {
+            if ($match[1] === '') {
+                $first = max(0, $size - (int)$match[2]);
+            } else {
+                $first = (int)$match[1];
+                if ($match[2] !== '') $last = min($last, (int)$match[2]);
+            }
+            if ($first > $last) {
+                http_response_code(416);
+                header('Content-Range: bytes */' . $size);
+                return;
+            }
+            http_response_code(206);
+            header("Content-Range: bytes $first-$last/$size");
+        }
+        $remaining = $last - $first + 1;
+        header('Content-Length: ' . $remaining);
+        if ($_SERVER['REQUEST_METHOD'] === 'HEAD') return;
+        fseek($file, $first);
+        while ($remaining > 0 && !feof($file)) {
+            $chunk = fread($file, min(65536, $remaining));
+            if ($chunk === false || $chunk === '') break;
+            echo $chunk;
+            $remaining -= strlen($chunk);
+        }
+    } finally {
+        fclose($file);
     }
 }
