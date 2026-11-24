@@ -174,6 +174,7 @@ function coll_migrate(string $key): array {
 }
 
 function coll_load(string $key, bool $includeDrafts = false, bool $initialize = true): array {
+    if ($key === 'travel') coll_move_legacy_travel_media();
     $file = coll_file($key);
     if (!is_file($file)) {
         if (!$initialize) return coll_migrate($key);
@@ -344,7 +345,7 @@ function coll_handle_uploads(string $key, ?array $files, array &$errors): array 
     $media = [];
     if (!$files || !isset($files['name']) || !is_array($files['name'])) return $media;
     $dir = $key === 'travel' ? coll_travel_media_dir() : coll_upload_dir($key);
-    if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
+    if (!is_dir($dir) && !@mkdir($dir, $key === 'travel' ? 0700 : 0755, true) && !is_dir($dir)) {
         $errors[] = 'Не удалось создать папку для файлов.';
         return $media;
     }
@@ -374,7 +375,7 @@ function coll_handle_uploads(string $key, ?array $files, array &$errors): array 
         $base = date('Ymd_His') . '_' . bin2hex(random_bytes(4));
         $file = $base . '.' . ($ext === 'jpeg' ? 'jpg' : $ext);
         if (!move_uploaded_file($tmp, $dir . '/' . $file)) { $errors[] = "«{$name}»: не удалось сохранить."; continue; }
-        @chmod($dir . '/' . $file, 0644);
+        @chmod($dir . '/' . $file, $key === 'travel' ? 0600 : 0644);
 
         $preview = ($isImage && $ext !== 'gif') ? coll_make_preview($dir . '/' . $file, $ext === 'jpeg' ? 'jpg' : $ext, $dir . '/' . $base) : '';
         // Ключ = порядковый номер файла в запросе: форма ссылается на него в списке порядка
@@ -405,7 +406,25 @@ function coll_delete_media_files(string $key, array $m): void {
 }
 
 function coll_travel_media_dir(): string {
-    return coll_root() . '/data/travel-media';
+    return dirname(coll_root()) . '/.xelopat-travel-media';
+}
+
+function coll_move_legacy_travel_media(): void {
+    $oldDir = coll_root() . '/data/travel-media';
+    if (!is_dir($oldDir)) return;
+    $newDir = coll_travel_media_dir();
+    if (!is_dir($newDir) && !@mkdir($newDir, 0700, true) && !is_dir($newDir)) {
+        throw new RuntimeException('Не удалось открыть закрытое хранилище фотографий.');
+    }
+    foreach (new DirectoryIterator($oldDir) as $file) {
+        $name = $file->getFilename();
+        if (!coll_travel_media_name_ok($name) || $file->isLink() || !$file->isFile()) continue;
+        $path = $file->getPathname();
+        if (!@rename($path, $newDir . '/' . $name) && is_file($path)) {
+            throw new RuntimeException('Не удалось перенести фотографию в закрытое хранилище.');
+        }
+    }
+    @rmdir($oldDir);
 }
 
 function coll_travel_media_url(string $name): string {
