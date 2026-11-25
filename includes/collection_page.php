@@ -49,6 +49,10 @@ function coll_api_out(int $code, array $payload): void {
     exit;
 }
 
+function coll_edit_version(array $item): string {
+    return hash('sha256', serialize($item));
+}
+
 /* ---------------- API для админа ---------------- */
 
 if (isset($_GET['api'])) {
@@ -80,6 +84,7 @@ if (isset($_GET['api'])) {
     if ($api === 'save') {
         $errors = [];
         $id = (string)($_POST['id'] ?? '');
+        $version = $_POST['version'] ?? null;
         $title = trim((string)($_POST['title'] ?? ''));
         $date = trim((string)($_POST['date'] ?? ''));
         $link = trim((string)($_POST['link'] ?? ''));
@@ -118,7 +123,7 @@ if (isset($_GET['api'])) {
             coll_api_out(400, ['error' => implode("\n", $errors)]);
         }
         try {
-            $result = coll_mutate($coll_key, function (array &$items) use ($id, $title, $date, $link, $keep, $uploaded, $coll_key, $coll_travel, $coll_user_id, $publish, $details, $rich) {
+            $result = coll_mutate($coll_key, function (array &$items) use ($id, $version, $title, $date, $link, $keep, $uploaded, $coll_key, $coll_travel, $coll_user_id, $publish, $details, $rich) {
                 $idx = null;
                 foreach ($items as $i => $it) {
                     if ($it['id'] !== $id || ($it['draft'] && !coll_draft_owned($it, $coll_user_id))) continue;
@@ -126,6 +131,9 @@ if (isset($_GET['api'])) {
                     break;
                 }
                 if ($id !== '' && $idx === null) return ['error' => 'Запись не найдена (возможно, её удалили).'];
+                if ($coll_travel && $idx !== null && $version !== coll_edit_version($items[$idx])) {
+                    return ['error' => 'В этой вкладке открыта старая версия. Скопируй несохранённые правки и открой запись заново.'];
+                }
                 $draft = $coll_travel && ($idx === null || ($items[$idx]['draft'] && !$publish));
                 $story = $rich;
                 if ($story === null && $idx !== null && $details === $items[$idx]['details']) {
@@ -246,7 +254,8 @@ $coll_manual = coll_is_manual($coll_key);
 $coll_items = coll_load($coll_key, $coll_drafts);
 if ($coll_drafts) $coll_items = array_filter($coll_items, fn($item) => coll_draft_owned($item, $coll_user_id));
 $coll_items = coll_sorted($coll_items, $coll_manual);
-$coll_js_items = array_map(function ($it) use ($coll_travel) {
+$coll_js_items = array_map(function ($it) use ($coll_travel, $coll_is_admin) {
+    if ($coll_travel && $coll_is_admin) $it['edit_version'] = coll_edit_version($it);
     $it['date_human'] = coll_date_human($it['date']);
     unset($it['legacy_index'], $it['created'], $it['updated'], $it['draft_owner']);
     if ($coll_travel) unset($it['tags']);
@@ -1868,6 +1877,7 @@ function coll_rich(string $text): string {
     travelEditor?.append(fd);
     fd.append('csrf', CSRF);
     fd.append('id', editing || '');
+    if (travelEditor && editing) fd.append('version', byId[editing].edit_version);
     if (publish) fd.append('publish', '1');
     let n = 0;
     const order = media.map((x) => {

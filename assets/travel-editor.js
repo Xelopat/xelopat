@@ -47,6 +47,7 @@
     reference.tabIndex = -1;
     reference.className = 'co-editor-photo-reference';
     reference.contentEditable = 'false';
+    reference.title = 'Изменить подпись к фото';
     reference.dataset.travelPhoto = src;
     reference.dataset.caption = caption;
     reference.textContent = caption ? 'Фото · ' + caption : 'Фото из галереи';
@@ -122,10 +123,13 @@
     const photoCaption = photoPanel.querySelector('input');
     const photoPreview = photoPanel.querySelector('img');
     const photoToggle = container.querySelector('[data-insert-photo]');
+    const photoApply = photoPanel.querySelector('[data-apply-photo]');
     let media = [];
+    let captionTarget = null;
     let range = null;
     let baseline = '';
     let sourceText = '';
+    let sourceStory = null;
 
     function remember() {
       const selection = document.getSelection();
@@ -220,26 +224,55 @@
     function closePhoto() {
       photoPanel.hidden = true;
       photoToggle.setAttribute('aria-expanded', 'false');
+      captionTarget = null;
+      photoSelect.disabled = false;
+      photoApply.textContent = 'Вставить';
+    }
+    function openPhoto() {
+      closeLink();
+      photoPanel.hidden = false;
+      photoToggle.setAttribute('aria-expanded', 'true');
+      updatePhotoPreview();
     }
     photoToggle.addEventListener('mousedown', e => e.preventDefault());
     photoToggle.addEventListener('click', () => {
       if (!photoPanel.hidden) { closePhoto(); return; }
-      closeLink();
       photoCaption.value = '';
-      photoPanel.hidden = false;
-      photoToggle.setAttribute('aria-expanded', 'true');
-      updatePhotoPreview();
+      openPhoto();
       photoSelect.focus();
+    });
+    editor.addEventListener('click', e => {
+      const reference = e.target.closest('button[data-travel-photo]');
+      if (!reference) return;
+      const source = reference.dataset.travelPhoto;
+      const file = media.find(entry => entry.src === source || entry.preview === source);
+      if (!file) return;
+      captionTarget = reference;
+      photoSelect.value = file.src;
+      photoSelect.disabled = true;
+      photoCaption.value = reference.dataset.caption;
+      photoApply.textContent = 'Применить';
+      openPhoto();
+      photoCaption.focus();
     });
     photoSelect.addEventListener('change', updatePhotoPreview);
     function insertPhoto() {
       if (!photoSelect.value) return;
+      const caption = photoCaption.value.trim();
+      if (captionTarget && editor.contains(captionTarget)) {
+        const replacement = photoReference(captionTarget.dataset.travelPhoto, caption);
+        range = document.createRange();
+        range.selectNode(captionTarget);
+        closePhoto();
+        apply('insertHTML', replacement.outerHTML);
+        return;
+      }
       const block = document.createElement('div');
-      block.append(photoReference(photoSelect.value, photoCaption.value.trim()));
+      block.append(photoReference(photoSelect.value, caption));
       closePhoto();
       apply('insertHTML', block.outerHTML);
     }
-    photoPanel.querySelector('[data-apply-photo]').addEventListener('click', insertPhoto);
+    photoApply.addEventListener('click', insertPhoto);
     photoPanel.querySelector('[data-cancel-photo]').addEventListener('click', () => { closePhoto(); editor.focus(); });
     photoPanel.addEventListener('keydown', e => {
       if (e.key === 'Escape') { e.stopPropagation(); closePhoto(); editor.focus(); }
@@ -295,7 +328,8 @@
         closeLink();
         closePhoto();
         sourceText = item?.details || '';
-        if (Array.isArray(item?.details_rich)) render(editor, item.details_rich);
+        sourceStory = Array.isArray(item?.details_rich) ? JSON.stringify(item.details_rich) : null;
+        if (sourceStory !== null) render(editor, item.details_rich);
         else {
           renderLegacy(editor, sourceText);
           editor.querySelectorAll(':scope > section').forEach(section => section.replaceWith(...section.childNodes));
@@ -304,8 +338,8 @@
       },
       append(formData) {
         const current = snapshot();
-        if (current === baseline) formData.set('details', sourceText);
-        else formData.set('details_rich', current);
+        if (current === baseline && sourceStory === null) formData.set('details', sourceText);
+        else formData.set('details_rich', current === baseline ? sourceStory : current);
       },
     };
   }
