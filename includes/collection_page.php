@@ -146,7 +146,7 @@ if (isset($_GET['api'])) {
                     'date' => $date,
                     'description' => trim((string)($_POST['description'] ?? '')),
                     'details' => trim((string)($_POST['details'] ?? '')),
-                    'tags' => (string)($_POST['tags'] ?? ''),
+                    'tags' => $coll_travel ? [] : (string)($_POST['tags'] ?? ''),
                     'link' => $link,
                     'fit' => (string)($_POST['fit'] ?? 'auto'),
                     'media' => $media,
@@ -229,9 +229,10 @@ $coll_manual = coll_is_manual($coll_key);
 $coll_items = coll_load($coll_key, $coll_drafts);
 if ($coll_drafts) $coll_items = array_filter($coll_items, fn($item) => coll_draft_owned($item, $coll_user_id));
 $coll_items = coll_sorted($coll_items, $coll_manual);
-$coll_js_items = array_map(function ($it) {
+$coll_js_items = array_map(function ($it) use ($coll_travel) {
     $it['date_human'] = coll_date_human($it['date']);
     unset($it['legacy_index'], $it['created'], $it['updated'], $it['draft_owner']);
+    if ($coll_travel) unset($it['tags']);
     return $it;
 }, $coll_items);
 
@@ -600,6 +601,52 @@ function coll_rich(string $text): string {
   .co-view.no-media{ grid-template-columns:1fr; }
   .co-view.no-media .co-stage{ display:none; }
 
+  .co-travel-head, .co-travel-body{ min-width:0; padding:22px; }
+  .travel-view .co-info{ display:grid; grid-template-rows:auto minmax(0,1fr); gap:0; padding:0; overflow:hidden; }
+  .co-travel-head{ background:var(--panel); border-bottom:1px solid var(--line); padding-right:58px; }
+  .co-travel-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:7px 12px; margin-bottom:8px; }
+  .co-travel-meta:empty, .co-travel-meta [hidden], .co-travel-head .co-date:empty, .travel-view .co-desc:empty{ display:none; }
+  .co-travel-head h2{ padding:0; font-size:clamp(22px, 2.5vw, 30px); }
+  .co-draft-state{ width:fit-content; color:var(--accent); font-size:12px; font-weight:600; }
+  .co-travel-body{ min-height:0; overflow-y:auto; overscroll-behavior-y:contain; scrollbar-width:thin; scrollbar-color:var(--muted) transparent; }
+  .co-travel-body:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+  .travel-view .co-desc{ margin:0 0 18px; color:var(--muted); line-height:1.55; }
+  .co-travel-story{ color:var(--text); font-size:15px; line-height:1.7; }
+  .co-travel-story p{ margin:0 0 12px; white-space:pre-line; }
+  .co-travel-story a{ color:var(--accent); }
+  .co-travel-section{
+    --chapter:#f4c76d;
+    margin:20px 0 0; padding:13px 14px 2px; border-inline-start:2px solid var(--chapter);
+    border-radius:0 8px 8px 0; background:color-mix(in srgb,var(--chapter) 7%,var(--panel));
+  }
+  .co-travel-section:nth-of-type(4n+2){ --chapter:#77d7c7; }
+  .co-travel-section:nth-of-type(4n+3){ --chapter:#aebbff; }
+  .co-travel-section:nth-of-type(4n+4){ --chapter:#f4a5a4; }
+  .co-travel-section h3{ margin:0 0 10px; color:var(--chapter); font-size:17px; line-height:1.35; }
+  .co-chapter-date{ display:block; color:var(--chapter); font-size:12px; font-weight:600; margin-bottom:3px; }
+  .co-travel-body .co-actions{ margin-top:22px; }
+  .co-travel-body .co-actions:not(:has(> :not([hidden]))){ display:none; }
+
+  .co-gallery-frame{ position:relative; display:flex; flex:1; min-height:0; }
+  .co-gallery-frame .co-main{ touch-action:pan-y pinch-zoom; }
+  .co-gallery-nav{ position:absolute; inset:0; pointer-events:none; }
+  .co-gallery-nav[hidden], .co-gallery-count[hidden]{ display:none; }
+  .co-gallery-nav .co-arrow{
+    pointer-events:auto; width:44px; height:44px; display:grid; place-items:center;
+    border-radius:12px; background:rgba(16,17,21,.85);
+  }
+  .co-gallery-nav .co-arrow svg{ width:20px; height:20px; }
+  .co-gallery-nav .co-arrow:focus-visible, .travel-view .co-thumbs button:focus-visible{ outline:2px solid #fff; outline-offset:-3px; }
+  .co-gallery-count{ position:absolute; inset:12px auto auto 12px; padding:4px 9px; border-radius:8px; background:rgba(16,17,21,.85); color:#fff; font-size:12px; font-variant-numeric:tabular-nums; pointer-events:none; }
+  .co-gallery-loading{ display:none; position:absolute; align-self:center; left:50%; translate:-50% 0; padding:6px 10px; border-radius:8px; background:rgba(16,17,21,.9); color:#fff; font-size:13px; pointer-events:none; }
+  .co-main[aria-busy="true"] ~ .co-gallery-loading{ display:block; opacity:0; animation:co-loading .12s .22s forwards; }
+  @keyframes co-loading{ to{ opacity:1; } }
+  @media (prefers-reduced-motion:reduce){ .co-main[aria-busy="true"] ~ .co-gallery-loading{ animation:none; opacity:1; } }
+  .co-gallery-error{ place-self:center; max-width:70%; text-align:center; color:var(--muted); }
+  .travel-view .co-thumbs{ padding:9px 12px 8px; gap:7px; background:var(--panel); border-top:1px solid var(--line); }
+  .travel-view .co-thumbs button{ width:66px; opacity:.8; }
+  .travel-view .co-thumbs button:hover, .travel-view .co-thumbs button.on{ opacity:1; }
+
   /* форма */
   .co-form{ padding:20px; overflow:auto; display:grid; gap:12px; }
   .co-form h2{ margin:0 0 4px; font-size:20px; }
@@ -663,6 +710,14 @@ function coll_rich(string $text): string {
     }
     .co-main{ flex:none; height:min(56vw, 48dvh); }
     .co-info{ overflow:visible; }
+    .travel-view .co-info{ display:contents; }
+    .travel-view .co-travel-head{ grid-row:1; position:sticky; top:0; z-index:2; padding:11px 56px 11px 16px; }
+    .travel-view .co-travel-head h2{ font-size:21px; }
+    .travel-view .co-travel-meta{ margin-bottom:4px; }
+    .travel-view .co-stage{ grid-row:2; }
+    .travel-view .co-travel-body{ overflow:visible; padding:18px 16px 22px; }
+    .travel-view .co-gallery-frame{ flex:none; }
+    .travel-view .co-gallery-frame .co-main{ width:100%; }
     .co-row{ grid-template-columns:1fr; }
     .co-search{ width:100%; }
     .co-tools{ width:100%; }
@@ -795,7 +850,7 @@ function coll_rich(string $text): string {
       <?php foreach ($coll_items as $n => $it): ?>
         <?php
           $cover = coll_cover($it);
-          $search = coll_lower($it['title'] . ' ' . $it['description'] . ' ' . $it['details'] . ' ' . implode(' ', $it['tags']));
+          $search = coll_lower($it['title'] . ' ' . $it['description'] . ' ' . $it['details'] . ($coll_travel ? '' : ' ' . implode(' ', $it['tags'])));
           $count = count($it['media']);
         ?>
         <?php if ($coll_gallery): ?>
@@ -860,9 +915,9 @@ function coll_rich(string $text): string {
             <div class="co-body">
               <?php if ($it['date']): ?><div class="co-date"><?= coll_h(coll_date_human($it['date'])) ?></div><?php endif; ?>
               <div class="co-title"><?= coll_h($it['title']) ?></div>
-              <?php if ($it['draft']): ?><span class="co-tag">Черновик</span><?php endif; ?>
+              <?php if ($it['draft']): ?><span class="co-draft-state">Черновик</span><?php endif; ?>
               <?php if ($it['description'] !== ''): ?><div class="co-desc"><?= coll_h($it['description']) ?></div><?php endif; ?>
-              <?php if ($it['tags']): ?>
+              <?php if (!$coll_travel && $it['tags']): ?>
                 <div class="co-tags"><?php foreach ($it['tags'] as $t): ?><span class="co-tag"><?= coll_h($t) ?></span><?php endforeach; ?></div>
               <?php endif; ?>
             </div>
@@ -878,19 +933,39 @@ function coll_rich(string $text): string {
 <!-- Просмотр -->
 <div class="co-modal" id="coViewModal" aria-hidden="true">
   <div class="co-backdrop" data-close></div>
-  <div class="co-box co-view-box" role="dialog" aria-modal="true" aria-labelledby="coVTitle">
+  <div class="co-box co-view-box" role="dialog" aria-modal="true" aria-labelledby="coVTitle" tabindex="-1">
     <button class="co-x" type="button" data-close aria-label="Закрыть">×</button>
-    <div class="co-view" id="coView">
+    <div class="co-view<?= $coll_travel ? ' travel-view' : '' ?>" id="coView">
       <div class="co-stage">
-        <div class="co-main" id="coMain"></div>
-        <div class="co-thumbs" id="coThumbs"></div>
+        <?php if ($coll_travel): ?>
+          <div class="co-gallery-frame">
+            <div class="co-main" id="coMain"></div>
+            <div class="co-gallery-count" id="coGalleryCount" role="status" aria-atomic="true"></div>
+            <div class="co-gallery-nav" id="coGalleryNav" aria-label="Переключение файлов" role="group" hidden>
+              <button class="co-arrow prev" id="coPrev" type="button" aria-label="Предыдущий файл"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+              <button class="co-arrow next" id="coNext" type="button" aria-label="Следующий файл"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+            </div>
+            <span class="co-gallery-loading" aria-hidden="true">Загрузка…</span>
+          </div>
+        <?php else: ?>
+          <div class="co-main" id="coMain"></div>
+        <?php endif; ?>
+        <div class="co-thumbs" id="coThumbs"<?= $coll_travel ? ' role="group" aria-label="Миниатюры"' : '' ?>></div>
       </div>
-      <div class="co-info" role="region" aria-label="Описание" tabindex="0">
-        <div class="co-date" id="coVDate"></div>
-        <h2 id="coVTitle"></h2>
-        <div class="co-tags" id="coVTags" style="margin-top:0;padding-top:0"></div>
+      <div class="co-info"<?= !$coll_travel ? ' role="region" aria-label="Описание" tabindex="0"' : '' ?>>
+        <?php if ($coll_travel): ?>
+          <header class="co-travel-head">
+            <div class="co-travel-meta"><time class="co-date" id="coVDate"></time><span class="co-draft-state" id="coVDraft" hidden>Черновик</span></div>
+            <h2 id="coVTitle"></h2>
+          </header>
+          <div class="co-travel-body" id="coTravelBody" role="region" aria-label="Описание" tabindex="0">
+        <?php else: ?>
+          <div class="co-date" id="coVDate"></div>
+          <h2 id="coVTitle"></h2>
+          <div class="co-tags" id="coVTags" style="margin-top:0;padding-top:0"></div>
+        <?php endif; ?>
         <div class="co-desc" id="coVDesc"></div>
-        <div class="co-details" id="coVDetails"></div>
+        <div class="<?= $coll_travel ? 'co-travel-story' : 'co-details' ?>" id="coVDetails"></div>
         <div class="co-actions">
           <a class="btn" id="coVLink" target="_blank" rel="noopener" hidden>Открыть ссылку ↗</a>
           <?php if ($coll_is_admin): ?>
@@ -898,6 +973,7 @@ function coll_rich(string $text): string {
             <button class="btn co-del" type="button" id="coDelete">Удалить</button>
           <?php endif; ?>
         </div>
+        <?php if ($coll_travel): ?></div><?php endif; ?>
       </div>
     </div>
   </div>
@@ -916,9 +992,9 @@ function coll_rich(string $text): string {
         <div class="field"<?= $coll_manual ? ' hidden' : '' ?>><label for="coDate">Дата</label><input id="coDate" name="date" type="date"></div>
       </div>
       <div class="field"><label for="coDescIn"><?= coll_h($coll['description_label'] ?? 'Коротко (видно на карточке)') ?></label><textarea id="coDescIn" name="description" maxlength="600"></textarea></div>
-      <div class="field"><label for="coDetailsIn"><?= coll_h($coll['details_label'] ?? 'Подробно') ?></label><textarea id="coDetailsIn" name="details"></textarea></div>
-      <div class="co-row">
-        <div class="field"><label for="coTags">Теги через запятую</label><input id="coTags" name="tags"></div>
+      <div class="field"><label for="coDetailsIn"><?= coll_h($coll['details_label'] ?? 'Подробно') ?></label><textarea id="coDetailsIn" name="details"></textarea><?php if ($coll_travel): ?><span class="co-hint">Строка «13 сентября · Название» станет заголовком раздела.</span><?php endif; ?></div>
+      <div<?= !$coll_travel ? ' class="co-row"' : '' ?>>
+        <?php if (!$coll_travel): ?><div class="field"><label for="coTags">Теги через запятую</label><input id="coTags" name="tags"></div><?php endif; ?>
         <div class="field"><label for="coLinkIn">Ссылка</label><input id="coLinkIn" name="link" placeholder="https://"></div>
       </div>
       <input type="hidden" name="fit" id="coFit" value="auto">
@@ -981,6 +1057,38 @@ function coll_rich(string $text): string {
     container.append(text.slice(last));
   }
 
+  function renderTravelStory(container, text) {
+    container.replaceChildren();
+    const dated = /^(\d{1,2}\s+(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)(?:\s+\d{4})?)(?:\s+[·–—-]\s+(.+))?$/iu;
+    let section = container;
+    let lines = [];
+    const paragraph = () => {
+      if (!lines.length) return;
+      const p = el('p');
+      linkify(p, lines.join('\n'));
+      section.append(p);
+      lines = [];
+    };
+    for (const raw of text.split(/\r\n?|\n/)) {
+      const line = raw.trim();
+      if (!line) { paragraph(); continue; }
+      const heading = line.match(/^#{1,3}\s+(.+)$/);
+      const date = (heading ? heading[1] : line).match(dated);
+      if (!heading && !date) { lines.push(line); continue; }
+      paragraph();
+      section = el('section', { class: 'co-travel-section' });
+      const h = el('h3');
+      if (date && date[2]) {
+        h.append(el('span', { class: 'co-chapter-date' }, date[1]), date[2]);
+      } else {
+        h.textContent = date ? date[1] : heading[1];
+      }
+      section.append(h);
+      container.append(section);
+    }
+    paragraph();
+  }
+
   function mediaNode(m, thumb) {
     if (m.type === 'video') {
       if (thumb) { const d = el('div', { class: 'vid' }, '▶'); return d; }
@@ -991,27 +1099,83 @@ function coll_rich(string $text): string {
 
   /* ---------- модалки ---------- */
   let openModalEl = null;
+  let viewTrigger = null;
   function openModal(m) { m.classList.add('open'); m.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; openModalEl = m; }
   function closeModal(m) {
     m.classList.remove('open'); m.setAttribute('aria-hidden', 'true');
     m.querySelectorAll('video').forEach((v) => v.pause());
     if (!document.querySelector('.co-modal.open')) document.body.style.overflow = '';
     openModalEl = document.querySelector('.co-modal.open');
-    if (m.id === 'coViewModal') history.replaceState(null, '', LIST_URL);
+    if (m.id === 'coViewModal') {
+      history.replaceState(null, '', LIST_URL);
+      if (KEY === 'travel') {
+        galleryRevision++;
+        nextTravelPhoto = null;
+        $('coMain').removeAttribute('aria-busy');
+        viewTrigger?.focus({ preventScroll: true });
+        viewTrigger = null;
+      }
+    }
   }
   document.querySelectorAll('.co-modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeModal(m); }));
 
   /* ---------- просмотр ---------- */
   let current = null, mediaIdx = 0;
+  let galleryRevision = 0;
+  let nextTravelPhoto = null;
+
+  function preloadNextTravelPhoto(media) {
+    const next = media.length > 1 ? media[(mediaIdx + 1) % media.length] : null;
+    if (!next || next.type !== 'image') { nextTravelPhoto = null; return; }
+    if (nextTravelPhoto?.src === next.src) return;
+    const image = new Image();
+    image.alt = '';
+    image.fetchPriority = 'low';
+    image.src = next.src;
+    nextTravelPhoto = { src: next.src, image };
+    image.decode().catch(() => {
+      if (nextTravelPhoto?.image === image) nextTravelPhoto = null;
+    });
+  }
+
+  function showTravelMedia(main, media) {
+    const file = media[mediaIdx];
+    const rev = ++galleryRevision;
+    $('coGalleryCount').textContent = `${mediaIdx + 1} / ${media.length}`;
+    $('coGalleryNav').hidden = media.length < 2;
+    const mount = (node) => {
+      if (rev !== galleryRevision) return;
+      main.replaceChildren(node);
+      main.removeAttribute('aria-busy');
+      preloadNextTravelPhoto(media);
+    };
+    if (file.type === 'video') { mount(mediaNode(file, false)); return; }
+    const image = nextTravelPhoto?.src === file.src ? nextTravelPhoto.image : mediaNode(file, false);
+    image.alt = `Фото ${mediaIdx + 1}`;
+    if (image.complete && image.naturalWidth) { mount(image); return; }
+    main.setAttribute('aria-busy', 'true');
+    image.decode().then(() => mount(image)).catch(() => {
+      if (image.complete && image.naturalWidth) mount(image);
+      else mount(el('span', { class: 'co-gallery-error', role: 'status' }, 'Не удалось загрузить фото.'));
+    });
+  }
+
+  if (KEY === 'travel') {
+    $('coPrev').onclick = () => showMedia(mediaIdx - 1);
+    $('coNext').onclick = () => showMedia(mediaIdx + 1);
+  }
 
   function showMedia(i) {
     const media = current.media;
     mediaIdx = (i + media.length) % media.length;
     const main = $('coMain');
     main.querySelectorAll('video').forEach((v) => v.pause());
-    main.textContent = '';
-    main.append(mediaNode(media[mediaIdx], false));
-    if (media.length > 1) {
+    if (KEY === 'travel') {
+      showTravelMedia(main, media);
+    } else {
+      main.replaceChildren(mediaNode(media[mediaIdx], false));
+    }
+    if (KEY !== 'travel' && media.length > 1) {
       const p = el('button', { class: 'co-arrow prev', type: 'button', 'aria-label': 'Назад' }, '‹');
       const n = el('button', { class: 'co-arrow next', type: 'button', 'aria-label': 'Вперёд' }, '›');
       p.onclick = () => showMedia(mediaIdx - 1);
@@ -1023,6 +1187,7 @@ function coll_rich(string $text): string {
     buttons.forEach((button, index) => {
       const selected = index === mediaIdx;
       button.classList.toggle('on', selected);
+      if (KEY === 'travel') button.tabIndex = selected ? 0 : -1;
       if (selected) button.setAttribute('aria-current', 'true');
       else button.removeAttribute('aria-current');
     });
@@ -1039,13 +1204,22 @@ function coll_rich(string $text): string {
     if (!it) return;
     current = it;
     $('coView').classList.toggle('no-media', !it.media.length);
-    $('coVDate').textContent = it.date_human || '';
+    const date = $('coVDate');
+    date.textContent = it.date_human || '';
     $('coVTitle').textContent = it.title;
-    const tags = $('coVTags'); tags.textContent = '';
-    if (it.draft) tags.append(el('span', { class: 'co-tag' }, 'Черновик'));
-    it.tags.forEach((t) => tags.append(el('span', { class: 'co-tag' }, t)));
     $('coVDesc').textContent = it.description;
-    linkify($('coVDetails'), it.details);
+    if (KEY === 'travel') {
+      if (it.date) date.dateTime = it.date;
+      else date.removeAttribute('datetime');
+      $('coVDraft').hidden = !it.draft;
+      renderTravelStory($('coVDetails'), it.details);
+      $('coMain').replaceChildren();
+      $('coGalleryCount').hidden = !it.media.length;
+    } else {
+      const tags = $('coVTags'); tags.textContent = '';
+      it.tags.forEach((t) => tags.append(el('span', { class: 'co-tag' }, t)));
+      linkify($('coVDetails'), it.details);
+    }
     const link = $('coVLink');
     link.hidden = !it.link;
     if (it.link) {
@@ -1056,16 +1230,20 @@ function coll_rich(string $text): string {
     const thumbs = $('coThumbs'); thumbs.textContent = '';
     thumbs.hidden = it.media.length < 2;
     it.media.forEach((m, k) => {
-      const b = el('button', { type: 'button', 'aria-label': 'Файл ' + (k + 1) });
+      const label = KEY === 'travel' ? (m.type === 'video' ? 'Видео' : 'Фото') : 'Файл';
+      const b = el('button', { type: 'button', 'aria-label': `${label} ${k + 1}` });
       b.append(mediaNode(m, true));
       b.onclick = () => showMedia(k);
       thumbs.append(b);
     });
-    openModal($('coViewModal'));
+    const modal = $('coViewModal');
+    if (KEY === 'travel' && document.activeElement instanceof HTMLElement) viewTrigger = document.activeElement;
+    openModal(modal);
     $('coView').scrollTop = 0;
-    $('coVTitle').parentElement.scrollTop = 0;
+    ($('coTravelBody') || $('coVTitle').parentElement).scrollTop = 0;
     thumbs.scrollLeft = 0;
     if (it.media.length) showMedia(0);
+    if (KEY === 'travel') modal.querySelector('.co-view-box').focus({ preventScroll: true });
     if (push !== false) history.replaceState(null, '', entryUrl(id, it.draft));
   }
 
@@ -1083,21 +1261,45 @@ function coll_rich(string $text): string {
   document.addEventListener('keydown', (e) => {
     if (!openModalEl) return;
     if (e.key === 'Escape') { closeModal(openModalEl); return; }
-    if (openModalEl.id === 'coViewModal' && current && current.media.length > 1 && !e.target.closest('input,textarea')) {
-      if (e.key === 'ArrowLeft') showMedia(mediaIdx - 1);
-      if (e.key === 'ArrowRight') showMedia(mediaIdx + 1);
+    if (openModalEl.id !== 'coViewModal') return;
+    if (KEY === 'travel' && e.key === 'Tab') {
+      const controls = [...openModalEl.querySelectorAll('button:not(:disabled), a[href], video[controls], [tabindex="0"]')]
+        .filter((node) => node.tabIndex >= 0 && node.getClientRects().length > 0);
+      const first = controls[0], last = controls[controls.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === openModalEl.querySelector('.co-view-box'))) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    }
+    if (current && current.media.length > 1 && !e.target.closest('input,textarea,video')) {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        showMedia(mediaIdx + (e.key === 'ArrowLeft' ? -1 : 1));
+        if (KEY === 'travel' && e.target.closest('#coThumbs button')) {
+          $('coThumbs').querySelector('[aria-current="true"]')?.focus({ preventScroll: true });
+        }
+      }
     }
   });
 
   // Свайп по фото на телефоне
-  let touchX = null;
-  $('coMain').addEventListener('touchstart', (e) => { touchX = e.touches[0].clientX; }, { passive: true });
+  let touchStart = null;
+  $('coMain').addEventListener('touchstart', (e) => {
+    touchStart = e.touches.length === 1 && !e.target.closest('video') ? e.touches[0] : null;
+  }, { passive: true });
   $('coMain').addEventListener('touchend', (e) => {
-    if (touchX == null || !current || current.media.length < 2) return;
-    const dx = e.changedTouches[0].clientX - touchX;
-    if (Math.abs(dx) > 50) showMedia(mediaIdx + (dx < 0 ? 1 : -1));
-    touchX = null;
+    const start = touchStart;
+    touchStart = null;
+    if (!start || !current || current.media.length < 2) return;
+    const end = e.changedTouches[0];
+    const dx = end.clientX - start.clientX;
+    const dy = end.clientY - start.clientY;
+    if (Math.abs(dx) > 42 && Math.abs(dx) > Math.abs(dy) * 1.3) showMedia(mediaIdx + (dx < 0 ? 1 : -1));
   });
+  $('coMain').addEventListener('touchcancel', () => { touchStart = null; });
 
   /* ---------- поиск ---------- */
   const search = $('coSearch');
@@ -1344,7 +1546,7 @@ function coll_rich(string $text): string {
     form.elements.date.value = it ? it.date : '';
     form.elements.description.value = it ? it.description : '';
     form.elements.details.value = it ? it.details : '';
-    form.elements.tags.value = it ? it.tags.join(', ') : '';
+    if (form.elements.tags) form.elements.tags.value = it ? it.tags.join(', ') : '';
     form.elements.link.value = it ? it.link : '';
     form.elements.fit.value = it && it.fit ? it.fit : 'auto';
     media.forEach((x) => { if (x.kind === 'new') URL.revokeObjectURL(x.url); });

@@ -96,7 +96,7 @@ function coll_clean_tags($raw): array {
     return array_slice($out, 0, 20);
 }
 
-function coll_normalize_item(array $it): array {
+function coll_normalize_item(array $it, string $key = ''): array {
     $media = [];
     foreach ((array)($it['media'] ?? []) as $m) {
         if (!is_array($m) || trim((string)($m['src'] ?? '')) === '') continue;
@@ -112,7 +112,7 @@ function coll_normalize_item(array $it): array {
         'date' => (string)($it['date'] ?? ''),
         'description' => (string)($it['description'] ?? ''),
         'details' => (string)($it['details'] ?? ''),
-        'tags' => coll_clean_tags($it['tags'] ?? []),
+        'tags' => $key === 'travel' ? [] : coll_clean_tags($it['tags'] ?? []),
         'link' => (string)($it['link'] ?? ''),
         // Как показывать обложку на карточке: auto — заполнить рамку, width — по ширине, height — по высоте
         'fit' => in_array($it['fit'] ?? '', ['width', 'height'], true) ? $it['fit'] : 'auto',
@@ -168,7 +168,7 @@ function coll_migrate(string $key): array {
             'details' => coll_html_to_text((string)($o['details'] ?? '')),
             'media' => $media,
             'legacy_index' => $i,
-        ]);
+        ], $key);
     }
     return $items;
 }
@@ -183,7 +183,7 @@ function coll_load(string $key, bool $includeDrafts = false, bool $initialize = 
     }
     $data = json_decode((string)file_get_contents($file), true);
     $items = [];
-    foreach ((array)($data['items'] ?? []) as $it) if (is_array($it)) $items[] = coll_normalize_item($it);
+    foreach ((array)($data['items'] ?? []) as $it) if (is_array($it)) $items[] = coll_normalize_item($it, $key);
     return $includeDrafts ? $items : array_values(array_filter($items, fn($item) => !$item['draft']));
 }
 
