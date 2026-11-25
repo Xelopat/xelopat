@@ -83,6 +83,18 @@ if (isset($_GET['api'])) {
         $title = trim((string)($_POST['title'] ?? ''));
         $date = trim((string)($_POST['date'] ?? ''));
         $link = trim((string)($_POST['link'] ?? ''));
+        $details = trim((string)($_POST['details'] ?? ''));
+        $rich = null;
+        if ($coll_travel && isset($_POST['details_rich'])) {
+            if (!is_string($_POST['details_rich'])) coll_api_out(400, ['error' => 'Не удалось прочитать форматирование.']);
+            require_once __DIR__ . '/travel_story.php';
+            try {
+                $rich = travel_story_read($_POST['details_rich']);
+                $details = trim(travel_story_plain($rich));
+            } catch (InvalidArgumentException $e) {
+                coll_api_out(400, ['error' => $e->getMessage()]);
+            }
+        }
 
         if ($title === '') coll_api_out(400, ['error' => 'Нужно название.']);
         if ($date !== '') {
@@ -106,7 +118,7 @@ if (isset($_GET['api'])) {
             coll_api_out(400, ['error' => implode("\n", $errors)]);
         }
         try {
-            $result = coll_mutate($coll_key, function (array &$items) use ($id, $title, $date, $link, $keep, $uploaded, $coll_travel, $coll_user_id, $publish) {
+            $result = coll_mutate($coll_key, function (array &$items) use ($id, $title, $date, $link, $keep, $uploaded, $coll_key, $coll_travel, $coll_user_id, $publish, $details, $rich) {
                 $idx = null;
                 foreach ($items as $i => $it) {
                     if ($it['id'] !== $id || ($it['draft'] && !coll_draft_owned($it, $coll_user_id))) continue;
@@ -115,6 +127,10 @@ if (isset($_GET['api'])) {
                 }
                 if ($id !== '' && $idx === null) return ['error' => 'Запись не найдена (возможно, её удалили).'];
                 $draft = $coll_travel && ($idx === null || ($items[$idx]['draft'] && !$publish));
+                $story = $rich;
+                if ($story === null && $idx !== null && $details === $items[$idx]['details']) {
+                    $story = $items[$idx]['details_rich'] ?? null;
+                }
 
                 $old = $idx === null ? [] : $items[$idx]['media'];
                 $bySrc = [];
@@ -145,7 +161,8 @@ if (isset($_GET['api'])) {
                     'title' => $title,
                     'date' => $date,
                     'description' => trim((string)($_POST['description'] ?? '')),
-                    'details' => trim((string)($_POST['details'] ?? '')),
+                    'details' => $details,
+                    'details_rich' => $story,
                     'tags' => $coll_travel ? [] : (string)($_POST['tags'] ?? ''),
                     'link' => $link,
                     'fit' => (string)($_POST['fit'] ?? 'auto'),
@@ -155,7 +172,7 @@ if (isset($_GET['api'])) {
                     'legacy_index' => $idx === null ? null : $items[$idx]['legacy_index'],
                     'draft' => $draft,
                     'draft_owner' => $draft ? $coll_user_id : '',
-                ]);
+                ], $coll_key);
                 if ($idx === null) $items[] = $item; else $items[$idx] = $item;
                 return ['item' => $item, 'removed' => array_values($bySrc)];
             });
@@ -614,6 +631,9 @@ function coll_rich(string $text): string {
   .co-travel-story{ color:var(--text); font-size:15px; line-height:1.7; }
   .co-travel-story p{ margin:0 0 12px; white-space:pre-line; }
   .co-travel-story a{ color:var(--accent); }
+  .co-travel-story ul, .co-travel-story ol{ margin:0 0 12px; padding-inline-start:24px; }
+  .co-travel-story h4{ font-size:15px; margin:16px 0 8px; }
+  .co-travel-story blockquote{ margin:0 0 12px; padding:6px 12px; border-inline-start:2px solid var(--muted); }
   .co-travel-section{
     --chapter:#f4c76d;
     margin:20px 0 0; padding:13px 14px 2px; border-inline-start:2px solid var(--chapter);
@@ -653,6 +673,26 @@ function coll_rich(string $text): string {
   .co-row{ display:grid; grid-template-columns:minmax(0,1fr) 180px; gap:10px; }
   .co-form textarea{ min-height:70px; resize:vertical; }
   .co-form textarea[name="details"]{ min-height:130px; }
+  .co-editor{ border:1px solid var(--line); border-radius:var(--radius); background:var(--bg); overflow:hidden; }
+  .co-editor:focus-within{ border-color:var(--accent); }
+  .co-editor-toolbar, .co-editor-link{
+    display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:8px;
+    border-bottom:1px solid var(--line); background:var(--panel-2);
+  }
+  .co-editor-link[hidden]{ display:none; }
+  .co-editor-link input{ flex:1 1 180px; min-width:0; }
+  .co-editor-toolbar button, .co-editor-toolbar select, .co-editor-toolbar input[type="color"]{
+    width:auto; min-width:36px; min-height:36px; padding:4px 8px;
+    color:var(--text); background:var(--panel); border:1px solid var(--line); border-radius:6px;
+    font:inherit; font-size:13px;
+  }
+  .co-editor-toolbar button, .co-editor-toolbar input[type="color"]{ cursor:pointer; }
+  .co-editor-toolbar input[type="color"]{ width:38px; padding:3px; }
+  .co-editor-toolbar button:hover, .co-editor-toolbar button[aria-pressed="true"]{ border-color:var(--accent); color:var(--accent); }
+  .co-editor-area{ min-height:220px; max-height:44dvh; overflow:auto; padding:14px; outline:none; overflow-wrap:anywhere; }
+  .co-editor-area:empty::before{ content:attr(data-placeholder); color:var(--muted); pointer-events:none; }
+  .co-editor-area h3{ margin:14px 0 8px; font-size:17px; }
+  .co-editor-area h3:first-child{ margin-top:0; }
   .co-hint{ font-size:12px; color:var(--muted); }
   .co-media{ display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:8px; }
   .co-mi{ position:relative; aspect-ratio:1; border-radius:var(--radius); overflow:hidden; background:var(--panel-2); border:1px solid var(--line); }
@@ -992,7 +1032,37 @@ function coll_rich(string $text): string {
         <div class="field"<?= $coll_manual ? ' hidden' : '' ?>><label for="coDate">Дата</label><input id="coDate" name="date" type="date"></div>
       </div>
       <div class="field"><label for="coDescIn"><?= coll_h($coll['description_label'] ?? 'Коротко (видно на карточке)') ?></label><textarea id="coDescIn" name="description" maxlength="600"></textarea></div>
-      <div class="field"><label for="coDetailsIn"><?= coll_h($coll['details_label'] ?? 'Подробно') ?></label><textarea id="coDetailsIn" name="details"></textarea><?php if ($coll_travel): ?><span class="co-hint">Строка «13 сентября · Название» станет заголовком раздела.</span><?php endif; ?></div>
+      <?php if ($coll_travel): ?>
+        <div class="field">
+          <span id="coEditorLabel">Рассказ</span>
+          <div class="co-editor" id="coTravelEditor">
+            <div class="co-editor-toolbar" role="group" aria-label="Форматирование рассказа">
+              <select data-edit="formatBlock" aria-label="Стиль абзаца">
+                <option value="" disabled selected>Стиль</option><option value="p">Обычный текст</option><option value="h3">Заголовок раздела</option><option value="h4">Подзаголовок</option><option value="blockquote">Цитата</option>
+              </select>
+              <button type="button" data-edit="bold" aria-label="Жирный" title="Жирный" aria-pressed="false"><strong>Ж</strong></button>
+              <button type="button" data-edit="italic" aria-label="Курсив" title="Курсив" aria-pressed="false"><i>К</i></button>
+              <button type="button" data-edit="underline" aria-label="Подчёркнутый" title="Подчёркнутый" aria-pressed="false"><u>П</u></button>
+              <button type="button" data-edit="insertUnorderedList" aria-label="Маркированный список" title="Маркированный список" aria-pressed="false">• ≡</button>
+              <button type="button" data-edit="insertOrderedList" aria-label="Нумерованный список" title="Нумерованный список" aria-pressed="false">1. ≡</button>
+              <button type="button" data-insert-link aria-label="Добавить ссылку" title="Добавить ссылку">Ссылка</button>
+              <select data-edit="foreColor" aria-label="Цвет текста">
+                <option value="" disabled selected>Цвет</option><option value="#f4c76d">Золотистый</option><option value="#77d7c7">Бирюзовый</option><option value="#aebbff">Сиреневый</option><option value="#f4a5a4">Коралловый</option><option value="#e9e9ef">Светлый</option>
+              </select>
+              <input type="color" data-edit="foreColor" value="#77d7c7" aria-label="Свой цвет текста" title="Свой цвет текста">
+              <button type="button" data-edit="removeFormat" aria-label="Снять форматирование" title="Снять форматирование">Сбросить</button>
+            </div>
+            <div class="co-editor-link" hidden>
+              <input type="url" aria-label="Адрес ссылки в рассказе" placeholder="https://">
+              <button type="button" class="btn" data-apply-link>Вставить</button>
+              <button type="button" class="btn" data-cancel-link>Отменить</button>
+            </div>
+            <div class="co-editor-area co-travel-story" id="coDetailsIn" role="textbox" aria-multiline="true" aria-labelledby="coEditorLabel" contenteditable="true" data-placeholder="Напиши рассказ о поездке"></div>
+          </div>
+        </div>
+      <?php else: ?>
+        <div class="field"><label for="coDetailsIn"><?= coll_h($coll['details_label'] ?? 'Подробно') ?></label><textarea id="coDetailsIn" name="details"></textarea></div>
+      <?php endif; ?>
       <div<?= !$coll_travel ? ' class="co-row"' : '' ?>>
         <?php if (!$coll_travel): ?><div class="field"><label for="coTags">Теги через запятую</label><input id="coTags" name="tags"></div><?php endif; ?>
         <div class="field"><label for="coLinkIn">Ссылка</label><input id="coLinkIn" name="link" placeholder="https://"></div>
@@ -1023,6 +1093,9 @@ function coll_rich(string $text): string {
 </div>
 <?php endif; ?>
 
+<?php if ($coll_travel): ?>
+<script src="/assets/travel-editor.js?v=<?= filemtime(coll_root() . '/assets/travel-editor.js') ?>"></script>
+<?php endif; ?>
 <script>
 (function () {
   const KEY = <?= json_encode($coll_key) ?>;
@@ -1212,7 +1285,8 @@ function coll_rich(string $text): string {
       if (it.date) date.dateTime = it.date;
       else date.removeAttribute('datetime');
       $('coVDraft').hidden = !it.draft;
-      renderTravelStory($('coVDetails'), it.details);
+      if (Array.isArray(it.details_rich)) window.travelStory.render($('coVDetails'), it.details_rich);
+      else renderTravelStory($('coVDetails'), it.details);
       $('coMain').replaceChildren();
       $('coGalleryCount').hidden = !it.media.length;
     } else {
@@ -1410,6 +1484,7 @@ function coll_rich(string $text): string {
 
   /* ---------- редактирование ---------- */
   const form = $('coForm');
+  const travelEditor = KEY === 'travel' ? window.travelStory.connect($('coTravelEditor')) : null;
   const formModal = $('coFormModal');
   let editing = null;   // id или null для новой записи
   // Единый список в нужном порядке: сохранённые файлы/ссылки и новые, ещё не загруженные
@@ -1545,7 +1620,8 @@ function coll_rich(string $text): string {
     form.elements.title.value = it ? it.title : '';
     form.elements.date.value = it ? it.date : '';
     form.elements.description.value = it ? it.description : '';
-    form.elements.details.value = it ? it.details : '';
+    if (travelEditor) travelEditor.load(it, renderTravelStory);
+    else form.elements.details.value = it ? it.details : '';
     if (form.elements.tags) form.elements.tags.value = it ? it.tags.join(', ') : '';
     form.elements.link.value = it ? it.link : '';
     form.elements.fit.value = it && it.fit ? it.fit : 'auto';
@@ -1657,6 +1733,7 @@ function coll_rich(string $text): string {
     }
 
     const fd = new FormData(form);
+    travelEditor?.append(fd);
     fd.append('csrf', CSRF);
     fd.append('id', editing || '');
     if (publish) fd.append('publish', '1');

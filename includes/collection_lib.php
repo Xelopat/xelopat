@@ -106,7 +106,7 @@ function coll_normalize_item(array $it, string $key = ''): array {
             'preview' => (string)($m['preview'] ?? ''),
         ];
     }
-    return [
+    $item = [
         'id' => (string)($it['id'] ?? coll_new_id()),
         'title' => (string)($it['title'] ?? ''),
         'date' => (string)($it['date'] ?? ''),
@@ -124,6 +124,8 @@ function coll_normalize_item(array $it, string $key = ''): array {
         'draft' => ($it['draft'] ?? false) === true,
         'draft_owner' => (string)($it['draft_owner'] ?? ''),
     ];
+    if ($key === 'travel' && isset($it['details_rich']) && is_array($it['details_rich'])) $item['details_rich'] = $it['details_rich'];
+    return $item;
 }
 
 // Старые «подробности» могли быть HTML — переводим в обычный текст с переносами
