@@ -664,6 +664,8 @@ function coll_rich(string $text): string {
   .co-story-photo .vid{ display:grid; place-items:center; color:var(--text); font-size:25px; background:var(--bg); }
   .co-story-photos > :only-child{ grid-column:1 / -1; justify-self:center; }
   .co-story-photos > :only-child img{ width:auto; height:auto; max-width:100%; max-height:min(56dvh,520px); aspect-ratio:auto; }
+  .co-story-photos > .co-story-photo-pending:only-child{ width:min(100%,580px); }
+  .co-story-photos > .co-story-photo-pending:only-child img{ width:100%; aspect-ratio:4/3; object-fit:contain; }
   .co-story-photos > :only-child .vid{ width:min(72vw,480px); aspect-ratio:16/9; }
   .co-story-photo > span{ width:0; min-width:100%; }
   .co-story-photo:hover{ color:var(--text); }
@@ -1271,7 +1273,14 @@ function coll_rich(string $text): string {
     const button = el('button', {
       type: 'button', class: 'co-story-photo', 'aria-haspopup': 'dialog', 'aria-label': `Открыть: ${caption || label}`,
     });
-    button.append(mediaNode(file, true));
+    const thumbnail = mediaNode(file, true);
+    if (file.type === 'image' && !thumbnail.complete) {
+      button.classList.add('co-story-photo-pending');
+      const ready = () => button.classList.remove('co-story-photo-pending');
+      thumbnail.addEventListener('load', ready, { once: true });
+      thumbnail.addEventListener('error', ready, { once: true });
+    }
+    button.append(thumbnail);
     if (caption) {
       if (!travelCaptions.has(file.src)) travelCaptions.set(file.src, caption);
       button.append(el('span', {}, caption));
