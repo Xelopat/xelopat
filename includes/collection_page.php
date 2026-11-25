@@ -559,29 +559,38 @@ function coll_rich(string $text): string {
     display:flex; flex-direction:column; overflow:hidden; box-shadow:var(--shadow);
   }
   .co-box.narrow{ width:min(720px, calc(100vw - 24px)); }
+  .co-view-box{ margin-block:4dvh; max-height:92dvh; }
   .co-x{
     position:absolute; right:10px; top:10px; z-index:3; width:36px; height:36px; border-radius:var(--radius);
     border:1px solid var(--line); background:rgba(21,21,24,.85); color:var(--text); font-size:20px; line-height:1; cursor:pointer;
   }
   .co-x:hover{ border-color:var(--accent); color:var(--accent); }
 
-  .co-view{ display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); min-height:0; overflow:auto; }
-  .co-stage{ background:var(--bg); display:flex; flex-direction:column; min-height:0; }
-  .co-main{ position:relative; flex:1; min-height:300px; display:grid; place-items:center; }
-  .co-main img, .co-main video{ max-width:100%; max-height:70vh; display:block; }
+  .co-view{ display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); min-height:0; overflow:hidden; }
+  .co-view:not(.no-media){ height:min(760px, calc(92dvh - 2px)); grid-template-rows:minmax(0,1fr); }
+  .co-stage{ background:var(--bg); display:flex; flex-direction:column; min-height:0; min-width:0; }
+  .co-main{ position:relative; flex:1; min-height:0; display:grid; grid-template: minmax(0,1fr) / minmax(0,1fr); }
+  .co-main > img, .co-main > video{ width:100%; height:100%; object-fit:contain; display:block; }
   .co-arrow{
     position:absolute; top:50%; transform:translateY(-50%); width:40px; height:40px; border-radius:50%;
     border:1px solid rgba(255,255,255,.15); background:rgba(21,21,24,.7); color:#fff; font-size:20px; cursor:pointer;
   }
   .co-arrow:hover{ border-color:var(--accent); color:var(--accent); }
   .co-arrow.prev{ left:10px; } .co-arrow.next{ right:10px; }
-  .co-thumbs{ display:flex; gap:6px; padding:8px; overflow-x:auto; }
+  .co-thumbs{ display:flex; flex:none; gap:6px; padding:8px; overflow-x:auto; overscroll-behavior-x:contain; }
+  .co-thumbs[hidden]{ display:none; }
   .co-thumbs button{ flex:none; width:64px; height:48px; padding:0; border-radius:var(--radius-sm); overflow:hidden; border:2px solid transparent; background:var(--panel-2); cursor:pointer; opacity:.6; }
   .co-thumbs button.on{ border-color:var(--accent); opacity:1; }
   .co-thumbs img, .co-thumbs video{ width:100%; height:100%; object-fit:cover; display:block; }
   .co-thumbs .vid{ display:grid; place-items:center; color:var(--text); font-size:16px; }
 
-  .co-info{ padding:22px 20px; display:flex; flex-direction:column; gap:10px; }
+  .co-info{
+    min-width:0; min-height:0; padding:22px 20px; display:flex; flex-direction:column; gap:10px;
+    overflow-y:auto; overscroll-behavior-y:contain; overflow-wrap:anywhere;
+  }
+  .co-info > *{ flex-shrink:0; }
+  .co-info:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+  .co-info, .co-thumbs{ scrollbar-width:thin; scrollbar-color:var(--muted) transparent; }
   .co-info h2{ margin:0; font-size:24px; line-height:1.25; padding-right:30px; }
   .co-info .co-desc{ -webkit-line-clamp:unset; display:block; color:var(--text); }
   .co-details{ color:var(--muted); font-size:14px; line-height:1.65; white-space:pre-wrap; word-wrap:break-word; }
@@ -645,11 +654,15 @@ function coll_rich(string $text): string {
     .pj-actions .btn{ flex:1 1 0; padding:0 8px; }
   }
   @media (max-width: 760px){
-    .co-view{ grid-template-columns:1fr; }
-    .co-main{ min-height:220px; }
-    .co-main img, .co-main video{ max-height:52vh; }
     .co-box{ margin:0; width:100vw; max-height:100vh; height:100vh; border-radius:0; border:none; }
     .co-box.narrow{ width:100vw; }
+    .co-view-box{ height:100dvh; max-height:100dvh; }
+    .co-view, .co-view:not(.no-media){
+      grid-template-columns:1fr; grid-template-rows:none; grid-auto-rows:max-content;
+      height:auto; overflow-y:auto; overscroll-behavior-y:contain;
+    }
+    .co-main{ flex:none; height:min(56vw, 48dvh); }
+    .co-info{ overflow:visible; }
     .co-row{ grid-template-columns:1fr; }
     .co-search{ width:100%; }
     .co-tools{ width:100%; }
@@ -865,14 +878,14 @@ function coll_rich(string $text): string {
 <!-- Просмотр -->
 <div class="co-modal" id="coViewModal" aria-hidden="true">
   <div class="co-backdrop" data-close></div>
-  <div class="co-box" role="dialog" aria-modal="true">
+  <div class="co-box co-view-box" role="dialog" aria-modal="true" aria-labelledby="coVTitle">
     <button class="co-x" type="button" data-close aria-label="Закрыть">×</button>
     <div class="co-view" id="coView">
       <div class="co-stage">
         <div class="co-main" id="coMain"></div>
         <div class="co-thumbs" id="coThumbs"></div>
       </div>
-      <div class="co-info">
+      <div class="co-info" role="region" aria-label="Описание" tabindex="0">
         <div class="co-date" id="coVDate"></div>
         <h2 id="coVTitle"></h2>
         <div class="co-tags" id="coVTags" style="margin-top:0;padding-top:0"></div>
@@ -1005,7 +1018,20 @@ function coll_rich(string $text): string {
       n.onclick = () => showMedia(mediaIdx + 1);
       main.append(p, n);
     }
-    $('coThumbs').querySelectorAll('button').forEach((b, k) => b.classList.toggle('on', k === mediaIdx));
+    const thumbs = $('coThumbs');
+    const buttons = thumbs.querySelectorAll('button');
+    buttons.forEach((button, index) => {
+      const selected = index === mediaIdx;
+      button.classList.toggle('on', selected);
+      if (selected) button.setAttribute('aria-current', 'true');
+      else button.removeAttribute('aria-current');
+    });
+    if (!thumbs.hidden && thumbs.clientWidth) {
+      const strip = thumbs.getBoundingClientRect();
+      const active = buttons[mediaIdx].getBoundingClientRect();
+      if (active.left < strip.left) thumbs.scrollLeft += active.left - strip.left;
+      if (active.right > strip.right) thumbs.scrollLeft += active.right - strip.right;
+    }
   }
 
   function openView(id, push) {
@@ -1035,8 +1061,11 @@ function coll_rich(string $text): string {
       b.onclick = () => showMedia(k);
       thumbs.append(b);
     });
-    if (it.media.length) showMedia(0);
     openModal($('coViewModal'));
+    $('coView').scrollTop = 0;
+    $('coVTitle').parentElement.scrollTop = 0;
+    thumbs.scrollLeft = 0;
+    if (it.media.length) showMedia(0);
     if (push !== false) history.replaceState(null, '', entryUrl(id, it.draft));
   }
 
