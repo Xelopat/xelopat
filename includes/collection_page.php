@@ -681,16 +681,17 @@ function coll_rich(string $text): string {
   .co-lightbox::backdrop{ background:rgba(0,0,0,.82); }
   .co-lightbox[open]{ display:flex; flex-direction:column; }
   .co-lightbox .co-x, .co-lightbox .co-arrow{ border:0; }
-  .co-gallery-frame{ position:relative; display:flex; flex:1; min-height:0; }
-  .co-gallery-frame .co-main{ touch-action:pan-y pinch-zoom; }
+  .co-gallery-frame{ position:relative; display:flex; flex:1; min-height:0; touch-action:pan-y pinch-zoom; }
   .co-gallery-nav{ position:absolute; inset:0; pointer-events:none; }
   .co-gallery-nav[hidden], .co-gallery-count[hidden]{ display:none; }
-  .co-gallery-nav .co-arrow{
-    pointer-events:auto; width:44px; height:44px; display:grid; place-items:center;
-    border-radius:12px; background:rgba(16,17,21,.85);
+  .co-gallery-nav button{
+    position:absolute; inset-block:0; width:50%; border:0; padding:0;
+    background:transparent; pointer-events:auto; cursor:pointer;
   }
-  .co-gallery-nav .co-arrow svg{ width:20px; height:20px; }
-  .co-gallery-nav .co-arrow:focus-visible, .co-lightbox .co-thumbs button:focus-visible{ outline:2px solid #fff; outline-offset:-3px; }
+  .co-gallery-nav button:first-child{ left:0; }
+  .co-gallery-nav button:last-child{ right:0; }
+  @media (pointer:coarse){ .co-gallery-nav{ display:none; } }
+  .co-gallery-nav button:focus-visible, .co-lightbox .co-thumbs button:focus-visible{ outline:2px solid #fff; outline-offset:-3px; }
   .co-gallery-count{ position:absolute; inset:12px auto auto 12px; padding:4px 9px; border-radius:8px; background:rgba(16,17,21,.85); color:#fff; font-size:12px; font-variant-numeric:tabular-nums; pointer-events:none; }
   .co-gallery-loading{ display:none; position:absolute; align-self:center; left:50%; translate:-50% 0; padding:6px 10px; border-radius:8px; background:rgba(16,17,21,.9); color:#fff; font-size:13px; pointer-events:none; }
   .co-main[aria-busy="true"] ~ .co-gallery-loading{ display:block; opacity:0; animation:co-loading .12s .22s forwards; }
@@ -1041,8 +1042,8 @@ function coll_rich(string $text): string {
             <div class="co-main" id="coMain"></div>
             <div class="co-gallery-count" id="coGalleryCount" role="status" aria-atomic="true"></div>
             <div class="co-gallery-nav" id="coGalleryNav" aria-label="Переключение файлов" role="group" hidden>
-              <button class="co-arrow prev" id="coPrev" type="button" aria-label="Предыдущий файл"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
-              <button class="co-arrow next" id="coNext" type="button" aria-label="Следующий файл"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+              <button id="coPrev" type="button" aria-label="Предыдущий файл"></button>
+              <button id="coNext" type="button" aria-label="Следующий файл"></button>
             </div>
             <span class="co-gallery-loading" aria-hidden="true">Загрузка…</span>
           </div>
@@ -1301,7 +1302,7 @@ function coll_rich(string $text): string {
     const file = media[mediaIdx];
     const rev = ++galleryRevision;
     $('coGalleryCount').textContent = `${mediaIdx + 1} / ${media.length}`;
-    $('coGalleryNav').hidden = media.length < 2;
+    $('coGalleryNav').hidden = media.length < 2 || file.type !== 'image';
     const mount = (node) => {
       if (rev !== galleryRevision) return;
       main.replaceChildren(node);
@@ -1320,8 +1321,8 @@ function coll_rich(string $text): string {
   }
 
   if (lightbox) {
-    $('coPrev').onclick = () => showMedia(mediaIdx - 1);
-    $('coNext').onclick = () => showMedia(mediaIdx + 1);
+    $('coPrev').onclick = e => { if (e.pointerType !== 'touch') showMedia(mediaIdx - 1); };
+    $('coNext').onclick = e => { if (e.pointerType !== 'touch') showMedia(mediaIdx + 1); };
     $('coLightboxClose').onclick = () => lightbox.close();
     lightbox.addEventListener('cancel', e => e.preventDefault());
     lightbox.addEventListener('close', () => {
@@ -1481,10 +1482,11 @@ function coll_rich(string $text): string {
 
   // Свайп по фото на телефоне
   let touchStart = null;
-  $('coMain').addEventListener('touchstart', (e) => {
+  const touchArea = lightbox?.querySelector('.co-gallery-frame') || $('coMain');
+  touchArea.addEventListener('touchstart', (e) => {
     touchStart = e.touches.length === 1 && !e.target.closest('video') ? e.touches[0] : null;
   }, { passive: true });
-  $('coMain').addEventListener('touchend', (e) => {
+  touchArea.addEventListener('touchend', (e) => {
     const start = touchStart;
     touchStart = null;
     if (!start || !current || current.media.length < 2) return;
@@ -1493,7 +1495,7 @@ function coll_rich(string $text): string {
     const dy = end.clientY - start.clientY;
     if (Math.abs(dx) > 42 && Math.abs(dx) > Math.abs(dy) * 1.3) showMedia(mediaIdx + (dx < 0 ? 1 : -1));
   });
-  $('coMain').addEventListener('touchcancel', () => { touchStart = null; });
+  touchArea.addEventListener('touchcancel', () => { touchStart = null; });
 
   /* ---------- поиск ---------- */
   const search = $('coSearch');
