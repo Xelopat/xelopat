@@ -618,17 +618,32 @@ function coll_rich(string $text): string {
   .co-view.no-media{ grid-template-columns:1fr; }
   .co-view.no-media .co-stage{ display:none; }
 
-  .co-travel-head, .co-travel-body{ min-width:0; padding:22px; }
-  .travel-view .co-info{ display:grid; grid-template-rows:auto minmax(0,1fr); gap:0; padding:0; overflow:hidden; }
-  .co-travel-head{ background:var(--panel); border-bottom:1px solid var(--line); padding-right:58px; }
-  .co-travel-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:7px 12px; margin-bottom:8px; }
+  .co-view-box:has(.travel-view){ width:min(1120px,calc(100vw - 32px)); }
+  .co-view.travel-view, .co-view.travel-view:not(.no-media){
+    display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr);
+    height:min(880px,calc(92dvh - 2px)); overflow:hidden;
+  }
+  .travel-view .co-info{ display:block; grid-row:2; gap:0; padding:0; overflow:auto; }
+  .travel-view .co-stage{ display:none; grid-row:2; }
+  .travel-view[data-travel-mode="gallery"] .co-stage{ display:flex; }
+  .travel-view[data-travel-mode="gallery"] .co-info{ display:none; }
+  .co-travel-head{ background:var(--panel); border-bottom:1px solid var(--line); min-width:0; }
+  .co-travel-header-inner{
+    display:flex; align-items:end; justify-content:space-between; flex-wrap:wrap; gap:12px 24px;
+    margin:auto; max-width:1030px; padding:17px 62px 16px 30px;
+  }
+  .co-travel-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:7px 12px; margin-bottom:5px; }
   .co-travel-meta:empty, .co-travel-meta [hidden], .co-travel-head .co-date:empty, .travel-view .co-desc:empty{ display:none; }
-  .co-travel-head h2{ padding:0; font-size:clamp(22px, 2.5vw, 30px); }
+  .co-travel-head h2{ margin:0; font-size:clamp(22px, 2.7vw, 32px); line-height:1.15; text-wrap:balance; }
+  .co-travel-switch{ display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .co-travel-switch button{ font-size:13px; min-height:36px; padding-inline:12px; }
+  .co-travel-switch button[aria-pressed="true"]{ color:var(--accent); border-color:var(--accent); }
+  .co-travel-switch [hidden]{ display:none; }
   .co-draft-state{ width:fit-content; color:var(--accent); font-size:12px; font-weight:600; }
-  .co-travel-body{ min-height:0; overflow-y:auto; overscroll-behavior-y:contain; scrollbar-width:thin; scrollbar-color:var(--muted) transparent; }
+  .co-travel-body{ max-width:820px; margin-inline:auto; padding:clamp(18px, 4vw, 44px); }
   .co-travel-body:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
-  .travel-view .co-desc{ margin:0 0 18px; color:var(--muted); line-height:1.55; }
-  .co-travel-story{ color:var(--text); font-size:15px; line-height:1.7; }
+  .travel-view .co-desc{ margin:0 0 20px; color:var(--muted); font-size:15px; line-height:1.6; }
+  .co-travel-story{ color:var(--text); font-size:16px; line-height:1.75; }
   .co-travel-story p{ margin:0 0 12px; white-space:pre-line; }
   .co-travel-story a{ color:var(--accent); }
   .co-travel-story ul, .co-travel-story ol{ margin:0 0 12px; padding-inline-start:24px; }
@@ -636,14 +651,27 @@ function coll_rich(string $text): string {
   .co-travel-story blockquote{ margin:0 0 12px; padding:6px 12px; border-inline-start:2px solid var(--muted); }
   .co-travel-section{
     --chapter:#f4c76d;
-    margin:20px 0 0; padding:13px 14px 2px; border-inline-start:2px solid var(--chapter);
-    border-radius:0 8px 8px 0; background:color-mix(in srgb,var(--chapter) 7%,var(--panel));
+    margin:32px 0 0; padding:22px 0 0; border-top:1px solid var(--line);
   }
   .co-travel-section:nth-of-type(4n+2){ --chapter:#77d7c7; }
   .co-travel-section:nth-of-type(4n+3){ --chapter:#aebbff; }
   .co-travel-section:nth-of-type(4n+4){ --chapter:#f4a5a4; }
-  .co-travel-section h3{ margin:0 0 10px; color:var(--chapter); font-size:17px; line-height:1.35; }
-  .co-chapter-date{ display:block; color:var(--chapter); font-size:12px; font-weight:600; margin-bottom:3px; }
+  .co-travel-section h3{ margin:0 0 14px; font-size:clamp(21px, 3vw, 27px); line-height:1.25; }
+  .co-chapter-date{ display:block; color:var(--chapter); font-size:12px; font-weight:600; letter-spacing:.05em; margin-bottom:5px; }
+  .co-story-photos{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); gap:12px; margin:14px 0 24px; }
+  .co-story-photos:has(> :only-child){ grid-template-columns:minmax(0,1fr); }
+  .co-story-photo{
+    display:inline-flex; flex-direction:column; gap:6px; padding:0; max-width:100%;
+    border:none; background:none; color:var(--muted); font:inherit; font-size:13px; line-height:1.45; text-align:start; cursor:zoom-in;
+  }
+  .co-story-photo img, .co-story-photo .vid{ width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:9px; display:block; background:var(--bg); }
+  .co-story-photo .vid{ display:grid; place-items:center; color:var(--text); font-size:25px; }
+  .co-story-photos:has(> :only-child) img, .co-story-photos:has(> :only-child) .vid{ aspect-ratio:16/9; object-fit:contain; }
+  .co-story-photo:hover{ color:var(--text); }
+  .co-story-photo:focus-visible{ outline:2px solid var(--accent); outline-offset:4px; border-radius:8px; }
+  .co-story-caption{ margin:0; padding:6px 16px; color:var(--muted); font-size:13px; line-height:1.45; text-align:center; background:var(--panel); }
+  .co-story-caption:empty{ display:none; }
+  .co-info .co-story-head-photo{ margin:0 0 24px; }
   .co-travel-body .co-actions{ margin-top:22px; }
   .co-travel-body .co-actions:not(:has(> :not([hidden]))){ display:none; }
 
@@ -690,6 +718,12 @@ function coll_rich(string $text): string {
   .co-editor-toolbar input[type="color"]{ width:38px; padding:3px; }
   .co-editor-toolbar button:hover, .co-editor-toolbar button[aria-pressed="true"]{ border-color:var(--accent); color:var(--accent); }
   .co-editor-area{ min-height:220px; max-height:44dvh; overflow:auto; padding:14px; outline:none; overflow-wrap:anywhere; }
+  .co-editor-photo{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:8px; border-bottom:1px solid var(--line); }
+  .co-editor-photo[hidden]{ display:none; }
+  .co-editor-photo select, .co-editor-photo input{ flex:1 1 120px; min-width:0; }
+  .co-editor-photo img{ width:56px; height:42px; object-fit:cover; border-radius:4px; }
+  .co-editor-photo img[hidden]{ display:none; }
+  .co-editor-photo-reference{ display:inline-block; margin:2px; padding:2px 8px; border:1px solid var(--line); border-radius:6px; color:var(--accent); font-size:13px; }
   .co-editor-area:empty::before{ content:attr(data-placeholder); color:var(--muted); pointer-events:none; }
   .co-editor-area h3{ margin:14px 0 8px; font-size:17px; }
   .co-editor-area h3:first-child{ margin-top:0; }
@@ -750,14 +784,14 @@ function coll_rich(string $text): string {
     }
     .co-main{ flex:none; height:min(56vw, 48dvh); }
     .co-info{ overflow:visible; }
-    .travel-view .co-info{ display:contents; }
-    .travel-view .co-travel-head{ grid-row:1; position:sticky; top:0; z-index:2; padding:11px 56px 11px 16px; }
+    .co-view-box:has(.travel-view){ width:100vw; }
+    .co-view.travel-view, .co-view.travel-view:not(.no-media){ height:100dvh; grid-auto-rows:auto; }
+    .co-travel-header-inner{ padding:11px 52px 9px 16px; gap:9px; }
     .travel-view .co-travel-head h2{ font-size:21px; }
     .travel-view .co-travel-meta{ margin-bottom:4px; }
-    .travel-view .co-stage{ grid-row:2; }
-    .travel-view .co-travel-body{ overflow:visible; padding:18px 16px 22px; }
-    .travel-view .co-gallery-frame{ flex:none; }
-    .travel-view .co-gallery-frame .co-main{ width:100%; }
+    .travel-view .co-travel-body{ padding:18px 16px 26px; }
+    .travel-view .co-gallery-frame .co-main{ flex:1; height:auto; }
+    .co-story-photos{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
     .co-row{ grid-template-columns:1fr; }
     .co-search{ width:100%; }
     .co-tools{ width:100%; }
@@ -976,6 +1010,21 @@ function coll_rich(string $text): string {
   <div class="co-box co-view-box" role="dialog" aria-modal="true" aria-labelledby="coVTitle" tabindex="-1">
     <button class="co-x" type="button" data-close aria-label="Закрыть">×</button>
     <div class="co-view<?= $coll_travel ? ' travel-view' : '' ?>" id="coView">
+      <?php if ($coll_travel): ?>
+        <header class="co-travel-head">
+          <div class="co-travel-header-inner">
+            <div>
+              <div class="co-travel-meta"><time class="co-date" id="coVDate"></time><span class="co-draft-state" id="coVDraft" hidden>Черновик</span></div>
+              <h2 id="coVTitle"></h2>
+            </div>
+            <div class="co-travel-switch" role="group" aria-label="Режим просмотра">
+              <button class="btn" type="button" id="coStoryMode" aria-pressed="true">Рассказ</button>
+              <button class="btn" type="button" id="coGalleryMode" aria-pressed="false">Галерея</button>
+              <?php if ($coll_is_admin): ?><button class="btn" type="button" id="coEdit">Изменить</button><?php endif; ?>
+            </div>
+          </div>
+        </header>
+      <?php endif; ?>
       <div class="co-stage">
         <?php if ($coll_travel): ?>
           <div class="co-gallery-frame">
@@ -987,18 +1036,15 @@ function coll_rich(string $text): string {
             </div>
             <span class="co-gallery-loading" aria-hidden="true">Загрузка…</span>
           </div>
+          <p class="co-story-caption" id="coGalleryCaption"></p>
         <?php else: ?>
           <div class="co-main" id="coMain"></div>
         <?php endif; ?>
         <div class="co-thumbs" id="coThumbs"<?= $coll_travel ? ' role="group" aria-label="Миниатюры"' : '' ?>></div>
       </div>
-      <div class="co-info"<?= !$coll_travel ? ' role="region" aria-label="Описание" tabindex="0"' : '' ?>>
+      <div class="co-info" role="region" aria-label="<?= $coll_travel ? 'Рассказ' : 'Описание' ?>" tabindex="0"<?= $coll_travel ? ' id="coTravelBody"' : '' ?>>
         <?php if ($coll_travel): ?>
-          <header class="co-travel-head">
-            <div class="co-travel-meta"><time class="co-date" id="coVDate"></time><span class="co-draft-state" id="coVDraft" hidden>Черновик</span></div>
-            <h2 id="coVTitle"></h2>
-          </header>
-          <div class="co-travel-body" id="coTravelBody" role="region" aria-label="Описание" tabindex="0">
+          <div class="co-travel-body">
         <?php else: ?>
           <div class="co-date" id="coVDate"></div>
           <h2 id="coVTitle"></h2>
@@ -1009,7 +1055,7 @@ function coll_rich(string $text): string {
         <div class="co-actions">
           <a class="btn" id="coVLink" target="_blank" rel="noopener" hidden>Открыть ссылку ↗</a>
           <?php if ($coll_is_admin): ?>
-            <button class="btn" type="button" id="coEdit">Изменить</button>
+            <?php if (!$coll_travel): ?><button class="btn" type="button" id="coEdit">Изменить</button><?php endif; ?>
             <button class="btn co-del" type="button" id="coDelete">Удалить</button>
           <?php endif; ?>
         </div>
@@ -1046,6 +1092,7 @@ function coll_rich(string $text): string {
               <button type="button" data-edit="insertUnorderedList" aria-label="Маркированный список" title="Маркированный список" aria-pressed="false">• ≡</button>
               <button type="button" data-edit="insertOrderedList" aria-label="Нумерованный список" title="Нумерованный список" aria-pressed="false">1. ≡</button>
               <button type="button" data-insert-link aria-label="Добавить ссылку" title="Добавить ссылку">Ссылка</button>
+              <button type="button" data-insert-photo aria-expanded="false">Вставить фото</button>
               <select data-edit="foreColor" aria-label="Цвет текста">
                 <option value="" disabled selected>Цвет</option><option value="#f4c76d">Золотистый</option><option value="#77d7c7">Бирюзовый</option><option value="#aebbff">Сиреневый</option><option value="#f4a5a4">Коралловый</option><option value="#e9e9ef">Светлый</option>
               </select>
@@ -1056,6 +1103,13 @@ function coll_rich(string $text): string {
               <input type="url" aria-label="Адрес ссылки в рассказе" placeholder="https://">
               <button type="button" class="btn" data-apply-link>Вставить</button>
               <button type="button" class="btn" data-cancel-link>Отменить</button>
+            </div>
+            <div class="co-editor-photo" hidden>
+              <img alt="" hidden>
+              <select aria-label="Фото из галереи"></select>
+              <input type="text" aria-label="Подпись к фото" placeholder="Подпись к фото" maxlength="180">
+              <button type="button" class="btn" data-apply-photo>Вставить</button>
+              <button type="button" class="btn" data-cancel-photo>Отменить</button>
             </div>
             <div class="co-editor-area co-travel-story" id="coDetailsIn" role="textbox" aria-multiline="true" aria-labelledby="coEditorLabel" contenteditable="true" data-placeholder="Напиши рассказ о поездке"></div>
           </div>
@@ -1196,6 +1250,48 @@ function coll_rich(string $text): string {
   let current = null, mediaIdx = 0;
   let galleryRevision = 0;
   let nextTravelPhoto = null;
+  let storyScroll = 0;
+  let storyPhoto = null;
+  const travelCaptions = new Map();
+
+  function setTravelMode(mode, index = mediaIdx, source = null) {
+    const view = $('coView');
+    const story = $('coTravelBody');
+    const inGallery = view.dataset.travelMode === 'gallery';
+    if (mode === 'gallery') {
+      if (!current.media.length) return;
+      if (!inGallery) storyScroll = story.scrollTop;
+      storyPhoto = source;
+    } else if (inGallery) {
+      galleryRevision++;
+      nextTravelPhoto = null;
+      $('coMain').removeAttribute('aria-busy');
+      $('coMain').querySelector('video')?.pause();
+    }
+    view.dataset.travelMode = mode;
+    $('coStoryMode').setAttribute('aria-pressed', String(mode === 'story'));
+    $('coGalleryMode').setAttribute('aria-pressed', String(mode === 'gallery'));
+    if (mode === 'gallery') {
+      showMedia(index);
+      if (source) $('coGalleryMode').focus({ preventScroll: true });
+    } else {
+      story.scrollTop = storyScroll;
+      storyPhoto?.focus({ preventScroll: true });
+      storyPhoto = null;
+    }
+  }
+
+  function storyPhotoButton(file, index, caption) {
+    const label = `${file.type === 'video' ? 'Видео' : 'Фото'} ${index + 1}`;
+    const button = el('button', { type: 'button', class: 'co-story-photo', 'aria-label': `Открыть: ${caption || label}` });
+    button.append(mediaNode(file, true));
+    if (caption) {
+      if (!travelCaptions.has(file.src)) travelCaptions.set(file.src, caption);
+      button.append(el('span', {}, caption));
+    }
+    button.onclick = () => setTravelMode('gallery', index, button);
+    return button;
+  }
 
   function preloadNextTravelPhoto(media) {
     const next = media.length > 1 ? media[(mediaIdx + 1) % media.length] : null;
@@ -1236,6 +1332,12 @@ function coll_rich(string $text): string {
   if (KEY === 'travel') {
     $('coPrev').onclick = () => showMedia(mediaIdx - 1);
     $('coNext').onclick = () => showMedia(mediaIdx + 1);
+    $('coStoryMode').onclick = () => {
+      if ($('coView').dataset.travelMode === 'gallery') setTravelMode('story');
+    };
+    $('coGalleryMode').onclick = () => {
+      if ($('coView').dataset.travelMode !== 'gallery') setTravelMode('gallery');
+    };
   }
 
   function showMedia(i) {
@@ -1245,6 +1347,7 @@ function coll_rich(string $text): string {
     main.querySelectorAll('video').forEach((v) => v.pause());
     if (KEY === 'travel') {
       showTravelMedia(main, media);
+      $('coGalleryCaption').textContent = travelCaptions.get(media[mediaIdx].src) || '';
     } else {
       main.replaceChildren(mediaNode(media[mediaIdx], false));
     }
@@ -1285,8 +1388,24 @@ function coll_rich(string $text): string {
       if (it.date) date.dateTime = it.date;
       else date.removeAttribute('datetime');
       $('coVDraft').hidden = !it.draft;
-      if (Array.isArray(it.details_rich)) window.travelStory.render($('coVDetails'), it.details_rich);
+      travelCaptions.clear();
+      const mediaBySource = new Map();
+      it.media.forEach((file, index) => {
+        const saved = { file, index };
+        mediaBySource.set(file.src, saved);
+        if (file.preview) mediaBySource.set(file.preview, saved);
+      });
+      const makePhoto = (src, caption) => {
+        const saved = mediaBySource.get(src);
+        return saved ? storyPhotoButton(saved.file, saved.index, caption) : null;
+      };
+      if (Array.isArray(it.details_rich)) window.travelStory.render($('coVDetails'), it.details_rich, makePhoto, true);
       else renderTravelStory($('coVDetails'), it.details);
+      if (it.media.length && !$('coVDetails').querySelector('.co-story-photo')) {
+        const cover = el('div', { class: 'co-story-photos co-story-head-photo' });
+        cover.append(storyPhotoButton(it.media[0], 0, ''));
+        $('coVDetails').prepend(cover);
+      }
       $('coMain').replaceChildren();
       $('coGalleryCount').hidden = !it.media.length;
     } else {
@@ -1316,7 +1435,13 @@ function coll_rich(string $text): string {
     $('coView').scrollTop = 0;
     ($('coTravelBody') || $('coVTitle').parentElement).scrollTop = 0;
     thumbs.scrollLeft = 0;
-    if (it.media.length) showMedia(0);
+    if (KEY === 'travel') {
+      mediaIdx = 0;
+      storyScroll = 0;
+      storyPhoto = null;
+      $('coGalleryMode').hidden = !it.media.length;
+      setTravelMode('story');
+    } else if (it.media.length) showMedia(0);
     if (KEY === 'travel') modal.querySelector('.co-view-box').focus({ preventScroll: true });
     if (push !== false) history.replaceState(null, '', entryUrl(id, it.draft));
   }
@@ -1348,7 +1473,8 @@ function coll_rich(string $text): string {
         first?.focus();
       }
     }
-    if (current && current.media.length > 1 && !e.target.closest('input,textarea,video')) {
+    if (current && current.media.length > 1 && !e.target.closest('input,textarea,video') &&
+        (KEY !== 'travel' || $('coView').dataset.travelMode === 'gallery')) {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.preventDefault();
         showMedia(mediaIdx + (e.key === 'ArrowLeft' ? -1 : 1));
@@ -1553,6 +1679,7 @@ function coll_rich(string $text): string {
   }
 
   function renderMedia() {
+    travelEditor?.setMedia(media.filter(x => x.kind === 'kept').map(x => x.m));
     const box = $('coMedia');
     box.textContent = '';
     media.forEach((x, i) => {

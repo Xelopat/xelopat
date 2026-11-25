@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const TRAVEL_STORY_ELEMENTS = ['p', 'div', 'h3', 'h4', 'strong', 'em', 'u', 'ul', 'ol', 'li', 'blockquote', 'br', 'a', 'span'];
+const TRAVEL_STORY_ELEMENTS = ['p', 'div', 'h3', 'h4', 'strong', 'em', 'u', 'ul', 'ol', 'li', 'blockquote', 'br', 'a', 'span', 'photo'];
 
 function travel_story_read(string $json): array {
     if (strlen($json) > 180000) throw new InvalidArgumentException('Рассказ слишком длинный.');
@@ -23,6 +23,16 @@ function travel_story_nodes(mixed $nodes, int &$budget, int $depth = 0): array {
             throw new InvalidArgumentException('В рассказе есть неподдерживаемый элемент.');
         }
         if ($tag === 'br') { $out[] = ['tag' => 'br']; continue; }
+        if ($tag === 'photo') {
+            $src = $node['src'] ?? null;
+            $caption = $node['caption'] ?? '';
+            if (!is_string($src) || $src === '' || strlen($src) > 2048 ||
+                !is_string($caption) || strlen($caption) > 600) {
+                throw new InvalidArgumentException('Не удалось прочитать ссылку на фото.');
+            }
+            $out[] = ['tag' => 'photo', 'src' => $src, 'caption' => trim($caption)];
+            continue;
+        }
         $children = travel_story_nodes($node['children'] ?? [], $budget, $depth + 1);
         $item = ['tag' => $tag, 'children' => $children];
         if ($tag === 'a') {
@@ -48,6 +58,7 @@ function travel_story_plain(array $nodes): string {
     foreach ($nodes as $node) {
         if (is_string($node)) { $text .= $node; continue; }
         if ($node['tag'] === 'br') { $text .= "\n"; continue; }
+        if ($node['tag'] === 'photo') { $text .= $node['caption'] . "\n"; continue; }
         $piece = travel_story_plain($node['children']);
         if (($node['date'] ?? false) === true) $piece .= ' · ';
         $text .= $piece;
