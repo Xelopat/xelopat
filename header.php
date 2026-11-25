@@ -47,7 +47,7 @@ $univer_sections = [
 ];
 
 $hobby_items = [
-    ['Путешествия', '/travel'],
+    ['Приключения', '/travel'],
     ['Фото', '/photo'],
     ['Духи', '/perfumes'],
     ['Книги', '/books'],

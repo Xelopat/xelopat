@@ -618,16 +618,14 @@ function coll_rich(string $text): string {
   .co-view.no-media{ grid-template-columns:1fr; }
   .co-view.no-media .co-stage{ display:none; }
 
-  .co-view-box:has(.travel-view){ width:min(1120px,calc(100vw - 32px)); }
+  .co-view-box:has(.travel-view){ width:min(1120px,calc(100vw - 32px)); border:0; }
   .co-view.travel-view, .co-view.travel-view:not(.no-media){
     display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr);
-    height:min(880px,calc(92dvh - 2px)); overflow:hidden;
+    height:min(880px,92dvh); overflow:hidden;
   }
   .travel-view .co-info{ display:block; grid-row:2; gap:0; padding:0; overflow:auto; }
-  .travel-view .co-stage{ display:none; grid-row:2; }
-  .travel-view[data-travel-mode="gallery"] .co-stage{ display:flex; }
-  .travel-view[data-travel-mode="gallery"] .co-info{ display:none; }
-  .co-travel-head{ background:var(--panel); border-bottom:1px solid var(--line); min-width:0; }
+  .co-travel-head{ background:var(--panel); min-width:0; }
+  .travel-view .btn, .co-view-box:has(.travel-view) > .co-x{ border:0; }
   .co-travel-header-inner{
     display:flex; align-items:end; justify-content:space-between; flex-wrap:wrap; gap:12px 24px;
     margin:auto; max-width:1030px; padding:17px 62px 16px 30px;
@@ -635,46 +633,54 @@ function coll_rich(string $text): string {
   .co-travel-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:7px 12px; margin-bottom:5px; }
   .co-travel-meta:empty, .co-travel-meta [hidden], .co-travel-head .co-date:empty, .travel-view .co-desc:empty{ display:none; }
   .co-travel-head h2{ margin:0; font-size:clamp(22px, 2.7vw, 32px); line-height:1.15; text-wrap:balance; }
-  .co-travel-switch{ display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
-  .co-travel-switch button{ font-size:13px; min-height:36px; padding-inline:12px; }
-  .co-travel-switch button[aria-pressed="true"]{ color:var(--accent); border-color:var(--accent); }
-  .co-travel-switch [hidden]{ display:none; }
   .co-draft-state{ width:fit-content; color:var(--accent); font-size:12px; font-weight:600; }
   .co-travel-body{ max-width:820px; margin-inline:auto; padding:clamp(18px, 4vw, 44px); }
-  .co-travel-body:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
   .travel-view .co-desc{ margin:0 0 20px; color:var(--muted); font-size:15px; line-height:1.6; }
   .co-travel-story{ color:var(--text); font-size:16px; line-height:1.75; }
   .co-travel-story p{ margin:0 0 12px; white-space:pre-line; }
   .co-travel-story a{ color:var(--accent); }
   .co-travel-story ul, .co-travel-story ol{ margin:0 0 12px; padding-inline-start:24px; }
   .co-travel-story h4{ font-size:15px; margin:16px 0 8px; }
-  .co-travel-story blockquote{ margin:0 0 12px; padding:6px 12px; border-inline-start:2px solid var(--muted); }
+  .co-travel-story blockquote{ margin:0 0 12px; padding:6px 12px; border-inline-start:2px solid var(--accent); }
   .co-travel-section{
     --chapter:#f4c76d;
-    margin:32px 0 0; padding:22px 0 0; border-top:1px solid var(--line);
+    margin:42px 0 0;
   }
   .co-travel-section:nth-of-type(4n+2){ --chapter:#77d7c7; }
   .co-travel-section:nth-of-type(4n+3){ --chapter:#aebbff; }
   .co-travel-section:nth-of-type(4n+4){ --chapter:#f4a5a4; }
   .co-travel-section h3{ margin:0 0 14px; font-size:clamp(21px, 3vw, 27px); line-height:1.25; }
   .co-chapter-date{ display:block; color:var(--chapter); font-size:12px; font-weight:600; letter-spacing:.05em; margin-bottom:5px; }
-  .co-story-photos{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); gap:12px; margin:14px 0 24px; }
-  .co-story-photos:has(> :only-child){ grid-template-columns:minmax(0,1fr); }
+  .co-story-photos{ display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; margin:14px 0 24px; }
+  .co-story-photos > button{ grid-column:span 2; }
+  .co-story-photos:has(> :nth-child(2):last-child) > button,
+  .co-story-photos:has(> :nth-child(4):last-child) > button,
+  .co-story-photos:has(> :nth-child(5):last-child) > :nth-child(n+4){ grid-column:span 3; }
   .co-story-photo{
-    display:inline-flex; flex-direction:column; gap:6px; padding:0; max-width:100%;
-    border:none; background:none; color:var(--muted); font:inherit; font-size:13px; line-height:1.45; text-align:start; cursor:zoom-in;
+    display:grid; align-content:start; gap:6px; padding:0; min-width:0; max-width:100%;
+    border:0; background:none; color:var(--muted); font:inherit; font-size:13px; line-height:1.45; text-align:start; cursor:pointer;
   }
-  .co-story-photo img, .co-story-photo .vid{ width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:9px; display:block; background:var(--bg); }
-  .co-story-photo .vid{ display:grid; place-items:center; color:var(--text); font-size:25px; }
-  .co-story-photos:has(> :only-child) img, .co-story-photos:has(> :only-child) .vid{ aspect-ratio:16/9; object-fit:contain; }
+  .co-story-photo img, .co-story-photo .vid{ width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:9px; display:block; }
+  .co-story-photo .vid{ display:grid; place-items:center; color:var(--text); font-size:25px; background:var(--bg); }
+  .co-story-photos > :only-child{ grid-column:1 / -1; justify-self:center; }
+  .co-story-photos > :only-child img{ width:auto; height:auto; max-width:100%; max-height:min(56dvh,520px); aspect-ratio:auto; }
+  .co-story-photos > :only-child .vid{ width:min(72vw,480px); aspect-ratio:16/9; }
+  .co-story-photo > span{ width:0; min-width:100%; }
   .co-story-photo:hover{ color:var(--text); }
   .co-story-photo:focus-visible{ outline:2px solid var(--accent); outline-offset:4px; border-radius:8px; }
-  .co-story-caption{ margin:0; padding:6px 16px; color:var(--muted); font-size:13px; line-height:1.45; text-align:center; background:var(--panel); }
+  .co-story-caption{ margin:0; padding:4px 16px; color:var(--muted); font-size:13px; line-height:1.45; text-align:center; }
   .co-story-caption:empty{ display:none; }
   .co-info .co-story-head-photo{ margin:0 0 24px; }
   .co-travel-body .co-actions{ margin-top:22px; }
   .co-travel-body .co-actions:not(:has(> :not([hidden]))){ display:none; }
 
+  .co-lightbox{
+    width:min(1280px,calc(100vw - 32px)); height:min(900px,calc(100dvh - 40px)); max-width:none; max-height:none;
+    padding:0; overflow:hidden; border:0; border-radius:12px; background:#0e0e11; color:#fff;
+  }
+  .co-lightbox::backdrop{ background:rgba(0,0,0,.82); }
+  .co-lightbox[open]{ display:flex; flex-direction:column; }
+  .co-lightbox .co-x, .co-lightbox .co-arrow{ border:0; }
   .co-gallery-frame{ position:relative; display:flex; flex:1; min-height:0; }
   .co-gallery-frame .co-main{ touch-action:pan-y pinch-zoom; }
   .co-gallery-nav{ position:absolute; inset:0; pointer-events:none; }
@@ -684,16 +690,16 @@ function coll_rich(string $text): string {
     border-radius:12px; background:rgba(16,17,21,.85);
   }
   .co-gallery-nav .co-arrow svg{ width:20px; height:20px; }
-  .co-gallery-nav .co-arrow:focus-visible, .travel-view .co-thumbs button:focus-visible{ outline:2px solid #fff; outline-offset:-3px; }
+  .co-gallery-nav .co-arrow:focus-visible, .co-lightbox .co-thumbs button:focus-visible{ outline:2px solid #fff; outline-offset:-3px; }
   .co-gallery-count{ position:absolute; inset:12px auto auto 12px; padding:4px 9px; border-radius:8px; background:rgba(16,17,21,.85); color:#fff; font-size:12px; font-variant-numeric:tabular-nums; pointer-events:none; }
   .co-gallery-loading{ display:none; position:absolute; align-self:center; left:50%; translate:-50% 0; padding:6px 10px; border-radius:8px; background:rgba(16,17,21,.9); color:#fff; font-size:13px; pointer-events:none; }
   .co-main[aria-busy="true"] ~ .co-gallery-loading{ display:block; opacity:0; animation:co-loading .12s .22s forwards; }
   @keyframes co-loading{ to{ opacity:1; } }
   @media (prefers-reduced-motion:reduce){ .co-main[aria-busy="true"] ~ .co-gallery-loading{ animation:none; opacity:1; } }
   .co-gallery-error{ place-self:center; max-width:70%; text-align:center; color:var(--muted); }
-  .travel-view .co-thumbs{ padding:9px 12px 8px; gap:7px; background:var(--panel); border-top:1px solid var(--line); }
-  .travel-view .co-thumbs button{ width:66px; opacity:.8; }
-  .travel-view .co-thumbs button:hover, .travel-view .co-thumbs button.on{ opacity:1; }
+  .co-lightbox .co-thumbs{ padding:9px 12px 8px; gap:7px; }
+  .co-lightbox .co-thumbs button{ width:66px; opacity:.8; }
+  .co-lightbox .co-thumbs button:hover, .co-lightbox .co-thumbs button.on{ opacity:1; }
 
   /* форма */
   .co-form{ padding:20px; overflow:auto; display:grid; gap:12px; }
@@ -723,7 +729,10 @@ function coll_rich(string $text): string {
   .co-editor-photo select, .co-editor-photo input{ flex:1 1 120px; min-width:0; }
   .co-editor-photo img{ width:56px; height:42px; object-fit:cover; border-radius:4px; }
   .co-editor-photo img[hidden]{ display:none; }
-  .co-editor-photo-reference{ display:inline-block; margin:2px; padding:2px 8px; border:1px solid var(--line); border-radius:6px; color:var(--accent); font-size:13px; }
+  .co-editor-photo-reference{
+    display:inline-block; margin:2px; padding:2px 8px; border:0; border-radius:6px;
+    background:color-mix(in srgb,var(--accent) 12%,var(--bg)); color:var(--accent); font:inherit; font-size:13px;
+  }
   .co-editor-area:empty::before{ content:attr(data-placeholder); color:var(--muted); pointer-events:none; }
   .co-editor-area h3{ margin:14px 0 8px; font-size:17px; }
   .co-editor-area h3:first-child{ margin-top:0; }
@@ -790,8 +799,12 @@ function coll_rich(string $text): string {
     .travel-view .co-travel-head h2{ font-size:21px; }
     .travel-view .co-travel-meta{ margin-bottom:4px; }
     .travel-view .co-travel-body{ padding:18px 16px 26px; }
-    .travel-view .co-gallery-frame .co-main{ flex:1; height:auto; }
-    .co-story-photos{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .co-lightbox{ width:100vw; height:100dvh; border-radius:0; }
+    .co-lightbox .co-gallery-frame .co-main{ flex:1; height:auto; }
+    .co-story-photos{ gap:8px; }
+    .co-story-photos > button{ grid-column:span 3; }
+    .co-story-photos > :last-child:nth-child(odd),
+    .co-story-photos:has(> :nth-child(5):last-child) > :last-child{ grid-column:1 / -1; }
     .co-row{ grid-template-columns:1fr; }
     .co-search{ width:100%; }
     .co-tools{ width:100%; }
@@ -906,7 +919,7 @@ function coll_rich(string $text): string {
         <?php endif; ?>
         <?php if ($coll_is_admin): ?>
           <?php if ($coll_travel): ?>
-            <a class="btn" href="<?= $coll_drafts ? '/travel' : '/travel?drafts=1' ?>"><?= $coll_drafts ? 'Все путешествия' : 'Черновики' ?></a>
+            <a class="btn" href="<?= $coll_drafts ? '/travel' : '/travel?drafts=1' ?>"><?= $coll_drafts ? 'Все приключения' : 'Черновики' ?></a>
           <?php endif; ?>
           <button class="btn co-add" type="button" id="coAdd"><?= $coll_travel ? '+ Новый черновик' : '+ Добавить' ?></button>
         <?php endif; ?>
@@ -914,7 +927,7 @@ function coll_rich(string $text): string {
     </div>
 
     <?php if ($coll_drafts): ?>
-      <p class="co-hint">Черновики путешествий видны только тебе.</p>
+      <p class="co-hint">Черновики приключений видны только тебе.</p>
     <?php endif; ?>
     <?php if (!$coll_items): ?>
       <div class="co-empty"><?= $coll_drafts ? 'Черновиков пока нет.' : coll_h($coll['empty']) ?></div>
@@ -1017,16 +1030,13 @@ function coll_rich(string $text): string {
               <div class="co-travel-meta"><time class="co-date" id="coVDate"></time><span class="co-draft-state" id="coVDraft" hidden>Черновик</span></div>
               <h2 id="coVTitle"></h2>
             </div>
-            <div class="co-travel-switch" role="group" aria-label="Режим просмотра">
-              <button class="btn" type="button" id="coStoryMode" aria-pressed="true">Рассказ</button>
-              <button class="btn" type="button" id="coGalleryMode" aria-pressed="false">Галерея</button>
-              <?php if ($coll_is_admin): ?><button class="btn" type="button" id="coEdit">Изменить</button><?php endif; ?>
-            </div>
+            <?php if ($coll_is_admin): ?><button class="btn" type="button" id="coEdit">Изменить</button><?php endif; ?>
           </div>
         </header>
       <?php endif; ?>
-      <div class="co-stage">
-        <?php if ($coll_travel): ?>
+      <?php if ($coll_travel): ?>
+        <dialog class="co-lightbox" id="coLightbox" aria-label="Просмотр фотографий">
+          <button class="co-x" type="button" id="coLightboxClose" aria-label="Закрыть просмотр фото" autofocus>×</button>
           <div class="co-gallery-frame">
             <div class="co-main" id="coMain"></div>
             <div class="co-gallery-count" id="coGalleryCount" role="status" aria-atomic="true"></div>
@@ -1037,11 +1047,14 @@ function coll_rich(string $text): string {
             <span class="co-gallery-loading" aria-hidden="true">Загрузка…</span>
           </div>
           <p class="co-story-caption" id="coGalleryCaption"></p>
-        <?php else: ?>
+          <div class="co-thumbs" id="coThumbs" role="group" aria-label="Миниатюры"></div>
+        </dialog>
+      <?php else: ?>
+        <div class="co-stage">
           <div class="co-main" id="coMain"></div>
-        <?php endif; ?>
-        <div class="co-thumbs" id="coThumbs"<?= $coll_travel ? ' role="group" aria-label="Миниатюры"' : '' ?>></div>
-      </div>
+          <div class="co-thumbs" id="coThumbs"></div>
+        </div>
+      <?php endif; ?>
       <div class="co-info" role="region" aria-label="<?= $coll_travel ? 'Рассказ' : 'Описание' ?>" tabindex="0"<?= $coll_travel ? ' id="coTravelBody"' : '' ?>>
         <?php if ($coll_travel): ?>
           <div class="co-travel-body">
@@ -1236,9 +1249,7 @@ function coll_rich(string $text): string {
     if (m.id === 'coViewModal') {
       history.replaceState(null, '', LIST_URL);
       if (KEY === 'travel') {
-        galleryRevision++;
-        nextTravelPhoto = null;
-        $('coMain').removeAttribute('aria-busy');
+        if (lightbox.open) lightbox.close();
         viewTrigger?.focus({ preventScroll: true });
         viewTrigger = null;
       }
@@ -1250,46 +1261,25 @@ function coll_rich(string $text): string {
   let current = null, mediaIdx = 0;
   let galleryRevision = 0;
   let nextTravelPhoto = null;
-  let storyScroll = 0;
   let storyPhoto = null;
+  const lightbox = $('coLightbox');
   const travelCaptions = new Map();
-
-  function setTravelMode(mode, index = mediaIdx, source = null) {
-    const view = $('coView');
-    const story = $('coTravelBody');
-    const inGallery = view.dataset.travelMode === 'gallery';
-    if (mode === 'gallery') {
-      if (!current.media.length) return;
-      if (!inGallery) storyScroll = story.scrollTop;
-      storyPhoto = source;
-    } else if (inGallery) {
-      galleryRevision++;
-      nextTravelPhoto = null;
-      $('coMain').removeAttribute('aria-busy');
-      $('coMain').querySelector('video')?.pause();
-    }
-    view.dataset.travelMode = mode;
-    $('coStoryMode').setAttribute('aria-pressed', String(mode === 'story'));
-    $('coGalleryMode').setAttribute('aria-pressed', String(mode === 'gallery'));
-    if (mode === 'gallery') {
-      showMedia(index);
-      if (source) $('coGalleryMode').focus({ preventScroll: true });
-    } else {
-      story.scrollTop = storyScroll;
-      storyPhoto?.focus({ preventScroll: true });
-      storyPhoto = null;
-    }
-  }
 
   function storyPhotoButton(file, index, caption) {
     const label = `${file.type === 'video' ? 'Видео' : 'Фото'} ${index + 1}`;
-    const button = el('button', { type: 'button', class: 'co-story-photo', 'aria-label': `Открыть: ${caption || label}` });
+    const button = el('button', {
+      type: 'button', class: 'co-story-photo', 'aria-haspopup': 'dialog', 'aria-label': `Открыть: ${caption || label}`,
+    });
     button.append(mediaNode(file, true));
     if (caption) {
       if (!travelCaptions.has(file.src)) travelCaptions.set(file.src, caption);
       button.append(el('span', {}, caption));
     }
-    button.onclick = () => setTravelMode('gallery', index, button);
+    button.onclick = () => {
+      storyPhoto = button;
+      lightbox.showModal();
+      showMedia(index);
+    };
     return button;
   }
 
@@ -1329,15 +1319,22 @@ function coll_rich(string $text): string {
     });
   }
 
-  if (KEY === 'travel') {
+  if (lightbox) {
     $('coPrev').onclick = () => showMedia(mediaIdx - 1);
     $('coNext').onclick = () => showMedia(mediaIdx + 1);
-    $('coStoryMode').onclick = () => {
-      if ($('coView').dataset.travelMode === 'gallery') setTravelMode('story');
-    };
-    $('coGalleryMode').onclick = () => {
-      if ($('coView').dataset.travelMode !== 'gallery') setTravelMode('gallery');
-    };
+    $('coLightboxClose').onclick = () => lightbox.close();
+    lightbox.addEventListener('cancel', e => e.preventDefault());
+    lightbox.addEventListener('close', () => {
+      if (lightbox.open) return;
+      galleryRevision++;
+      nextTravelPhoto = null;
+      const main = $('coMain');
+      main.querySelector('video')?.pause();
+      main.replaceChildren();
+      main.removeAttribute('aria-busy');
+      storyPhoto?.focus({ preventScroll: true });
+      storyPhoto = null;
+    });
   }
 
   function showMedia(i) {
@@ -1435,13 +1432,7 @@ function coll_rich(string $text): string {
     $('coView').scrollTop = 0;
     ($('coTravelBody') || $('coVTitle').parentElement).scrollTop = 0;
     thumbs.scrollLeft = 0;
-    if (KEY === 'travel') {
-      mediaIdx = 0;
-      storyScroll = 0;
-      storyPhoto = null;
-      $('coGalleryMode').hidden = !it.media.length;
-      setTravelMode('story');
-    } else if (it.media.length) showMedia(0);
+    if (KEY !== 'travel' && it.media.length) showMedia(0);
     if (KEY === 'travel') modal.querySelector('.co-view-box').focus({ preventScroll: true });
     if (push !== false) history.replaceState(null, '', entryUrl(id, it.draft));
   }
@@ -1459,9 +1450,12 @@ function coll_rich(string $text): string {
 
   document.addEventListener('keydown', (e) => {
     if (!openModalEl) return;
-    if (e.key === 'Escape') { closeModal(openModalEl); return; }
+    if (e.key === 'Escape') {
+      if (KEY !== 'travel' || openModalEl.id !== 'coViewModal') closeModal(openModalEl);
+      return;
+    }
     if (openModalEl.id !== 'coViewModal') return;
-    if (KEY === 'travel' && e.key === 'Tab') {
+    if (KEY === 'travel' && !lightbox.open && e.key === 'Tab') {
       const controls = [...openModalEl.querySelectorAll('button:not(:disabled), a[href], video[controls], [tabindex="0"]')]
         .filter((node) => node.tabIndex >= 0 && node.getClientRects().length > 0);
       const first = controls[0], last = controls[controls.length - 1];
@@ -1474,7 +1468,7 @@ function coll_rich(string $text): string {
       }
     }
     if (current && current.media.length > 1 && !e.target.closest('input,textarea,video') &&
-        (KEY !== 'travel' || $('coView').dataset.travelMode === 'gallery')) {
+        (KEY !== 'travel' || lightbox.open)) {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.preventDefault();
         showMedia(mediaIdx + (e.key === 'ArrowLeft' ? -1 : 1));
@@ -1741,7 +1735,7 @@ function coll_rich(string $text): string {
   function openForm(it) {
     editing = it ? it.id : null;
     const draft = KEY === 'travel' && (!it || it.draft);
-    $('coFTitle').textContent = draft ? 'Черновик путешествия' : (it ? 'Изменить' : 'Добавить');
+    $('coFTitle').textContent = draft ? 'Черновик приключения' : (it ? 'Изменить' : 'Добавить');
     $('coSave').textContent = draft ? 'Сохранить черновик' : 'Сохранить';
     if ($('coPublish')) $('coPublish').hidden = !it || !it.draft;
     form.elements.title.value = it ? it.title : '';
@@ -1847,7 +1841,7 @@ function coll_rich(string $text): string {
     const save = $('coSave'), bar = $('coProgress'), fill = bar.querySelector('i');
     const publishButton = $('coPublish');
     const publish = publishButton && e.submitter === publishButton;
-    if (publish && !confirm('Опубликовать это путешествие вместе с фотографиями?')) return;
+    if (publish && !confirm('Опубликовать это приключение вместе с фотографиями?')) return;
     const saveLabel = save.textContent;
     save.disabled = true;
     if (publishButton) publishButton.disabled = true;

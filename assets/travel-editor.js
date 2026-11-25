@@ -18,7 +18,7 @@
       if (node.nodeType !== Node.ELEMENT_NODE) continue;
       const name = node.localName;
       if (['script', 'style', 'iframe', 'svg', 'math'].includes(name)) continue;
-      if (name === 'span' && node.dataset.travelPhoto) {
+      if ((name === 'span' || name === 'button') && node.dataset.travelPhoto) {
         nodes.push({ tag: 'photo', src: node.dataset.travelPhoto, caption: node.dataset.caption || '' });
         continue;
       }
@@ -41,7 +41,10 @@
   }
 
   function photoReference(src, caption) {
-    const reference = document.createElement('span');
+    // The formatting command can unwrap spans. A photo is an atomic editor item.
+    const reference = document.createElement('button');
+    reference.type = 'button';
+    reference.tabIndex = -1;
     reference.className = 'co-editor-photo-reference';
     reference.contentEditable = 'false';
     reference.dataset.travelPhoto = src;

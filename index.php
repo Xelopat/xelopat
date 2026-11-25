@@ -563,7 +563,7 @@ $footer_text = (string)cfg($config, 'footer.text', 'xelopat 2026');
     <?php if ($travels): ?>
     <section class="section" id="travel">
       <div class="sec-label">// travel</div>
-      <div class="sec-title">Путешествия</div>
+      <div class="sec-title">Приключения</div>
         <div class="cards">
           <?php foreach ($travels as $travel_index => $travel): ?>
             <?php
